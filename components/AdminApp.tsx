@@ -7,13 +7,18 @@ const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue'
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', clean: '#b8a98a' }
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = supa(); const owner = role === 'owner'
-  const [tab, setTab] = useState('bookings'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([])
+  const [tab, setTab] = useState('bookings'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null); const [prev, setPrev] = useState<any>(null)
   const [flt, setFlt] = useState('all'); const [ref, setRef] = useState(today().slice(0, 7)); const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null)
   const load = useCallback(async () => {
     const [b, k, d, st] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('buffer_days').single()])
     setBuf(st.data?.buffer_days ?? 1); setB(b.data || []); setK(k.data || []); setD(d.data || [])
   }, [])
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t) }, [load])   // calendar stays fresh across devices
+  const dmap: Record<string, any> = Object.fromEntries(D.map(d => [d.id, d]))
+  const showPrev = (src: string, el: HTMLElement) => { const r = el.getBoundingClientRect(), w = 240; const x = r.right + 10 + w > innerWidth ? Math.max(8, r.left - 10 - w) : r.right + 10; setPrev({ src, x, y: Math.min(Math.max(8, r.top - 60), Math.max(8, innerHeight - 330)) }) }
+  // Small photo; hover (or tap on a phone) shows it enlarged.
+  const thumb = (d: any) => { const src = d?.images?.[0]; const st = { width: 40, height: 52, objectFit: 'cover' as const, border: '1px solid var(--line)', display: 'inline-block', flex: 'none' }
+    return src ? <img src={src} alt="" style={{ ...st, cursor: 'zoom-in' }} onMouseEnter={x => showPrev(src, x.currentTarget)} onMouseLeave={() => setPrev(null)} onClick={x => prev?.src === src ? setPrev(null) : showPrev(src, x.currentTarget)} /> : <span style={{ ...st, background: 'var(--blush)' }} /> }
   const say = (m: string) => { setNote(m); setTimeout(() => setNote(''), 3500) }
   async function patch(b: any, p: any, msg: string) {
     const { error } = await sb.from('bookings').update({ ...p, log: [...b.log, { t: new Date().toISOString(), m: msg }] }).eq('id', b.id)
@@ -45,12 +50,20 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     const s = prompt('From (YYYY-MM-DD)'), e = s && prompt('To (YYYY-MM-DD)'), r = prompt('Reason (repair, cleaning, photoshoot, personal)', 'Cleaning'); if (!s || !e) return
     const { error } = await sb.from('blocks').insert({ dress_id: d.id, start_date: s, end_date: e, reason: r }); say(error ? 'Clashes with an existing booking' : 'Blocked'); load()
   }
-  async function addDress(e: any) {
-    e.preventDefault(); const f = new FormData(e.currentTarget), imgs: string[] = []
+  async function saveDress(e: any) {
+    e.preventDefault(); const form = e.currentTarget, f = new FormData(form), imgs: string[] = []
     for (const file of f.getAll('photos') as File[]) { if (!file.size) continue; const path = `${Date.now()}-${file.name.replace(/\W/g, '_')}`; const up = await sb.storage.from('dress-images').upload(path, file); if (!up.error) imgs.push(sb.storage.from('dress-images').getPublicUrl(path).data.publicUrl) }
-    const g = (k: string) => String(f.get(k) || '')
-    const { error } = await sb.from('dresses').insert({ code: g('code'), name: g('name'), category: g('category'), colour: g('colour'), sizes: g('sizes').split(',').map(s => s.trim()).filter(Boolean), price: +g('price'), deposit: +g('deposit'), included_days: +g('days') || 3, extra_day_fee: +g('extra'), description: g('description'), images: imgs, try_on_image: imgs[0] || null })
-    say(error ? error.message : 'Dress added'); if (!error) e.currentTarget.reset(); load()
+    const g = (k: string) => String(f.get(k) || '').trim()
+    const body = { code: g('code'), name: g('name'), category: g('category'), colour: g('colour'), sizes: g('sizes').split(',').map(x => x.trim()).filter(Boolean), price: +g('price'), deposit: +g('deposit'), included_days: +g('days') || 3, extra_day_fee: +g('extra'), description: g('description') }
+    const images = [...(ed?.images || []), ...imgs]
+    const { error } = ed ? await sb.from('dresses').update({ ...body, images, try_on_image: ed.try_on_image || images[0] || null }).eq('id', ed.id)
+      : await sb.from('dresses').insert({ ...body, images: imgs, try_on_image: imgs[0] || null })
+    say(error ? (error.message.includes('duplicate') ? 'That code is already used by another dress.' : error.message) : ed ? 'Dress updated' : 'Dress added')
+    if (!error) { setEd(null); form.reset() }; load()
+  }
+  async function setImages(d: any, images: string[]) {
+    const { error } = await sb.from('dresses').update({ images, try_on_image: images[0] || null }).eq('id', d.id)
+    if (error) return say(error.message); setEd({ ...d, images, try_on_image: images[0] || null }); load()
   }
   const sel = (b: any) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, 'Picked up')}>Picked up</button>}
@@ -74,15 +87,25 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {od.length > 0 && <div className="box"><b className="bad">Overdue returns</b>{od.map(b => <div key={b.id} className="row"><span>{b.dress_code} · {b.customer_name} · <a href={'tel:' + b.phone}>{b.phone}</a></span><span>due {b.end_date}</span></div>)}</div>}
     {tab === 'bookings' && <><div className="flt" style={{ marginTop: 16 }}><select value={flt} onChange={e => setFlt(e.target.value)}>{Object.keys(F).map(k => <option key={k}>{k}</option>)}</select></div>
       <div className="scroll"><table><thead><tr><th>ID</th><th>Dress</th><th>Customer</th><th>Dates</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>
-        {B.filter(F[flt]).map(b => <tr key={b.id}><td>{b.id}</td><td>{b.dress_code}</td><td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td><td>{b.start_date} → {b.end_date}</td><td>{inr(b.rent + b.charges - b.paid)}<br /><span className="mut">deposit held {inr(b.deposit_held)}/{inr(b.deposit)}</span></td>
+        {B.filter(F[flt]).map(b => <tr key={b.id}><td>{b.id}</td><td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{thumb(dmap[b.dress_id])}<span>{b.dress_code}<br /><span className="mut" style={{ whiteSpace: 'normal', display: 'inline-block', maxWidth: 170 }}>{b.dress_name}</span></span></div></td><td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td><td>{b.start_date} → {b.end_date}</td><td>{inr(b.rent + b.charges - b.paid)}<br /><span className="mut">deposit held {inr(b.deposit_held)}/{inr(b.deposit)}</span></td>
           <td style={{ color: COL[state(b)] }}>{state(b)}</td><td style={{ whiteSpace: 'normal' }}>{sel(b)}{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'deposit')}>Deposit</button>}</td></tr>)}</tbody></table></div></>}
     {tab === 'calendar' && <><div className="flt"><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
       <div className="cal">{'SMTWTFS'.split('').map((d, i) => <b key={i} style={{ textAlign: 'center' }}>{d}</b>)}{cells.map(d => <div key={d} className="cell" onClick={() => setDay(d)} style={{ cursor: 'pointer', ...(d === today() ? { borderColor: 'var(--gold)' } : {}) }}><span className="mut">{+d.slice(8)}</span>{items.filter(i => d >= i.s && d <= i.e).map((i, n) => <span key={n} className="chip" style={{ background: i.c }}>{i.label}</span>)}</div>)}</div>
       <p className="mut" style={{ fontSize: 12 }}>{Object.entries(COL).map(([k, c]: any) => <span key={k} style={{ color: c, marginRight: 12 }}>■ {k}</span>)}</p></>}
-    {tab === 'dresses' && <>{owner && <form className="box" onSubmit={addDress}><h3>Add a dress</h3><div className="flt"><input name="code" placeholder="Code *" required /><input name="name" placeholder="Name *" required /><select name="category">{CATS.map(c => <option key={c}>{c}</option>)}</select><input name="colour" placeholder="Colour" /><input name="sizes" placeholder="Sizes (S, M, L)" /><input name="price" type="number" placeholder="Rent ₹" required /><input name="deposit" type="number" placeholder="Deposit ₹" /><input name="days" type="number" placeholder="Included days" /><input name="extra" type="number" placeholder="Extra day ₹" /><input name="description" placeholder="Description" /><input name="photos" type="file" accept="image/*" multiple /></div><button className="btn">Save dress</button></form>}
-      <div className="scroll"><table><thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Rent</th><th>Status</th></tr></thead><tbody>{D.map(d => <tr key={d.id}><td>{d.code}</td><td>{d.name}</td><td>{d.category}</td><td>{inr(d.price)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td></tr>)}</tbody></table></div></>}
+    {tab === 'dresses' && <>{owner && <form key={ed?.id || 'new'} className="box" onSubmit={saveDress}><h3>{ed ? `Edit ${ed.code}` : 'Add a dress'}</h3>
+        {ed && <p className="mut" style={{ fontSize: 12 }}>Changing the code or any detail updates it everywhere. Existing bookings stay linked to this dress.</p>}
+        <div className="flt">{([['code', 'Code *', ed?.code, 'text', true], ['name', 'Name *', ed?.name, 'text', true]] as any[]).map(([n, l, v, t, r]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={r} style={{ display: 'block' }} /></label>)}
+          <label style={{ margin: 0 }}>Category<select name="category" defaultValue={ed?.category || CATS[0]} style={{ display: 'block' }}>{CATS.map(c => <option key={c}>{c}</option>)}</select></label>
+          {([['colour', 'Colour', ed?.colour, 'text'], ['sizes', 'Sizes (S, M, L)', ed?.sizes?.join(', '), 'text'], ['price', 'Rent ₹', ed?.price, 'number'], ['deposit', 'Deposit ₹', ed?.deposit, 'number'], ['days', 'Included days', ed?.included_days, 'number'], ['extra', 'Extra day ₹', ed?.extra_day_fee, 'number'], ['description', 'Description', ed?.description, 'text']] as any[]).map(([n, l, v, t]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={n === 'price'} style={{ display: 'block' }} /></label>)}
+          <label style={{ margin: 0 }}>{ed ? 'Add more photos' : 'Photos'}<input name="photos" type="file" accept="image/*" multiple style={{ display: 'block' }} /></label></div>
+        {ed && !!ed.images?.length && <div className="flt" style={{ justifyContent: 'flex-start' }}>{ed.images.map((u: string, i: number) => <div key={u} style={{ textAlign: 'center' }}><img src={u} alt="" style={{ height: 80 }} /><br />
+          {i === 0 ? <span className="mut" style={{ fontSize: 11 }}>Main photo</span> : <button type="button" className="btn alt sm" onClick={() => setImages(ed, [u, ...ed.images.filter((x: string) => x !== u)])}>Make main</button>}{' '}
+          <button type="button" className="btn alt sm" onClick={() => confirm('Remove this photo?') && setImages(ed, ed.images.filter((x: string) => x !== u))}>Remove</button></div>)}</div>}
+        <button className="btn">{ed ? 'Save changes' : 'Save dress'}</button>{ed && <button type="button" className="btn alt" style={{ marginLeft: 8 }} onClick={() => setEd(null)}>Cancel</button>}</form>}
+      <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Rent</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td>{d.category}</td><td>{inr(d.price)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
     {tab === 'reports' && owner && <div className="box"><h3>Revenue by category</h3>{Object.entries(live.reduce((m: any, b) => (m[b.category] = (m[b.category] || 0) + b.rent + b.charges, m), {})).map(([k, v]: any) => <div key={k} className="row"><span>{k}</span><span>{inr(v)}</span></div>)}
       <div className="row"><span>Cancellation rate</span><span>{B.length ? Math.round(100 * B.filter(F.cancelled).length / B.length) : 0}%</span></div><br /><button className="btn" onClick={csv}>Export bookings (CSV)</button></div>}
+    {prev && <img src={prev.src} alt="" style={{ position: 'fixed', left: prev.x, top: prev.y, width: 240, maxHeight: 320, objectFit: 'cover', zIndex: 60, boxShadow: '0 8px 30px #0006', pointerEvents: 'none', background: 'var(--bg)' }} />}
     {day && (() => {
       const on = B.filter(b => b.status !== 'cancelled' && day >= b.start_date && day <= b.end_date)
       const clean = buf > 0 ? B.filter(b => b.status !== 'cancelled' && day >= addD(b.end_date, 1) && day <= addD(b.end_date, buf)) : []
