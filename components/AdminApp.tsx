@@ -7,7 +7,7 @@ const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue'
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', clean: '#b8a98a' }
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = supa(); const owner = role === 'owner'
-  const [tab, setTab] = useState('bookings'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null); const [prev, setPrev] = useState<any>(null)
+  const [tab, setTab] = useState('bookings'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null); const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null)
   const [flt, setFlt] = useState('all'); const [ref, setRef] = useState(today().slice(0, 7)); const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null)
   const load = useCallback(async () => {
     const [b, k, d, st] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('buffer_days').single()])
@@ -20,35 +20,41 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const thumb = (d: any, w = 40, h = 52) => { const src = d?.images?.[0]; const st = { width: w, height: h, objectFit: 'cover' as const, border: '1px solid var(--line)', display: 'inline-block', flex: 'none' }
     return src ? <img src={src} alt="" style={{ ...st, cursor: 'zoom-in' }} onMouseEnter={x => showPrev(src, x.currentTarget)} onMouseLeave={() => setPrev(null)} onClick={x => prev?.src === src ? setPrev(null) : showPrev(src, x.currentTarget)} /> : <span style={{ ...st, background: 'var(--blush)' }} /> }
   const say = (m: string) => { setNote(m); setTimeout(() => setNote(''), 3500) }
+  // In-page dialogs. (Browser prompt()/confirm() freeze the whole page while open, which Chrome reports as slow interactions.)
+  type Fld = { name: string; label: string; type?: string; value?: string; options?: string[] }
+  const ask = (title: string, fields: Fld[], o: { note?: string; ok?: string } = {}) => new Promise<Record<string, string> | null>(res => setDlg({ title, fields, note: o.note, ok: o.ok || 'Save', res }))
+  const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   async function patch(b: any, p: any, msg: string) {
     const { error } = await sb.from('bookings').update({ ...p, log: [...b.log, { t: new Date().toISOString(), m: msg }] }).eq('id', b.id)
     say(error ? (error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : error.message) : msg); load()
   }
   async function pay(b: any, kind: string) {
-    const a = +(prompt(kind === 'rent' ? 'Amount received (₹)' : 'Deposit received (₹)', String(kind === 'rent' ? Math.max(0, b.rent + b.charges - b.paid) : b.deposit)) || 0); if (!a) return
-    const mode = prompt('Mode: Cash / UPI / Bank transfer', 'UPI')
-    const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind, mode }); say(error ? error.message : `${inr(a)} recorded`); load()
+    const v = await ask(kind === 'rent' ? 'Record payment' : 'Deposit received', [{ name: 'amt', label: 'Amount (₹)', type: 'number', value: String(kind === 'rent' ? Math.max(0, b.rent + b.charges - b.paid) : b.deposit) }, { name: 'mode', label: 'Payment mode', options: ['UPI', 'Cash', 'Bank transfer'] }])
+    const a = +(v?.amt || 0); if (!v || !a) return
+    const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind, mode: v.mode }); say(error ? error.message : `${inr(a)} recorded`); load()
   }
   async function ret(b: any) {
-    const c = +(prompt('Late fee + damage/cleaning charges (₹)', '0') || 0), n = prompt('Condition notes (optional)', '') || ''
+    const v = await ask('Process return', [{ name: 'c', label: 'Late fee + damage/cleaning charges (₹)', type: 'number', value: '0' }, { name: 'n', label: 'Condition notes (optional)' }], { ok: 'Mark returned' }); if (!v) return
+    const c = +(v.c || 0), n = v.n.trim()
     await patch(b, { status: 'returned', returned_at: new Date().toISOString(), charges: b.charges + (owner ? c : 0) }, `Returned${n ? ': ' + n : ''}${c && !owner ? ` (charges ${inr(c)} to be set by owner)` : ''}`)
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
   }
   async function resched(b: any) {
-    const s = prompt('New start (YYYY-MM-DD)', b.start_date), e = s && prompt('New return (YYYY-MM-DD)', b.end_date); if (!s || !e || e < s) return
+    const v = await ask('Reschedule booking', [{ name: 's', label: 'New start date', type: 'date', value: b.start_date }, { name: 'e', label: 'New return date', type: 'date', value: b.end_date }]); if (!v) return
+    const s = v.s, e = v.e; if (!s || !e || e < s) return say('Please choose valid dates.')
     const others = B.filter(o => o.id !== b.id && o.dress_id === b.dress_id && o.status !== 'cancelled')
     if (others.some(o => s <= o.end_date && e >= o.start_date)) return say('This dress is already booked on those dates.')
     let override = false
     if (others.some(o => s <= addD(o.end_date, buf) && addD(e, buf) >= o.start_date)) {
-      if (!confirm('Check dates for Cleaning & Preparation Period.\n\nPress OK only if you have checked and confirmed availability.')) return
+      if (!(await askYes('Check dates for Cleaning & Preparation Period', 'Continue only if you have checked and confirmed availability for these dates.', 'I have checked and confirmed'))) return
       override = true
     }
     await patch(b, { start_date: s, end_date: e, gap_override: override }, `Rescheduled to ${s} → ${e}${override ? ' (cleaning gap override confirmed)' : ''}`)
   }
   async function block() {
-    const id = prompt('Dress code to block (e.g. SW-G001)'); const d = D.find(x => x.code === id); if (!d) return say('Dress not found')
-    const s = prompt('From (YYYY-MM-DD)'), e = s && prompt('To (YYYY-MM-DD)'), r = prompt('Reason (repair, cleaning, photoshoot, personal)', 'Cleaning'); if (!s || !e) return
-    const { error } = await sb.from('blocks').insert({ dress_id: d.id, start_date: s, end_date: e, reason: r }); say(error ? 'Clashes with an existing booking' : 'Blocked'); load()
+    const v = await ask('Block a dress', [{ name: 'code', label: 'Dress', options: D.map(d => d.code) }, { name: 's', label: 'From', type: 'date' }, { name: 'e', label: 'To', type: 'date' }, { name: 'r', label: 'Reason', options: ['Cleaning', 'Repair', 'Photoshoot', 'Personal use'] }], { ok: 'Block' }); if (!v) return
+    const d = D.find(x => x.code === v.code); if (!d || !v.s || !v.e || v.e < v.s) return say('Please choose a dress and valid dates.')
+    const { error } = await sb.from('blocks').insert({ dress_id: d.id, start_date: v.s, end_date: v.e, reason: v.r }); say(error ? 'Clashes with an existing booking' : 'Blocked'); load()
   }
   async function saveDress(e: any) {
     e.preventDefault(); const form = e.currentTarget, f = new FormData(form), imgs: string[] = []
@@ -69,7 +75,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, 'Picked up')}>Picked up</button>}
     {b.status === 'out' && <button className="btn sm" onClick={() => ret(b)}>Return</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
-    {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => confirm('Cancel this booking?') && patch(b, { status: 'cancelled' }, 'Cancelled')}>Cancel</button></>}</>
+    {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={async () => (await askYes('Cancel this booking?', 'The dress becomes available again for those dates.', 'Yes, cancel')) && patch(b, { status: 'cancelled' }, 'Cancelled')}>Cancel</button></>}</>
   const F: any = { all: () => true, pending: (b: any) => b.status === 'pending', upcoming: (b: any) => b.status === 'confirmed' && b.start_date >= today(), out: (b: any) => b.status === 'out', overdue: (b: any) => state(b) === 'overdue', owing: (b: any) => b.status !== 'cancelled' && b.rent + b.charges - b.paid > 0, done: (b: any) => b.status === 'returned', cancelled: (b: any) => b.status === 'cancelled' }
   const live = B.filter(b => b.status !== 'cancelled'); const od = B.filter(F.overdue)
   const stats: [string, any][] = [['Dresses', D.length], ['Rented out', B.filter(F.out).length], ['Overdue', od.length], ['Pending', B.filter(F.pending).length], ['Pickups today', live.filter(b => b.start_date === today() && b.status === 'confirmed').length], ['Returns today', live.filter(b => b.end_date === today() && b.status === 'out').length],
@@ -100,11 +106,16 @@ export default function AdminApp({ role, name }: { role: string; name: string })
           <label style={{ margin: 0 }}>{ed ? 'Add more photos' : 'Photos'}<input name="photos" type="file" accept="image/*" multiple style={{ display: 'block' }} /></label></div>
         {ed && !!ed.images?.length && <div className="flt" style={{ justifyContent: 'flex-start' }}>{ed.images.map((u: string, i: number) => <div key={u} style={{ textAlign: 'center' }}><img src={u} alt="" style={{ height: 80 }} /><br />
           {i === 0 ? <span className="mut" style={{ fontSize: 11 }}>Main photo</span> : <button type="button" className="btn alt sm" onClick={() => setImages(ed, [u, ...ed.images.filter((x: string) => x !== u)])}>Make main</button>}{' '}
-          <button type="button" className="btn alt sm" onClick={() => confirm('Remove this photo?') && setImages(ed, ed.images.filter((x: string) => x !== u))}>Remove</button></div>)}</div>}
+          <button type="button" className="btn alt sm" onClick={async () => (await askYes('Remove this photo?', undefined, 'Remove')) && setImages(ed, ed.images.filter((x: string) => x !== u))}>Remove</button></div>)}</div>}
         <button className="btn">{ed ? 'Save changes' : 'Save dress'}</button>{ed && <button type="button" className="btn alt" style={{ marginLeft: 8 }} onClick={() => setEd(null)}>Cancel</button>}</form>}
       <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Rent</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td>{d.category}</td><td>{inr(d.price)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
     {tab === 'reports' && owner && <div className="box"><h3>Revenue by category</h3>{Object.entries(live.reduce((m: any, b) => (m[b.category] = (m[b.category] || 0) + b.rent + b.charges, m), {})).map(([k, v]: any) => <div key={k} className="row"><span>{k}</span><span>{inr(v)}</span></div>)}
       <div className="row"><span>Cancellation rate</span><span>{B.length ? Math.round(100 * B.filter(F.cancelled).length / B.length) : 0}%</span></div><br /><button className="btn" onClick={csv}>Export bookings (CSV)</button></div>}
+    {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 70, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
+      <form className="box" style={{ background: 'var(--bg)', maxWidth: 420, width: '100%' }} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget), v: Record<string, string> = {}; dlg.fields.forEach((x: Fld) => { v[x.name] = String(f.get(x.name) ?? '') }); const r = dlg.res; setDlg(null); r(v) }}>
+        <h3>{dlg.title}</h3>{dlg.note && <p className="mut">{dlg.note}</p>}
+        {dlg.fields.map((x: Fld, i: number) => <label key={x.name}>{x.label}{x.options ? <select name={x.name} defaultValue={x.value}>{x.options.map(o => <option key={o}>{o}</option>)}</select> : <input name={x.name} type={x.type || 'text'} defaultValue={x.value} autoFocus={i === 0} />}</label>)}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}><button className="btn">{dlg.ok}</button><button type="button" className="btn alt" onClick={() => { const r = dlg.res; setDlg(null); r(null) }}>Cancel</button></div></form></div>}
     {prev && <img src={prev.src} alt="" style={{ position: 'fixed', left: prev.x, top: prev.y, width: 240, maxHeight: 320, objectFit: 'cover', zIndex: 60, boxShadow: '0 8px 30px #0006', pointerEvents: 'none', background: 'var(--bg)' }} />}
     {day && (() => {
       const on = B.filter(b => b.status !== 'cancelled' && day >= b.start_date && day <= b.end_date)
