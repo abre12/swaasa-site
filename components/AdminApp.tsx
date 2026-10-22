@@ -17,7 +17,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const dmap: Record<string, any> = Object.fromEntries(D.map(d => [d.id, d]))
   const showPrev = (src: string, el: HTMLElement) => { const r = el.getBoundingClientRect(), w = 240; const x = r.right + 10 + w > innerWidth ? Math.max(8, r.left - 10 - w) : r.right + 10; setPrev({ src, x, y: Math.min(Math.max(8, r.top - 60), Math.max(8, innerHeight - 330)) }) }
   // Small photo; hover (or tap on a phone) shows it enlarged.
-  const thumb = (d: any) => { const src = d?.images?.[0]; const st = { width: 40, height: 52, objectFit: 'cover' as const, border: '1px solid var(--line)', display: 'inline-block', flex: 'none' }
+  const thumb = (d: any, w = 40, h = 52) => { const src = d?.images?.[0]; const st = { width: w, height: h, objectFit: 'cover' as const, border: '1px solid var(--line)', display: 'inline-block', flex: 'none' }
     return src ? <img src={src} alt="" style={{ ...st, cursor: 'zoom-in' }} onMouseEnter={x => showPrev(src, x.currentTarget)} onMouseLeave={() => setPrev(null)} onClick={x => prev?.src === src ? setPrev(null) : showPrev(src, x.currentTarget)} /> : <span style={{ ...st, background: 'var(--blush)' }} /> }
   const say = (m: string) => { setNote(m); setTimeout(() => setNote(''), 3500) }
   async function patch(b: any, p: any, msg: string) {
@@ -114,11 +114,11 @@ export default function AdminApp({ role, name }: { role: string; name: string })
         <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 560, width: '100%' }}>
           <div className="row"><h3>{new Date(day + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className="btn alt sm" onClick={() => setDay(null)}>Close</button></div>
           {!on.length && !clean.length && !blk.length && <p className="mut">No bookings on this day.</p>}
-          {on.map(b => <div key={b.id} className="box"><div className="row"><b>{b.dress_code} · {b.dress_name}</b><span style={{ color: COL[state(b)] }}>{state(b)}</span></div>
+          {on.map(b => <div key={b.id} className="box" style={{ display: 'flex', gap: 12 }}>{thumb(dmap[b.dress_id], 72, 96)}<div style={{ flex: 1 }}><div className="row"><b>{b.dress_code} · {b.dress_name}</b><span style={{ color: COL[state(b)] }}>{state(b)}</span></div>
             <div>{b.start_date === day ? 'Pickup today' : b.end_date === day ? 'Return today' : 'On rent'} · {b.customer_name} · <a href={'tel:' + b.phone}>{b.phone}</a></div>
-            <div className="mut">{b.start_date} → {b.end_date} · Balance {inr(b.rent + b.charges - b.paid)} · ID {b.id}</div></div>)}
-          {clean.map(b => <div key={'c' + b.id} className="box">Cleaning day: <b>{b.dress_code} · {b.dress_name}</b><div className="mut">Returned {b.end_date}. Earliest next booking: {addD(b.end_date, buf + 1)}</div></div>)}
-          {blk.map(k => <div key={k.id} className="box">Blocked: <b>{D.find(d => d.id === k.dress_id)?.code}</b> · {k.reason || 'no reason given'} ({k.start_date} → {k.end_date})</div>)}
+            <div className="mut">{b.start_date} → {b.end_date} · Balance {inr(b.rent + b.charges - b.paid)} · ID {b.id}</div></div></div>)}
+          {clean.map(b => <div key={'c' + b.id} className="box" style={{ display: 'flex', gap: 12 }}>{thumb(dmap[b.dress_id], 48, 64)}<div>Cleaning day: <b>{b.dress_code} · {b.dress_name}</b><div className="mut">Returned {b.end_date}. Earliest next booking: {addD(b.end_date, buf + 1)}</div></div></div>)}
+          {blk.map(k => <div key={k.id} className="box" style={{ display: 'flex', gap: 12 }}>{thumb(dmap[k.dress_id], 48, 64)}<div>Blocked: <b>{dmap[k.dress_id]?.code} · {dmap[k.dress_id]?.name}</b> · {k.reason || 'no reason given'} ({k.start_date} → {k.end_date})</div></div>)}
         </div></div>)
     })()}</section>)
 }
