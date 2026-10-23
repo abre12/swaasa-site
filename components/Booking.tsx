@@ -7,6 +7,7 @@ const ERR: Record<string, string> = {
   GAP_CLASH: GAP, DATES_TAKEN: 'Those dates are already booked or blocked for this dress.', OWNER_ONLY: 'Only the owner can give discounts.',
   BAD_CONTACT: 'Please enter the name and a valid 10-digit mobile number.', BAD_DATES: 'Please choose valid dates.', NOT_AVAILABLE: 'This dress is not available for booking.', FORBIDDEN: 'Please sign in as staff.',
 }
+const lab: React.CSSProperties = { fontSize: 13, color: 'var(--mut)', margin: '10px 0 2px' }
 export default function Booking({ dress, advancePct, staff }: { dress: any; advancePct: number; staff?: string | null }) {
   const [s, setS] = useState(''); const [e, setE] = useState(''); const [busy, setBusy] = useState<any[]>([])
   const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', advance: '', deposit: String(dress.deposit || 0), mode: '', discount: '' })
@@ -72,10 +73,13 @@ export default function Booking({ dress, advancePct, staff }: { dress: any; adva
         <input placeholder="Mobile number *" type="tel" value={f.phone} onChange={x => set('phone', x.target.value)} />
         <input placeholder="Email (optional)" value={f.email} onChange={x => set('email', x.target.value)} />
         <textarea placeholder="Alteration notes / requirements" value={f.notes} onChange={x => set('notes', x.target.value)} />
-        {staff && <><input placeholder="Advance received now (₹) *" type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} />
-          <input placeholder={`Deposit collected now (₹) *. Deposit is ${inr(dress.deposit)}`} type="number" min="0" value={f.deposit} onChange={x => set('deposit', x.target.value)} />
+        {staff && <><div style={lab}>Advance received now (₹) *</div>
+          <input placeholder="Advance received now (₹) *" type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} />
+          <div style={lab}>Deposit collected now (₹) *. Security deposit for this dress is {inr(dress.deposit)}</div>
+          <input placeholder="Deposit collected now (₹) *"  type="number" min="0" value={f.deposit} onChange={x => set('deposit', x.target.value)} />
+          <div style={lab}>Payment mode (for advance and deposit) *</div>
           <select value={f.mode} onChange={x => set('mode', x.target.value)}><option value="">Payment mode (advance and deposit) *</option><option>Cash</option><option>UPI</option><option>Card</option><option>Bank transfer</option></select>
-          {staff === 'owner' && <input placeholder="Discount (₹, owner only)" type="number" value={f.discount} onChange={x => set('discount', x.target.value)} />}</>}
+          {staff === 'owner' && <><div style={lab}>Discount (₹, owner only)</div><input placeholder="Discount (₹, owner only)" type="number" value={f.discount} onChange={x => set('discount', x.target.value)} /></>}</>}
         <button className="btn" disabled={wait} onClick={staff ? staffBook : customerBook}>{wait ? 'Checking availability…' : staff ? 'Confirm booking' : 'Request booking'}</button></div></>}
     {msg && <p className="bad">{msg}</p>}</div>)
 }
