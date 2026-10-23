@@ -3,6 +3,7 @@ import { supaServer } from '@/lib/supabase/server'
 import { inr } from '@/lib/util'
 import Booking from '@/components/Booking'
 import TryOn from '@/components/TryOn'
+import Gallery from '@/components/Gallery'
 export const dynamic = 'force-dynamic'
 export default async function DressPage({ params }: { params: { id: string } }) {
   const sb = supaServer()
@@ -12,7 +13,7 @@ export default async function DressPage({ params }: { params: { id: string } }) 
   const { data: { user } } = await sb.auth.getUser()
   const { data: st } = user ? await sb.from('staff').select('role').eq('user_id', user.id).maybeSingle() : { data: null }
   return (<section className="sec"><div className="two">
-    <div><div className="gal">{d.images?.length ? d.images.map((u: string) => <img key={u} src={u} alt={d.name} />) : <div style={{ height: 420, width: '100%', background: 'var(--blush)' }} />}</div>
+    <div><Gallery images={d.images || []} name={d.name} />
       <TryOn dressId={d.id} hasImage={!!process.env.FASHN_API_KEY && !!(d.try_on_image || d.images?.length)} /></div>
     <div><span className="mut">{d.code} · {d.category}</span><h1 style={{ fontSize: 40 }}>{d.name}</h1><p>{d.description}</p>
       <p className="mut">Colour: {d.colour} · Sizes: {d.sizes?.join(', ')}<br />Alterations: {d.alterations || 'On request'}</p>
