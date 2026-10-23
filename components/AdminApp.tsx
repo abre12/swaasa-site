@@ -21,23 +21,36 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     return src ? <img src={src} alt="" style={{ ...st, cursor: 'zoom-in' }} onMouseEnter={x => showPrev(src, x.currentTarget)} onMouseLeave={() => setPrev(null)} onClick={x => prev?.src === src ? setPrev(null) : showPrev(src, x.currentTarget)} /> : <span style={{ ...st, background: 'var(--blush)' }} /> }
   const say = (m: string) => { setNote(m); setTimeout(() => setNote(''), 3500) }
   // In-page dialogs. (Browser prompt()/confirm() freeze the whole page while open, which Chrome reports as slow interactions.)
-  type Fld = { name: string; label: string; type?: string; value?: string; options?: string[] }
+  type Fld = { name: string; label: string; type?: string; value?: string; options?: string[]; required?: boolean }
   const ask = (title: string, fields: Fld[], o: { note?: string; ok?: string } = {}) => new Promise<Record<string, string> | null>(res => setDlg({ title, fields, note: o.note, ok: o.ok || 'Save', res }))
   const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   async function patch(b: any, p: any, msg: string) {
     const { error } = await sb.from('bookings').update({ ...p, log: [...b.log, { t: new Date().toISOString(), m: msg }] }).eq('id', b.id)
     say(error ? (error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : error.message) : msg); load()
   }
+  // Deposit still to be handed back on return = deposit held, less any rent/charges still unpaid.
+  const refundDue = (b: any, extra = 0) => Math.max(0, b.deposit_held - Math.max(0, b.rent + b.charges + extra - b.paid))
   async function pay(b: any, kind: string) {
-    const v = await ask(kind === 'rent' ? 'Record payment' : 'Deposit received', [{ name: 'amt', label: 'Amount (₹)', type: 'number', value: String(kind === 'rent' ? Math.max(0, b.rent + b.charges - b.paid) : b.deposit) }, { name: 'mode', label: 'Payment mode', options: ['UPI', 'Cash', 'Bank transfer'] }])
+    const v = await ask(kind === 'rent' ? 'Record payment' : 'Deposit received', [{ name: 'amt', label: 'Amount (₹)', type: 'number', value: String(kind === 'rent' ? Math.max(0, b.rent + b.charges - b.paid) : b.deposit), required: true }, { name: 'mode', label: 'Payment mode', options: ['Cash', 'UPI', 'Card', 'Bank transfer'], required: true }])
     const a = +(v?.amt || 0); if (!v || !a) return
     const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind, mode: v.mode }); say(error ? error.message : `${inr(a)} recorded`); load()
   }
+  async function pickup(b: any) {
+    const due = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
+    const v = await ask('Mark as picked up', [{ name: 'dep', label: `Security deposit collected now (₹). Deposit is ${inr(b.deposit)}`, type: 'number', value: String(due), required: due > 0 }, { name: 'mode', label: 'Payment mode', options: ['Cash', 'UPI', 'Card', 'Bank transfer'], required: due > 0 }],
+      { ok: 'Confirm pickup', note: owing > 0 ? `Rent balance still unpaid: ${inr(owing)}. Use the Payment button to record it.` : undefined }); if (!v) return
+    const d = +(v.dep || 0); if (due > 0 && d <= 0) return say('Please enter the deposit collected.')
+    if (d > 0) { const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: d, kind: 'deposit', mode: v.mode }); if (error) return say(error.message) }
+    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Picked up${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}`)
+  }
   async function ret(b: any) {
-    const v = await ask('Process return', [{ name: 'c', label: 'Late fee + damage/cleaning charges (₹)', type: 'number', value: '0' }, { name: 'n', label: 'Condition notes (optional)' }], { ok: 'Mark returned' }); if (!v) return
-    const c = +(v.c || 0), n = v.n.trim()
-    await patch(b, { status: 'returned', returned_at: new Date().toISOString(), charges: b.charges + (owner ? c : 0) }, `Returned${n ? ': ' + n : ''}${c && !owner ? ` (charges ${inr(c)} to be set by owner)` : ''}`)
+    const late = b.end_date < today() ? Math.max(0, nDays(b.end_date, today()) - 1) : 0, lateFee = late * (+dmap[b.dress_id]?.extra_day_fee || 0), owing = Math.max(0, b.rent + b.charges - b.paid)
+    const v = await ask('Process return', [{ name: 'c', label: 'Late fee + damage/cleaning charges (₹)', type: 'number', value: '0' }, { name: 'n', label: 'Condition notes (optional)' }],
+      { ok: 'Mark returned', note: `Deposit held ${inr(b.deposit_held)}${owing ? `. Unpaid rent ${inr(owing)}` : ''}. Before any extra charges, hand back ${inr(refundDue(b))}.${late ? ` Overdue by ${late} day(s): suggested late fee ${inr(lateFee)}.` : ''}` }); if (!v) return
+    const c = +(v.c || 0), n = v.n.trim(), applied = owner ? c : 0, refund = refundDue(b, applied)
+    await patch(b, { status: 'returned', returned_at: new Date().toISOString(), charges: b.charges + applied }, `Returned${n ? ': ' + n : ''}${c && !owner ? ` (charges ${inr(c)} to be set by owner)` : ''}. Deposit handed back: ${inr(refund)}`)
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
+    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${applied ? ` (Deposit ${inr(b.deposit_held)} less charges and unpaid rent.)` : ''}${c && !owner ? ` The ${inr(c)} of charges must be added by the owner, and the amount above does not include it.` : ''}` })
   }
   async function resched(b: any) {
     const v = await ask('Reschedule booking', [{ name: 's', label: 'New start date', type: 'date', value: b.start_date }, { name: 'e', label: 'New return date', type: 'date', value: b.end_date }]); if (!v) return
@@ -72,7 +85,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     if (error) return say(error.message); setEd({ ...d, images, try_on_image: images[0] || null }); load()
   }
   const sel = (b: any) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
-    {b.status === 'confirmed' && <button className="btn sm" onClick={() => patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, 'Picked up')}>Picked up</button>}
+    {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Picked up</button>}
     {b.status === 'out' && <button className="btn sm" onClick={() => ret(b)}>Return</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
     {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={async () => (await askYes('Cancel this booking?', 'The dress becomes available again for those dates.', 'Yes, cancel')) && patch(b, { status: 'cancelled' }, 'Cancelled')}>Cancel</button></>}</>
@@ -93,8 +106,12 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {od.length > 0 && <div className="box"><b className="bad">Overdue returns</b>{od.map(b => <div key={b.id} className="row"><span>{b.dress_code} · {b.customer_name} · <a href={'tel:' + b.phone}>{b.phone}</a></span><span>due {b.end_date}</span></div>)}</div>}
     {tab === 'bookings' && <><div className="flt" style={{ marginTop: 16 }}><select value={flt} onChange={e => setFlt(e.target.value)}>{Object.keys(F).map(k => <option key={k}>{k}</option>)}</select></div>
       <div className="scroll"><table><thead><tr><th>ID</th><th>Dress</th><th>Customer</th><th>Dates</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>
-        {B.filter(F[flt]).map(b => <tr key={b.id}><td>{b.id}</td><td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{thumb(dmap[b.dress_id])}<span>{b.dress_code}<br /><span className="mut" style={{ whiteSpace: 'normal', display: 'inline-block', maxWidth: 170 }}>{b.dress_name}</span></span></div></td><td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td><td>{b.start_date} → {b.end_date}</td><td>{inr(b.rent + b.charges - b.paid)}<br /><span className="mut">deposit held {inr(b.deposit_held)}/{inr(b.deposit)}</span></td>
-          <td style={{ color: COL[state(b)] }}>{state(b)}</td><td style={{ whiteSpace: 'normal' }}>{sel(b)}{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'deposit')}>Deposit</button>}</td></tr>)}</tbody></table></div></>}
+        {B.filter(F[flt]).map(b => <tr key={b.id}><td>{b.id}</td><td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{thumb(dmap[b.dress_id])}<span>{b.dress_code}<br /><span className="mut" style={{ whiteSpace: 'normal', display: 'inline-block', maxWidth: 170 }}>{b.dress_name}</span></span></div></td><td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td><td>{b.start_date} → {b.end_date}</td><td style={{ whiteSpace: 'normal', minWidth: 210 }}>{(() => { const due = b.rent + b.charges - b.paid; return <>
+            <div className="mut">Rent {inr(b.rent)}{b.charges ? ` + charges ${inr(b.charges)}` : ''} · Advance received {inr(b.paid)}</div>
+            <b>{due >= 0 ? `Balance due ${inr(due)}` : `Overpaid ${inr(-due)}`}</b>
+            <div className="mut">{b.status === 'returned' ? 'Deposit settled at return' : `Deposit collected ${inr(b.deposit_held)} of ${inr(b.deposit)}`}</div>
+            {b.status === 'out' && <div className="ok"><b>Hand back on return: {inr(refundDue(b))}</b></div>}</> })()}</td>
+          <td style={{ color: COL[state(b)] }}>{state(b)}</td><td style={{ whiteSpace: 'normal' }}>{sel(b)}</td></tr>)}</tbody></table></div></>}
     {tab === 'calendar' && <><div className="flt"><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
       <div className="cal">{'SMTWTFS'.split('').map((d, i) => <b key={i} style={{ textAlign: 'center' }}>{d}</b>)}{cells.map(d => <div key={d} className="cell" onClick={() => setDay(d)} style={{ cursor: 'pointer', ...(d === today() ? { borderColor: 'var(--gold)' } : {}) }}><span className="mut">{+d.slice(8)}</span>{items.filter(i => d >= i.s && d <= i.e).map((i, n) => <span key={n} className="chip" style={{ background: i.c }}>{i.label}</span>)}</div>)}</div>
       <p className="mut" style={{ fontSize: 12 }}>{Object.entries(COL).map(([k, c]: any) => <span key={k} style={{ color: c, marginRight: 12 }}>■ {k}</span>)}</p></>}
@@ -114,7 +131,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 70, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
       <form className="box" style={{ background: 'var(--bg)', maxWidth: 420, width: '100%' }} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget), v: Record<string, string> = {}; dlg.fields.forEach((x: Fld) => { v[x.name] = String(f.get(x.name) ?? '') }); const r = dlg.res; setDlg(null); r(v) }}>
         <h3>{dlg.title}</h3>{dlg.note && <p className="mut">{dlg.note}</p>}
-        {dlg.fields.map((x: Fld, i: number) => <label key={x.name}>{x.label}{x.options ? <select name={x.name} defaultValue={x.value}>{x.options.map(o => <option key={o}>{o}</option>)}</select> : <input name={x.name} type={x.type || 'text'} defaultValue={x.value} autoFocus={i === 0} />}</label>)}
+        {dlg.fields.map((x: Fld, i: number) => <label key={x.name}>{x.label}{x.options ? <select name={x.name} defaultValue={x.required ? '' : x.value} required={x.required}>{x.required && <option value="">Select…</option>}{x.options.map(o => <option key={o}>{o}</option>)}</select> : <input name={x.name} type={x.type || 'text'} defaultValue={x.value} required={x.required} autoFocus={i === 0} />}</label>)}
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}><button className="btn">{dlg.ok}</button><button type="button" className="btn alt" onClick={() => { const r = dlg.res; setDlg(null); r(null) }}>Cancel</button></div></form></div>}
     {prev && <img src={prev.src} alt="" style={{ position: 'fixed', left: prev.x, top: prev.y, width: 240, maxHeight: 320, objectFit: 'cover', zIndex: 60, boxShadow: '0 8px 30px #0006', pointerEvents: 'none', background: 'var(--bg)' }} />}
     {day && (() => {

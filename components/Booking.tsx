@@ -9,7 +9,7 @@ const ERR: Record<string, string> = {
 }
 export default function Booking({ dress, advancePct, staff }: { dress: any; advancePct: number; staff?: string | null }) {
   const [s, setS] = useState(''); const [e, setE] = useState(''); const [busy, setBusy] = useState<any[]>([])
-  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', advance: '', mode: 'Cash', discount: '' })
+  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', advance: '', mode: '', discount: '' })
   const [msg, setMsg] = useState(''); const [id, setId] = useState(''); const [wait, setWait] = useState(false); const [checked, setChecked] = useState(false)
   useEffect(() => { supa().rpc('dress_busy', { p_dress: dress.id }).then(({ data }) => setBusy(data || [])) }, [dress.id])
   const valid = !!(s && e && e >= s)
@@ -30,6 +30,11 @@ export default function Booking({ dress, advancePct, staff }: { dress: any; adva
     if (j.id) setId(j.id); else setMsg(j.error || 'Could not complete the booking.')
   }
   async function staffBook() {
+    const adv = +f.advance, net = Math.max(0, (p?.rent || 0) - (+f.discount || 0))
+    if (!f.name.trim() || f.phone.replace(/\D/g, '').length < 10) return setMsg(ERR.BAD_CONTACT)
+    if (!(adv > 0)) return setMsg('Advance received is required. Enter the amount collected now.')
+    if (!f.mode) return setMsg('Please select the payment mode (Cash, UPI, Card or Bank transfer).')
+    if (adv > net) return setMsg('Advance cannot be more than the rent total.')
     setWait(true); setMsg('')
     const { data, error } = await supa().rpc('staff_create_booking', { p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_notes: f.notes || null,
       p_advance: +f.advance || 0, p_mode: f.mode, p_discount: +f.discount || 0, p_override: gapOnly && checked })
@@ -48,14 +53,16 @@ export default function Booking({ dress, advancePct, staff }: { dress: any; adva
       {staff && <label style={{ display: 'block', margin: '10px 0' }}><input type="checkbox" style={{ width: 'auto' }} checked={checked} onChange={x => setChecked(x.target.checked)} /> I have checked and confirmed availability. Book inside the cleaning period.</label>}</>}
     {free && <p className="ok"><b>Available</b> for {p!.n} day(s).</p>}
     {showForm && p && <>
-      <div className="row"><span>Rent total</span><b>{inr(p.rent)}</b></div><div className="row"><span>Refundable deposit (at pickup)</span><span>{inr(dress.deposit)}</span></div>
+      <div className="row"><span>Rent total</span><b>{inr(p.rent)}</b></div><div className="row"><span>Refundable deposit (collected at pickup)</span><span>{inr(dress.deposit)}</span></div>
+      {staff && <><div className="row"><span>Advance received now</span><span>{inr(+f.advance || 0)}</span></div>
+        <div className="row"><b>Balance rent after advance</b><b>{inr(Math.max(0, p.rent - (+f.discount || 0) - (+f.advance || 0)))}</b></div></>}
       {!staff && <div className="row"><span>Advance to confirm ({advancePct}%)</span><span>{inr(p.rent * advancePct / 100)}</span></div>}
       <div style={{ marginTop: 12 }}><input placeholder="Full name *" value={f.name} onChange={x => set('name', x.target.value)} />
         <input placeholder="Mobile number *" type="tel" value={f.phone} onChange={x => set('phone', x.target.value)} />
         <input placeholder="Email (optional)" value={f.email} onChange={x => set('email', x.target.value)} />
         <textarea placeholder="Alteration notes / requirements" value={f.notes} onChange={x => set('notes', x.target.value)} />
-        {staff && <><input placeholder="Advance received now (₹)" type="number" value={f.advance} onChange={x => set('advance', x.target.value)} />
-          <select value={f.mode} onChange={x => set('mode', x.target.value)}><option>Cash</option><option>UPI</option><option>Bank transfer</option></select>
+        {staff && <><input placeholder="Advance received now (₹) *" type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} />
+          <select value={f.mode} onChange={x => set('mode', x.target.value)}><option value="">Payment mode *</option><option>Cash</option><option>UPI</option><option>Card</option><option>Bank transfer</option></select>
           {staff === 'owner' && <input placeholder="Discount (₹, owner only)" type="number" value={f.discount} onChange={x => set('discount', x.target.value)} />}</>}
         <button className="btn" disabled={wait} onClick={staff ? staffBook : customerBook}>{wait ? 'Checking availability…' : staff ? 'Confirm booking' : 'Request booking'}</button></div></>}
     {msg && <p className="bad">{msg}</p>}</div>)
