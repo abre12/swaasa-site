@@ -8,9 +8,10 @@ export default function Hero() {
   const src = process.env.NEXT_PUBLIC_HERO_VIDEO || '/hero.mp4'
   return (<section className="hero2">
     <style>{`.hero2{background:#000;color:#f4ecdc;text-align:center;padding:26px 16px 44px}
-.hero2 .vf{position:relative;max-width:1120px;margin:0 auto;aspect-ratio:16/9;overflow:hidden;border:1px solid rgba(210,176,116,.45);background:#000}
-.hero2 .vf video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:42% center;display:block}
-.hero2 .vf::after{content:"";position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(transparent,rgba(0,0,0,.55));pointer-events:none}
+.hero2 .vf{position:relative;max-width:1180px;margin:0 auto;aspect-ratio:16/9;overflow:hidden;background:#000}
+.hero2 .vf video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:42% center;display:block;
+-webkit-mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 11%,#000 89%,transparent 100%);-webkit-mask-composite:source-in;
+mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 11%,#000 89%,transparent 100%);mask-composite:intersect}
 @media(max-width:700px){.hero2 .vf{aspect-ratio:4/3}}
 .hero2 h1{font-size:clamp(32px,6vw,58px);margin:26px 0 6px;animation:hfade 1.6s ease-out .3s both}.hero2 p{color:#b8ab94;margin:0 0 20px;animation:hfade 1.6s ease-out .6s both}
 .hero2 a.cta{display:inline-block;color:#f4ecdc;border-bottom:1px solid #f4ecdc;padding-bottom:2px;letter-spacing:.22em;font-size:12px;text-transform:uppercase;text-decoration:none;animation:hfade 1.6s ease-out .9s both}
