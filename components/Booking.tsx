@@ -8,7 +8,7 @@ const ERR: Record<string, string> = {
   BAD_CONTACT: 'Please enter the name and a valid 10-digit mobile number.', BAD_DATES: 'Please choose valid dates.', NOT_AVAILABLE: 'This dress is not available for booking.', FORBIDDEN: 'Please sign in as staff.',
 }
 const lab: React.CSSProperties = { fontSize: 13, color: 'var(--mut)', margin: '10px 0 2px' }
-export default function Booking({ dress, advancePct, staff, initialFrom, initialTo }: { dress: any; advancePct: number; staff?: string | null; initialFrom?: string; initialTo?: string }) {
+export default function Booking({ dress, advancePct, advanceMin = 1000, staff, initialFrom, initialTo }: { dress: any; advancePct: number; advanceMin?: number; staff?: string | null; initialFrom?: string; initialTo?: string }) {
   const [s, setS] = useState(initialFrom || ''); const [e, setE] = useState(initialTo || ''); const [busy, setBusy] = useState<any[]>([])
   const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', advance: '', mode: '', discount: '' })
   const [msg, setMsg] = useState(''); const [id, setId] = useState(''); const [wait, setWait] = useState(false); const [checked, setChecked] = useState(false); const [warn, setWarn] = useState('')
@@ -20,6 +20,8 @@ export default function Booking({ dress, advancePct, staff, initialFrom, initial
   const avail = dress.status === 'available'
   const free = valid && avail && clash.length === 0
   const p = valid ? price(dress, s, e) : null
+  // Booking advance: the higher of a percentage of the rent (50%) or a minimum (₹1,000), never more than the rent itself.
+  const advDue = p ? Math.min(p.rent, Math.max(Math.round(p.rent * advancePct / 100), advanceMin)) : 0
   const showForm = valid && avail && (free || (!!staff && gapOnly && checked))
   const set = (k: string, v: string) => setF({ ...f, [k]: v })
   const dates = (fn: (v: string) => void) => (x: any) => { fn(x.target.value); setChecked(false); setMsg('') }
@@ -36,7 +38,7 @@ export default function Booking({ dress, advancePct, staff, initialFrom, initial
     if (!f.name.trim() || f.phone.replace(/\D/g, '').length < 10) return setMsg(ERR.BAD_CONTACT)
     if (!(amt > 0)) return setMsg('Amount received is required. Enter the amount collected now.')
     if (!f.mode) return setMsg('Please select the payment mode (Cash, GPay / UPI or Card).')
-    if (amt < (dress.deposit || 0)) return setMsg(`Amount received must be at least the security deposit of ${inr(dress.deposit)}.`)
+    if (amt < advDue) return setMsg(`Amount received must be at least the booking advance of ${inr(advDue)} (the higher of ${advancePct}% of the rent or ${inr(advanceMin)}).`)
     if (rentPaid > net) return setMsg('Amount received cannot be more than the security deposit plus the rent total.')
     setWait(true); setMsg('')
     const { data, error } = await supa().rpc('staff_create_booking', { p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_notes: f.notes || null,
@@ -67,13 +69,13 @@ export default function Booking({ dress, advancePct, staff, initialFrom, initial
         <div className="row"><span>Held as refundable security deposit</span><span>{inr(Math.min(+f.advance || 0, dress.deposit || 0))}</span></div>
         <div className="row"><span>Counted towards rent</span><span>{inr(Math.max(0, (+f.advance || 0) - (dress.deposit || 0)))}</span></div>
         <div className="row"><b>Balance rent due</b><b>{inr(Math.max(0, p.rent - (+f.discount || 0) - Math.max(0, (+f.advance || 0) - (dress.deposit || 0))))}</b></div></>}
-      {!staff && <div className="row"><span>Advance to confirm ({advancePct}%)</span><span>{inr(p.rent * advancePct / 100)}</span></div>}
+      <div className="row"><span>Advance to confirm (higher of {advancePct}% of rent or {inr(advanceMin)})</span><b>{inr(advDue)}</b></div>
       <div style={{ marginTop: 12 }}><input placeholder="Full name *" value={f.name} onChange={x => set('name', x.target.value)} />
         <input placeholder="Mobile number *" type="tel" value={f.phone} onChange={x => set('phone', x.target.value)} />
         <input placeholder="Email (optional)" value={f.email} onChange={x => set('email', x.target.value)} />
         <div style={lab}>Alteration notes (optional). For example: shorten sleeves, tighten waist, blouse measurements.</div>
         <textarea rows={4} placeholder="Type any stitching or fitting instructions" value={f.notes} onChange={x => set('notes', x.target.value)} />
-        {staff && <><div style={lab}>Amount received now (₹) *. Security deposit for this dress is {inr(dress.deposit)}. Anything above the deposit is counted as rent paid.</div>
+        {staff && <><div style={lab}>Amount received now (₹) *. The minimum booking advance is {inr(advDue)}. Security deposit for this dress is {inr(dress.deposit)}: it is filled first, and anything above it counts as rent paid.</div>
           <input placeholder="Amount in ₹" type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} />
           <div style={lab}>Payment mode *</div>
           <select value={f.mode} onChange={x => set('mode', x.target.value)}><option value="">Select payment mode</option>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select>

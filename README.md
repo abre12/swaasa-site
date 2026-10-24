@@ -88,3 +88,21 @@ Set `NEXT_PUBLIC_HERO_VIDEO` in Vercel to the address of a short, silent, loopin
 
 ## Customer colour and category filters
 The five categories group the inventory categories: Lehenga = LEHENGAS; Wedding gown and Reception gown = GOWNS; Bridal saree = SAREES; Bridesmaid dress = BRIDESMAID; Engagement outfit and Other occasion wear = OTHER OCCASIONS. Colours come from the colour tags saved on each dress. "Suggest colours from photo" only proposes tags; staff confirm them. Dresses with no tags will not appear when a colour is selected, so tag every dress.
+
+---
+
+# Version 3 changes
+
+## Upgrade order
+1. Supabase > SQL Editor > run `supabase/migration-v3.sql` (after `migration-v2.sql`). Safe to run again.
+2. Then upload the new website files and deploy.
+
+## What changed
+- **Dashboard:** six cards (today's bookings, deliveries and returns, overdue, pending delivery for the next 7 days, pending returns). Each opens as a popup. Below them: "Follow up: dress not back yet" (dresses out with a customer that are already booked soon) and "Alterations to complete" (only deliveries that have alteration notes).
+- **Navigation:** Overview, Bookings Calendar, All Bookings, Daily Cash Counter, Dress Inventory, Dry Cleaning, Dress Performance, Customers, Reports and Settings. Preparation staff see only "Alterations to Complete".
+- **Daily Cash Counter:** "Amount" is the amount of that one transaction. Security deposits are blue (refundable, not income); refunds are red.
+- **Booking advance:** the higher of 50% of the rent or ₹1,000 (never more than the rent). Both numbers are in Reports and Settings.
+- **Dry cleaning:** record each wash (date sent, expected back, charge). The dress cannot be booked while it is away and it shows on the calendar. Each dress has a standard charge in Dress Inventory. The Dry Cleaning page lists rentals since each dress was last washed.
+- **Calendar:** the cleaning day after a return is no longer drawn. It still stops back-to-back bookings. Only dresses sent for dry cleaning (and blocked dates) appear as "away".
+- **Dress Performance:** washes, dry-cleaning cost and net after dry cleaning for every dress, with a wash list in each dress's history.
+- **Revenue report (owner):** one row per booking with Advance Received, Rent Received, Late Fees, Damages, Advance Refunded and Net Amount. Export to Excel.

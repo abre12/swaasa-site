@@ -10,7 +10,7 @@ export default async function DressPage({ params, searchParams }: { params: { id
   const sb = supaServer()
   const { data: d } = await sb.from('dresses').select('*').eq('id', params.id).maybeSingle()
   if (!d) notFound()
-  const { data: s } = await sb.from('settings').select('advance_pct').single()
+  const { data: s } = await sb.from('settings').select('advance_pct,advance_min').single()
   const { data: { user } } = await sb.auth.getUser()
   const { data: st } = user ? await sb.from('staff').select('role').eq('user_id', user.id).maybeSingle() : { data: null }
   return (<section className="sec"><div className="two">
@@ -23,5 +23,5 @@ export default async function DressPage({ params, searchParams }: { params: { id
       <div className="row"><span>Extra day</span><span>{inr(d.extra_day_fee)}</span></div>
       <div className="row"><span>Refundable deposit</span><span>{inr(d.deposit)}</span></div>
       <p className="mut" style={{ fontSize: 12 }}>{d.policy || 'Cleaning included. Damage beyond normal wear is charged at repair cost.'}</p>
-      <Booking dress={d} advancePct={s?.advance_pct ?? 30} staff={st?.role ?? null} initialFrom={searchParams.from} initialTo={searchParams.to} /></div></div></section>)
+      <Booking dress={d} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} staff={st?.role ?? null} initialFrom={searchParams.from} initialTo={searchParams.to} /></div></div></section>)
 }
