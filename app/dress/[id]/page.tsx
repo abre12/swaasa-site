@@ -6,7 +6,7 @@ import TryOn from '@/components/TryOn'
 import Gallery from '@/components/Gallery'
 import BookedDates from '@/components/BookedDates'
 export const dynamic = 'force-dynamic'
-export default async function DressPage({ params }: { params: { id: string } }) {
+export default async function DressPage({ params, searchParams }: { params: { id: string }; searchParams: Record<string, string | undefined> }) {
   const sb = supaServer()
   const { data: d } = await sb.from('dresses').select('*').eq('id', params.id).maybeSingle()
   if (!d) notFound()
@@ -23,5 +23,5 @@ export default async function DressPage({ params }: { params: { id: string } }) 
       <div className="row"><span>Extra day</span><span>{inr(d.extra_day_fee)}</span></div>
       <div className="row"><span>Refundable deposit</span><span>{inr(d.deposit)}</span></div>
       <p className="mut" style={{ fontSize: 12 }}>{d.policy || 'Cleaning included. Damage beyond normal wear is charged at repair cost.'}</p>
-      <Booking dress={d} advancePct={s?.advance_pct ?? 30} staff={st?.role ?? null} /></div></div></section>)
+      <Booking dress={d} advancePct={s?.advance_pct ?? 30} staff={st?.role ?? null} initialFrom={searchParams.from} initialTo={searchParams.to} /></div></div></section>)
 }

@@ -52,3 +52,39 @@ The selfie is shrunk in the browser, sent to FASHN as data and never saved by th
 
 ## Not built yet
 Razorpay online payments (advance is currently recorded by staff after UPI/cash), WhatsApp/SMS/email notifications, customer favourites, and detailed reports. Each is a separate add-on.
+
+---
+
+# Version 2 additions
+
+## Upgrading an existing site (order matters)
+1. **Database first.** Supabase > SQL Editor > paste `supabase/migration-v2.sql` > Run. It keeps all existing dresses, bookings, customers and payments. It can be run again safely.
+2. **Then the website.** Upload the new project files to GitHub and deploy. (Deploying first would make the home and admin pages ask for columns that do not exist yet.)
+3. New installs: run `schema.sql`, then `migration-v2.sql`.
+
+## New staff role: preparation
+Create the user in Supabase > Authentication > Users, then run:
+```sql
+insert into staff(user_id, role, name) select id, 'preparation', 'Their Name' from auth.users where email='prep@example.com';
+```
+Preparation staff see only the Upcoming Delivery Preparation page: dress photo, item code, customer name, dates and alteration notes. They cannot read bookings, phone numbers, payments or reports. This is enforced by the database, not just by hiding menus.
+
+| | Owner | Manager | Preparation |
+|---|---|---|---|
+| Overview dashboard, calendar, bookings, deliveries and returns | yes | yes | no |
+| Upcoming delivery preparation, alteration notes, preparation status | yes | yes | yes (cannot mark delivered) |
+| Daily cash counter, record payments, Excel export | yes | yes | no |
+| Add or edit dresses, colour tags, photos | yes | status only | no |
+| Dress performance and rental history, reports, settings | yes | no | no |
+
+## How money is counted
+- Net rental charge = original price minus discount. An advance is a payment, not a discount.
+- The cash counter shows money actually received or paid out on the chosen date (India time), never the full booking price.
+- Net rental revenue (Dress Performance page) = rent after discount on returned rentals, minus rental refunds. Cancelled bookings, deposits, advances and unpaid balances are not revenue. Late fees and damage charges are reported separately.
+- When a deposit is kept to settle unpaid rent or charges, it is recorded as a non-cash book entry ("Deposit applied to dues").
+
+## Optional hero video
+Set `NEXT_PUBLIC_HERO_VIDEO` in Vercel to the address of a short, silent, looping MP4. The logo animation then plays over it. Without it, the animated logo is shown.
+
+## Customer colour and category filters
+The five categories group the inventory categories: Lehenga = LEHENGAS; Wedding gown and Reception gown = GOWNS; Bridal saree = SAREES; Bridesmaid dress = BRIDESMAID; Engagement outfit and Other occasion wear = OTHER OCCASIONS. Colours come from the colour tags saved on each dress. "Suggest colours from photo" only proposes tags; staff confirm them. Dresses with no tags will not appear when a colour is selected, so tag every dress.
