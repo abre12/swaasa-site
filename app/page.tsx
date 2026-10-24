@@ -5,13 +5,18 @@ import Hero from '@/components/Hero'
 export const dynamic = 'force-dynamic'
 type P = Record<string, string | undefined>
 const href = (p: P) => { const u = new URLSearchParams(); Object.entries(p).forEach(([k, v]) => v && u.set(k, v)); const s = u.toString(); return (s ? `/?${s}` : '/') + '#collection' }
-const CSS = `.band{background:#000;color:#f4ecdc;padding:6px 16px 34px}.band .in{max-width:1280px;margin:0 auto}
-.cats{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 34px;padding:18px 0 22px}
-.cats a{font:500 clamp(18px,3.6vw,34px)/1.1 "Cormorant Garamond",Georgia,serif;letter-spacing:.06em;color:#9b9384;text-decoration:none;padding:4px 2px;border-bottom:2px solid transparent}
-.cats a:hover{color:#f4ecdc}.cats a.on{color:#fff;border-bottom-color:#d2b074}
-.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:10px}
-.sw a{display:flex;flex-direction:column;align-items:stretch;gap:5px;text-decoration:none;color:#b9b2a3;font-size:11px;text-align:center;letter-spacing:.04em}
-.sw a i{display:block;height:92px;border:3px solid #5b0f1c}.sw a:hover i{border-color:#d2b074}.sw a.on i{border-color:#fff;outline:3px solid #d2b074;outline-offset:2px}.sw a.on{color:#fff;font-weight:600}
+const CSS = `.band{background:#000;color:#f4ecdc;padding:14px 16px 46px}.band .in{max-width:1080px;margin:0 auto}
+.band .cap{display:block;text-align:center;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:#a8844a;margin:0 0 14px}
+.cats{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 8px;padding:0 0 30px}
+.cats a{font:500 clamp(15px,2.3vw,23px)/1 "Cormorant Garamond",Georgia,serif;letter-spacing:.2em;color:#8f8777;text-decoration:none;padding:10px 16px;border-bottom:1px solid transparent;transition:color .2s,border-color .2s}
+.cats a:hover{color:#f4ecdc}.cats a.on{color:#f4ecdc;border-bottom-color:#d2b074}
+.hair{height:1px;background:linear-gradient(90deg,transparent,#3a3024 20%,#3a3024 80%,transparent);margin:0 0 28px}
+.sw{display:flex;flex-wrap:wrap;justify-content:center;gap:18px 14px}
+.sw a{display:flex;flex-direction:column;align-items:center;gap:9px;width:62px;text-decoration:none;color:#8f8777;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:center;line-height:1.3;transition:color .2s}
+.sw a i{display:block;width:38px;height:38px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(244,236,223,.28);transition:transform .2s,box-shadow .2s}
+.sw a:hover{color:#f4ecdc}.sw a:hover i{transform:scale(1.1)}
+.sw a.on{color:#f1dcb0}.sw a.on i{box-shadow:0 0 0 2px #000,0 0 0 3.5px #d2b074}
+@media(max-width:560px){.sw{gap:16px 4px}.sw a{width:48px;font-size:8.5px;letter-spacing:.06em}.sw a i{width:32px;height:32px}.cats a{padding:8px 9px;letter-spacing:.12em}}
 .cnt{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}.cnt a{font-size:12px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink);text-decoration:none}
 .dress .dots{display:flex;gap:4px;margin:4px 0}.dress .dots i{width:11px;height:11px;border:1px solid #8884;border-radius:50%;display:inline-block}.dress .cta{font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink)}`
 export default async function Home({ searchParams }: { searchParams: P }) {
@@ -29,7 +34,8 @@ export default async function Home({ searchParams }: { searchParams: P }) {
   return (<>
     <Hero /><style>{CSS}</style>
     <section className="band"><div className="in">
-      <nav className="cats" aria-label="Categories">{MAIN_CATS.map(m => <Link key={m.key} href={href({ ...cur, cat: cat === m.key ? undefined : m.key })} className={cat === m.key ? 'on' : ''} aria-current={cat === m.key}>{m.label}</Link>)}</nav>
+      <span className="cap">Shop by category</span><nav className="cats" aria-label="Categories">{MAIN_CATS.map(m => <Link key={m.key} href={href({ ...cur, cat: cat === m.key ? undefined : m.key })} className={cat === m.key ? 'on' : ''} aria-current={cat === m.key}>{m.label}</Link>)}</nav>
+      <div className="hair" /><span className="cap">Shop by colour</span>
       <div className="sw" role="list" aria-label="Colours">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} />{c.label}</Link>)}</div></div></section>
     <section className="sec" id="collection"><h2>The collection</h2>
       <form className="flt">{cat && <input type="hidden" name="cat" value={cat} />}{colour && <input type="hidden" name="colour" value={colour} />}
