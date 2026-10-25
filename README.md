@@ -106,3 +106,21 @@ The five categories group the inventory categories: Lehenga = LEHENGAS; Wedding 
 - **Calendar:** the cleaning day after a return is no longer drawn. It still stops back-to-back bookings. Only dresses sent for dry cleaning (and blocked dates) appear as "away".
 - **Dress Performance:** washes, dry-cleaning cost and net after dry cleaning for every dress, with a wash list in each dress's history.
 - **Revenue report (owner):** one row per booking with Advance Received, Rent Received, Late Fees, Damages, Advance Refunded and Net Amount. Export to Excel.
+
+---
+
+# Version 4 changes
+
+## Upgrade order
+1. Supabase > SQL Editor > run `supabase/migration-v4.sql` (after `migration-v3.sql`). Safe to run again.
+2. Then upload the new website files and deploy. `SUPABASE_SERVICE_ROLE_KEY` must already be set in Vercel (it is used only on the server to create staff logins).
+
+## Staff logins and who-did-what
+- Sign in as the owner > Reports and Settings > **Staff logins** > "Add a person". Create Salesperson 1, 2 and 3 (role: Salesperson) with their own email and password. The email can be any address you control; no email is sent.
+- Each person signs in with their own login. The database records, from the signed-in user, who **took** each booking, who marked it **ready**, who **delivered** it, who processed the **return**, and who entered each **payment**. Customers' online bookings show "Online".
+- Rename a person at any time in the Name box. Past records show the new name. "Turn off" removes someone's access immediately without losing their history. "Reset password" sets a new password.
+- Salespeople can do everything except the owner-only areas (dress performance, revenue report, settings, staff logins, editing dress details).
+
+## Home page
+- The brand mark with "SWAASA RENTALS" sits at the bottom right of the video after the opening logo card.
+- The colour filter is one line of small swatches (labels are hidden on phones; touch and hold or tap to select).

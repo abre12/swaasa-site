@@ -10,8 +10,8 @@ export async function middleware(req: NextRequest) {
   })
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', req.url))
-  const { data: st } = await sb.from('staff').select('role').eq('user_id', user.id).maybeSingle()
-  if (!st) return NextResponse.redirect(new URL('/login?denied=1', req.url))
+  const { data: st } = await sb.from('staff').select('role,active').eq('user_id', user.id).maybeSingle()
+  if (!st || !st.active) return NextResponse.redirect(new URL('/login?denied=1', req.url))
   return res
 }
 export const config = { matcher: ['/admin/:path*'] }

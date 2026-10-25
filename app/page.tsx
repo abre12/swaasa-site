@@ -4,19 +4,21 @@ import { COLOURS, inr, MAIN_CATS } from '@/lib/util'
 import Hero from '@/components/Hero'
 export const dynamic = 'force-dynamic'
 type P = Record<string, string | undefined>
+const SHORT: Record<string, string> = { 'Beige / Cream': 'Cream', 'Floral / Multicolour': 'Floral' }   // on-screen labels only; the full name is the tooltip
 const href = (p: P) => { const u = new URLSearchParams(); Object.entries(p).forEach(([k, v]) => v && u.set(k, v)); const s = u.toString(); return (s ? `/?${s}` : '/') + '#collection' }
-const CSS = `.band{background:#000;color:#f4ecdc;padding:14px 16px 46px}.band .in{max-width:1080px;margin:0 auto}
+const CSS = `.band{background:#000;color:#f4ecdc;padding:14px 16px 34px}.band .in{max-width:1080px;margin:0 auto}
 .band .cap{display:block;text-align:center;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:#a8844a;margin:0 0 14px}
 .cats{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 8px;padding:0 0 30px}
 .cats a{font:500 clamp(15px,2.3vw,23px)/1 "Cormorant Garamond",Georgia,serif;letter-spacing:.2em;color:#8f8777;text-decoration:none;padding:10px 16px;border-bottom:1px solid transparent;transition:color .2s,border-color .2s}
 .cats a:hover{color:#f4ecdc}.cats a.on{color:#f4ecdc;border-bottom-color:#d2b074}
-.hair{height:1px;background:linear-gradient(90deg,transparent,#3a3024 20%,#3a3024 80%,transparent);margin:0 0 28px}
-.sw{display:flex;flex-wrap:wrap;justify-content:center;gap:18px 14px}
-.sw a{display:flex;flex-direction:column;align-items:center;gap:9px;width:62px;text-decoration:none;color:#8f8777;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:center;line-height:1.3;transition:color .2s}
-.sw a i{display:block;width:38px;height:38px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(244,236,223,.28);transition:transform .2s,box-shadow .2s}
-.sw a:hover{color:#f4ecdc}.sw a:hover i{transform:scale(1.1)}
+.hair{height:1px;background:linear-gradient(90deg,transparent,#3a3024 20%,#3a3024 80%,transparent);margin:0 0 18px}
+.sw{display:flex;flex-wrap:nowrap;justify-content:space-between;max-width:720px;margin:0 auto}
+.sw a{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:#8f8777;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;text-align:center;line-height:1.2;transition:color .2s;padding:4px 0}
+.sw a i{display:block;width:min(26px,calc(100% - 4px));aspect-ratio:1/1;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(244,236,223,.28);transition:transform .2s}
+.sw a b{font-weight:400;white-space:nowrap}
+.sw a:hover{color:#f4ecdc}.sw a:hover i{transform:scale(1.14)}
 .sw a.on{color:#f1dcb0}.sw a.on i{box-shadow:0 0 0 2px #000,0 0 0 3.5px #d2b074}
-@media(max-width:560px){.sw{gap:16px 4px}.sw a{width:48px;font-size:8.5px;letter-spacing:.06em}.sw a i{width:32px;height:32px}.cats a{padding:8px 9px;letter-spacing:.12em}}
+@media(max-width:700px){.sw a b{display:none}.cats a{padding:8px 9px;letter-spacing:.12em}}
 .cnt{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}.cnt a{font-size:12px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink);text-decoration:none}
 .dress .dots{display:flex;gap:4px;margin:4px 0}.dress .dots i{width:11px;height:11px;border:1px solid #8884;border-radius:50%;display:inline-block}.dress .cta{font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink)}`
 export default async function Home({ searchParams }: { searchParams: P }) {
@@ -35,8 +37,8 @@ export default async function Home({ searchParams }: { searchParams: P }) {
     <Hero /><style>{CSS}</style>
     <section className="band"><div className="in">
       <span className="cap">Shop by category</span><nav className="cats" aria-label="Categories">{MAIN_CATS.map(m => <Link key={m.key} href={href({ ...cur, cat: cat === m.key ? undefined : m.key })} className={cat === m.key ? 'on' : ''} aria-current={cat === m.key}>{m.label}</Link>)}</nav>
-      <div className="hair" /><span className="cap">Shop by colour</span>
-      <div className="sw" role="list" aria-label="Colours">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} />{c.label}</Link>)}</div></div></section>
+      <div className="hair" />
+      <div className="sw" role="list" aria-label="Colours">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} /><b>{SHORT[c.label] || c.label}</b></Link>)}</div></div></section>
     <section className="sec" id="collection"><h2>The collection</h2>
       <form className="flt">{cat && <input type="hidden" name="cat" value={cat} />}{colour && <input type="hidden" name="colour" value={colour} />}
         <input name="q" placeholder="Search name or ID" defaultValue={q} />

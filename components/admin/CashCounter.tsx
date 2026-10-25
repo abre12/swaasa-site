@@ -10,7 +10,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   const [rows, setRows] = useState<any[]>([]); const [open, setOpen] = useState<string | null>(null); const [err, setErr] = useState('')
   const load = useCallback(async () => {
     const from = new Date(`${date}T00:00:00+05:30`).toISOString(), to = new Date(`${addD(date, 1)}T00:00:00+05:30`).toISOString()
-    const { data, error } = await ctx.sb.from('payments').select('id,booking_id,amount,kind,mode,created_at,bookings(id,customer_name,rent,discount,charges,deposit,dresses(code,name))').gte('created_at', from).lt('created_at', to).order('created_at')
+    const { data, error } = await ctx.sb.from('payments').select('id,booking_id,amount,kind,mode,created_at,created_by,bookings(id,customer_name,rent,discount,charges,deposit,dresses(code,name))').gte('created_at', from).lt('created_at', to).order('created_at')
     if (error) return setErr('Could not load payments for this date.'); setErr('')
     const ids = [...new Set((data || []).map((r: any) => r.booking_id))]
     const { data: all } = ids.length ? await ctx.sb.from('payments').select('id,booking_id,kind,created_at').in('booking_id', ids) : { data: [] }
@@ -66,7 +66,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
         <td style={{ whiteSpace: 'normal' }}>{b?.discount > 0 && <div>Discount {inr(b.discount)}</div>}<div style={{ color: dep ? DEP : undefined }}>{label(r)}</div></td>
         <td style={{ color: nonCash ? 'var(--mut)' : refund ? 'var(--bad)' : dep ? DEP : undefined, fontWeight: 600, fontStyle: nonCash ? 'italic' : undefined }}>{refund ? '−' : ''}{inr(r.amount)}{dep && <div style={{ fontSize: 11, fontWeight: 400 }}>Refundable deposit</div>}{r.kind === 'deposit_refund' && <div style={{ fontSize: 11, fontWeight: 400 }}>Deposit returned</div>}</td>
         <td>{nonCash ? 'Book entry (no cash)' : r.mode}</td></tr>
-        {open === r.id && <tr key={r.id + 'x'}><td colSpan={6} className="mut" style={{ whiteSpace: 'normal', background: 'var(--blush)' }}>Booking {r.booking_id} · {istTime(r.created_at)} · Net rental charge {inr(b?.rent || 0)} · Outstanding on this booking now: {inr(dueOf(r.booking_id))} · <a href="#" onClick={e => { e.preventDefault(); ctx.openBooking(r.booking_id) }}>Open booking</a></td></tr>}</>})}
+        {open === r.id && <tr key={r.id + 'x'}><td colSpan={6} className="mut" style={{ whiteSpace: 'normal', background: 'var(--blush)' }}>Booking {r.booking_id} · {istTime(r.created_at)}{r.created_by ? ` · Entered by ${ctx.staffName(r.created_by) || 'staff'}` : ''} · Net rental charge {inr(b?.rent || 0)} · Outstanding on this booking now: {inr(dueOf(r.booking_id))} · <a href="#" onClick={e => { e.preventDefault(); ctx.openBooking(r.booking_id) }}>Open booking</a></td></tr>}</>})}
       {!shown.length && <tr><td colSpan={6} className="mut">No transactions for this date{(mode || type) ? ' and filters' : ''}.</td></tr>}</tbody></table></div>
   </div>)
 }

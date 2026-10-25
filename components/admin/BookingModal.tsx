@@ -44,6 +44,8 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
           : notes ? <div style={{ whiteSpace: 'pre-wrap', fontSize: 15, marginTop: 6 }}>{notes}</div> : <div className="mut" style={{ marginTop: 6 }}>No alteration notes</div>}
         {at && <div className="mut" style={{ fontSize: 12, marginTop: 6 }}>Last updated {dmy(new Date(at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))} {istTime(at)}{by ? ` by ${by}` : ''}</div>}
       </div>
+      {!limited && (() => { const who = (id?: string | null, ts?: string | null) => id ? `${ctx.staffName(id)}${ts ? ' · ' + dmy(new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })) : ''}` : '–'
+        return <div className="box"><b>Handled by</b>{row('Booking taken by', b.taken_by ? who(b.taken_by, b.created_at) : b.log?.[0]?.m === 'Requested online' ? 'Online (customer)' : '–')}{row('Prepared by', who(b.prepared_by, b.prepared_at))}{row('Delivered by', who(b.delivered_by, b.picked_up_at))}{row('Return processed by', who(b.returned_by, b.returned_at))}</div> })()}
       {b.return_notes && <div className="box"><b>Return condition / damage notes</b><div style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{b.return_notes}</div></div>}
       {!limited && <>
         <div className="box"><b>Payments</b>

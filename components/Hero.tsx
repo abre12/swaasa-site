@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 // Opening screen: a framed fashion reel (muted, silent, looping), then the headline.
 // To use a different film, replace public/hero.mp4 (keep it short and under ~8 MB), or set NEXT_PUBLIC_HERO_VIDEO to another video address.
 export default function Hero() {
-  const ref = useRef<HTMLVideoElement>(null)
+  const ref = useRef<HTMLVideoElement>(null); const [mk, setMk] = useState(false)   // brand mark shows after the opening logo card
   useEffect(() => { if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) ref.current?.pause() }, [])   // respect "reduce motion"
   const src = process.env.NEXT_PUBLIC_HERO_VIDEO || '/hero.mp4'
   return (<section className="hero2">
@@ -12,11 +12,14 @@ export default function Hero() {
 .hero2 .vf video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:42% center;display:block;
 -webkit-mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 11%,#000 89%,transparent 100%);-webkit-mask-composite:source-in;
 mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 11%,#000 89%,transparent 100%);mask-composite:intersect}
+.hero2 .mk{position:absolute;right:3.2%;bottom:8%;z-index:2;display:flex;flex-direction:column;align-items:center;gap:5px;width:clamp(74px,9.5vw,118px);opacity:0;transition:opacity 1.2s;pointer-events:none}.hero2 .mk.on{opacity:.95}
+.hero2 .mk img{width:52%;filter:drop-shadow(0 1px 6px rgba(0,0,0,.75))}.hero2 .mk span{font-size:clamp(6.5px,.82vw,10px);letter-spacing:.24em;color:#e8d3a0;text-shadow:0 1px 5px #000;white-space:nowrap}
 @media(max-width:700px){.hero2 .vf{aspect-ratio:4/3}}
 .hero2 h1{font-size:clamp(32px,6vw,58px);margin:26px 0 6px;animation:hfade 1.6s ease-out .3s both}.hero2 p{color:#b8ab94;margin:0 0 20px;animation:hfade 1.6s ease-out .6s both}
 .hero2 a.cta{display:inline-block;color:#f4ecdc;border-bottom:1px solid #f4ecdc;padding-bottom:2px;letter-spacing:.22em;font-size:12px;text-transform:uppercase;text-decoration:none;animation:hfade 1.6s ease-out .9s both}
 @keyframes hfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.hero2 h1,.hero2 p,.hero2 a.cta{animation:none}}`}</style>
-    <div className="vf"><video ref={ref} src={src} poster="/poster.jpg" autoPlay muted loop playsInline preload="auto" aria-label="Swaasa bridal fashion film" /></div>
+    <div className="vf"><video ref={ref} src={src} poster="/poster.jpg" autoPlay muted loop playsInline preload="auto" aria-label="Swaasa bridal fashion film" onTimeUpdate={e => { const t = e.currentTarget.currentTime, on = t > 6.5 && t < 41; setMk(m => m === on ? m : on) }} />
+      <div className={'mk' + (mk ? ' on' : '')} aria-hidden="true"><img src="/logo-mark.png" alt="" /><span>SWAASA RENTALS</span></div></div>
     <h1>Bridal couture, on rent</h1><p>Gowns, lehengas and bridal sarees · Trivandrum</p><a className="cta" href="#collection">Explore the collection</a>
   </section>)
 }

@@ -7,6 +7,7 @@ import Dashboard from './admin/Dashboard'
 import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
 import RevenueReport from './admin/RevenueReport'
+import StaffAdmin from './admin/StaffAdmin'
 import CashCounter from './admin/CashCounter'
 import Performance from './admin/Performance'
 import BookingModal from './admin/BookingModal'
@@ -32,13 +33,13 @@ const CSS = `.adm{display:grid;grid-template-columns:250px minmax(0,1fr);min-hei
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
   const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
-  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
+  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [tags, setTags] = useState<string[]>([]); const [st, setSt] = useState<any>(null)
   const load = useCallback(async () => {
     if (ops) {
-      const [b, k, d, s, dc] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false })])
-      setDC(dc.data || []); setB(b.data || []); setK(k.data || []); setD(d.data || []); setSt(s.data); setBuf(s.data?.buffer_days ?? 1)
+      const [b, k, d, s, dc, sf] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }), sb.from('staff').select('user_id,name,role,active,email').order('name')])
+      setDC(dc.data || []); setSTAFF(sf.data || []); setB(b.data || []); setK(k.data || []); setD(d.data || []); setSt(s.data); setBuf(s.data?.buffer_days ?? 1)
     } else { const [d, s] = await Promise.all([sb.from('dresses').select('id,code,name,images').order('code'), sb.from('settings').select('buffer_days').single()]); setD(d.data || []); setBuf(s.data?.buffer_days ?? 1) }
     setTick(t => t + 1)
   }, [sb, ops])
@@ -147,7 +148,8 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (o.flt) setFlt(o.flt); window.scrollTo({ top: 0 }) }
-  const ctx = { sb, role, owner, ops, name, B, D, K, DC, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, go }
+  const staffName = (id?: string | null) => id ? (STAFF.find(s => s.user_id === id)?.name || 'Staff') : null
+  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, go }
   const F: any = { all: () => true, created_today: (b: any) => b.status !== 'cancelled' && istDate(b.created_at) === today(), pending: (b: any) => b.status === 'pending', upcoming: (b: any) => b.status === 'confirmed' && b.start_date >= today(), out: (b: any) => b.status === 'out', overdue: (b: any) => state(b) === 'overdue', owing: (b: any) => b.status !== 'cancelled' && b.rent + b.charges - b.paid > 0, alterations: (b: any) => b.status !== 'cancelled' && !!b.alteration_notes, done: (b: any) => b.status === 'returned', cancelled: (b: any) => b.status === 'cancelled' }
   const FL: any = { all: 'All bookings', created_today: 'Made today', pending: 'Awaiting confirmation', upcoming: 'Upcoming deliveries', out: 'Currently rented', overdue: 'Overdue returns', owing: 'Balance due', alterations: 'With alteration notes', done: 'Completed', cancelled: 'Cancelled' }
   const live = B.filter(b => b.status !== 'cancelled')
@@ -175,13 +177,13 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {tab === 'cash' && ops && <CashCounter ctx={ctx} />}
     {tab === 'performance' && owner && <Performance ctx={ctx} />}
     {tab === 'bookings' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><select value={flt} onChange={e => setFlt(e.target.value)}>{Object.keys(F).map(k => <option key={k} value={k}>{FL[k]}</option>)}</select></div>
-      <div className="scroll"><table><thead><tr><th>ID</th><th>Dress</th><th>Customer</th><th>Dates</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>
+      <div className="scroll"><table><thead><tr><th>ID</th><th>Dress</th><th>Customer</th><th>Dates</th><th>Balance</th><th>Status</th><th>Handled by</th><th></th></tr></thead><tbody>
         {B.filter(F[flt]).map(b => <tr key={b.id}><td><a href="#" onClick={e => { e.preventDefault(); openBooking(b.id) }}>{b.id}</a>{b.alteration_notes && <div title={b.alteration_notes} style={{ fontSize: 12 }}>✂ Alterations</div>}</td><td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{thumb(dmap[b.dress_id])}<span>{b.dress_code}<br /><span className="mut" style={{ whiteSpace: 'normal', display: 'inline-block', maxWidth: 170 }}>{b.dress_name}</span></span></div></td><td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td><td>{b.start_date} → {b.end_date}</td><td style={{ whiteSpace: 'normal', minWidth: 210 }}>{(() => { const due = b.rent + b.charges - b.paid; return <>
             <div className="mut">Rent {inr(b.rent)}{b.charges ? ` + charges ${inr(b.charges)}` : ''} · Received {inr(b.paid)}</div>
             <b>{due >= 0 ? `Balance due ${inr(due)}` : `Overpaid ${inr(-due)}`}</b>
             <div className="mut">{b.status === 'returned' ? 'Deposit settled at return' : `Deposit collected ${inr(b.deposit_held)} of ${inr(b.deposit)}`}</div>
             {b.status === 'out' && <div className="ok"><b>Hand back on return: {inr(refundDue(b))}</b></div>}</> })()}</td>
-          <td style={{ color: COL[state(b)] }}>{state(b)}</td><td style={{ whiteSpace: 'normal' }}>{sel(b)}</td></tr>)}</tbody></table></div></>}
+          <td style={{ color: COL[state(b)] }}>{state(b)}</td><td style={{ whiteSpace: 'normal', fontSize: 12, minWidth: 130 }}>{([['Booked', b.taken_by ? staffName(b.taken_by) : b.log?.[0]?.m === 'Requested online' ? 'Online' : null], ['Prepared', staffName(b.prepared_by)], ['Delivered', staffName(b.delivered_by)], ['Returned', staffName(b.returned_by)]] as [string, string | null][]).filter(x => x[1]).map(([l, n]) => <div key={l}><span className="mut">{l}:</span> {n}</div>)}</td><td style={{ whiteSpace: 'normal' }}>{sel(b)}</td></tr>)}</tbody></table></div></>}
     {tab === 'calendar' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
       <div className="cal">{'SMTWTFS'.split('').map((d, i) => <b key={i} style={{ textAlign: 'center' }}>{d}</b>)}{cells.map(d => <div key={d} className="cell" onClick={() => setDay(d)} style={{ cursor: 'pointer', ...(d === today() ? { borderColor: 'var(--gold)' } : {}) }}><span className="mut">{+d.slice(8)}</span>{items.filter(i => d >= i.s && d <= i.e).map((i, n) => <span key={n} className="chip" style={{ background: i.c }} onClick={e => { e.stopPropagation(); i.bid ? openBooking(i.bid) : i.dc ? go('drycleaning') : blockInfo(i.kid) }}>{i.label}</span>)}</div>)}</div>
       <p className="mut" style={{ fontSize: 12 }}>Click a booking for full details. Click a date for everything on that day. {Object.entries(COL).map(([k, c]: any) => <span key={k} style={{ color: c, marginRight: 12 }}>■ {k}</span>)}</p></>}
@@ -204,6 +206,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {tab === 'reports' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <RevenueReport ctx={ctx} />
       <div><button className="btn alt" onClick={csv}>Export all bookings (CSV)</button> <span className="mut" style={{ fontSize: 13 }}>Cancellation rate {B.length ? Math.round(100 * B.filter(F.cancelled).length / B.length) : 0}%</span></div>
+      <StaffAdmin ctx={ctx} />
       {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), tryon_daily_limit: +(f.get('t') as string) }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
         <h3>Settings</h3><div className="flt" style={{ justifyContent: 'flex-start' }}><label style={{ margin: 0 }}>Cleaning and preparation days after each return<input name="b" type="number" min="0" max="7" defaultValue={st.buffer_days} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Booking advance: % of rent<input name="a" type="number" min="0" max="100" defaultValue={st.advance_pct} style={{ display: 'block' }} /></label>
