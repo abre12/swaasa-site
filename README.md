@@ -124,3 +124,31 @@ The five categories group the inventory categories: Lehenga = LEHENGAS; Wedding 
 ## Home page
 - The brand mark with "SWAASA RENTALS" sits at the bottom right of the video after the opening logo card.
 - The colour filter is one line of small swatches (labels are hidden on phones; touch and hold or tap to select).
+
+---
+
+# Version 5 changes
+
+## Upgrade order
+1. Supabase > SQL Editor > run `supabase/migration-v5.sql` (after `migration-v4.sql`). Safe to run again.
+2. Then upload the new website files and deploy.
+Bookings made before the upgrade keep the deposit they were made with. Only new bookings use the new deposit rule.
+
+## Refundable deposit (replaces the booking advance)
+- The refundable deposit is worked out for every booking: the **higher of 50% of the rent (after any discount) or ₹1,000**. Both numbers are in Reports and Settings under "Refundable deposit". The fixed deposit per dress is no longer used and is gone from the dress form.
+- "Advance to confirm" is gone. At booking, staff see the refundable deposit, enter the amount received, and the screen splits it: the deposit is filled first and anything above it counts as rent paid. The amount received must be at least the deposit.
+- **Mark as delivered** now shows the deposit already paid (and asks for it only if some is still unpaid, for example on an online booking) and asks for **Advance on rent collected now**. It is recorded as a rent payment.
+- **Payment record** (new button next to Payment, and a link in the cash counter): Rent Amount, Deposit Paid, Rent Paid and Balance to be Refunded, then every payment with its date, time, mode, amount and who entered it.
+
+## Manager profile
+- Overview: the bookings-per-month chart is shown to the owner only.
+- Dry Cleaning: managers get a searchable list of dresses (last washed, standard charge, Send for cleaning). The "rentals since last wash" list is owner only.
+- Customer Management: managers see only customers with a booking in the current month or next month.
+- Daily Cash Counter: managers can open the current month only.
+
+## Cash in hand, tally and petty cash (Daily Cash Counter)
+- **Cash in hand** = opening cash (brought forward) + cash received − cash refunds − petty cash. Only payments with the mode Cash count.
+- **Tally cash (end of day)**: count the drawer and enter the amount. The counted amount becomes the next day's opening cash, and any difference is shown. Until a day is tallied, the expected figure carries forward.
+- **Petty cash expense**: amount and a remark saying what it was for. Added for today only and never edited afterwards.
+- The Excel export now includes the cash-in-hand figures.
+- The month limit for managers is enforced by the database for cash in hand, petty cash and tallies. The payment list itself is limited on screen only, because the same payment records are needed elsewhere (a booking's payments, the payment record).

@@ -11,6 +11,7 @@ import StaffAdmin from './admin/StaffAdmin'
 import CashCounter from './admin/CashCounter'
 import Performance from './admin/Performance'
 import BookingModal from './admin/BookingModal'
+import PaymentRecord from './admin/PaymentRecord'
 const today = todayIST
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
@@ -35,7 +36,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
   const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
-  const [tags, setTags] = useState<string[]>([]); const [st, setSt] = useState<any>(null)
+  const [tags, setTags] = useState<string[]>([]); const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
   const load = useCallback(async () => {
     if (ops) {
       const [b, k, d, s, dc, sf] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }), sb.from('staff').select('user_id,name,role,active,email').order('name')])
@@ -67,12 +68,20 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind, mode: v.mode }); say(error ? error.message : `${inr(a)} recorded`); load()
   }
   async function pickup(b: any) {
-    const due = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
-    const v = await ask('Mark as delivered', [{ name: 'dep', label: `Security deposit collected now (₹). Deposit is ${inr(b.deposit)}`, type: 'number', value: String(due), required: due > 0 }, { name: 'mode', label: 'Payment mode', options: PAY_MODES, required: due > 0 }],
-      { ok: 'Confirm delivery', note: owing > 0 ? `Rent balance still unpaid: ${inr(owing)}. Use the Payment button to record it.` : undefined }); if (!v) return
-    const d = +(v.dep || 0); if (due > 0 && d <= 0) return say('Please enter the deposit collected.')
-    if (d > 0) { const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: d, kind: 'deposit', mode: v.mode }); if (error) return say(error.message) }
-    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}`)
+    const depPending = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
+    const fields: Fld[] = []
+    if (depPending > 0) fields.push({ name: 'dep', label: `Refundable deposit still to collect (₹). Deposit ${inr(b.deposit)}, already paid ${inr(b.deposit_held)}`, type: 'number', value: String(depPending), required: true })
+    fields.push({ name: 'adv', label: `Advance on rent collected now (₹). Rent balance due ${inr(owing)}`, type: 'number', value: '0' }, { name: 'mode', label: 'Payment mode for the amount collected now', options: PAY_MODES })
+    const v = await ask('Mark as delivered', fields, { ok: 'Confirm delivery', note: `Refundable deposit ${inr(b.deposit)}: already paid ${inr(b.deposit_held)}${depPending ? `, still to collect ${inr(depPending)}` : ' (nothing more to collect)'}. Rent ${inr(b.rent + b.charges)}: paid ${inr(b.paid)}, balance ${inr(owing)}. Enter only what you collect now; it is recorded as an advance on the rent.` }); if (!v) return
+    const d = depPending > 0 ? +(v.dep || 0) : 0, adv = +(v.adv || 0)
+    if (depPending > 0 && d !== depPending) return say(`Collect the full refundable deposit of ${inr(depPending)} before delivery.`)
+    if (adv < 0) return say('Enter a valid amount.')
+    if (adv > owing) return say(`The rent balance is only ${inr(owing)}. Enter that amount or less.`)
+    const rows: any[] = []
+    if (d > 0) rows.push({ booking_id: b.id, amount: d, kind: 'deposit', mode: v.mode })
+    if (adv > 0) rows.push({ booking_id: b.id, amount: adv, kind: 'rent', mode: v.mode })
+    if (rows.length) { const { error } = await sb.from('payments').insert(rows); if (error) return say(error.message) }
+    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Advance on rent ${inr(adv)} collected (${v.mode})` : ''}`)
   }
   async function ret(b: any) {
     const late = b.end_date < today() ? Math.max(0, nDays(b.end_date, today()) - 1) : 0, lateFee = late * (+dmap[b.dress_id]?.extra_day_fee || 0), owing = Math.max(0, b.rent + b.charges - b.paid)
@@ -114,7 +123,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     e.preventDefault(); const form = e.currentTarget, f = new FormData(form), imgs: string[] = []
     for (const file of f.getAll('photos') as File[]) { if (!file.size) continue; const path = `${Date.now()}-${file.name.replace(/\W/g, '_')}`; const up = await sb.storage.from('dress-images').upload(path, file); if (!up.error) imgs.push(sb.storage.from('dress-images').getPublicUrl(path).data.publicUrl) }
     const g = (k: string) => String(f.get(k) || '').trim()
-    const body = { code: g('code'), name: g('name'), category: g('category'), colour: g('colour') || tags.join(', '), colour_tags: tags, acquired_on: g('acquired') || null, dry_clean_charge: +g('dcc') || 0, sizes: g('sizes').split(',').map(x => x.trim()).filter(Boolean), price: +g('price'), deposit: +g('deposit'), included_days: +g('days') || 3, extra_day_fee: +g('extra'), description: g('description') }
+    const body = { code: g('code'), name: g('name'), category: g('category'), colour: g('colour') || tags.join(', '), colour_tags: tags, acquired_on: g('acquired') || null, dry_clean_charge: +g('dcc') || 0, sizes: g('sizes').split(',').map(x => x.trim()).filter(Boolean), price: +g('price'), included_days: +g('days') || 3, extra_day_fee: +g('extra'), description: g('description') }
     const images = [...(ed?.images || []), ...imgs]
     const { error } = ed ? await sb.from('dresses').update({ ...body, images, try_on_image: ed.try_on_image || images[0] || null }).eq('id', ed.id)
       : await sb.from('dresses').insert({ ...body, images: imgs, try_on_image: imgs[0] || null })
@@ -134,8 +143,8 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     if (!(await askYes('Cancel this booking?', 'The dress becomes available again for those dates.', 'Yes, cancel'))) return
     if (!(await patch(b, { status: 'cancelled' }, 'Cancelled'))) return
     if (b.paid > 0 || b.deposit_held > 0) {
-      const v = await ask('Refund to the customer', [{ name: 'a', label: `Advance to refund (₹). Received so far ${inr(b.paid)}. Enter 0 to keep it.`, type: 'number', value: '0' }, { name: 'm', label: 'Refund mode', options: PAY_MODES, value: 'Cash' }],
-        { ok: 'Record refund', note: b.deposit_held > 0 ? `The security deposit of ${inr(b.deposit_held)} is returned in full.` : undefined }); if (!v) return say('Cancelled. No refund was recorded.')
+      const v = await ask('Refund to the customer', [{ name: 'a', label: `Rent paid to refund (₹). Received so far ${inr(b.paid)}. Enter 0 to keep it.`, type: 'number', value: '0' }, { name: 'm', label: 'Refund mode', options: PAY_MODES, value: 'Cash' }],
+        { ok: 'Record refund', note: b.deposit_held > 0 ? `The refundable deposit of ${inr(b.deposit_held)} is returned in full.` : undefined }); if (!v) return say('Cancelled. No refund was recorded.')
       const a = Math.min(+(v.a || 0), b.paid), rows: any[] = []
       if (a > 0) rows.push({ booking_id: b.id, amount: a, kind: 'rent_refund', mode: v.m }); if (b.deposit_held > 0) rows.push({ booking_id: b.id, amount: b.deposit_held, kind: 'deposit_refund', mode: v.m })
       if (rows.length) { const { error } = await sb.from('payments').insert(rows); say(error ? error.message : `Refund recorded: ${inr(rows.reduce((t, r) => t + r.amount, 0))}`); load() }
@@ -145,11 +154,12 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Mark delivered</button>}
     {b.status === 'out' && <button className="btn sm" onClick={() => ret(b)}>Return</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
+    <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
     {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (o.flt) setFlt(o.flt); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => id ? (STAFF.find(s => s.user_id === id)?.name || 'Staff') : null
-  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, go }
+  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go }
   const F: any = { all: () => true, created_today: (b: any) => b.status !== 'cancelled' && istDate(b.created_at) === today(), pending: (b: any) => b.status === 'pending', upcoming: (b: any) => b.status === 'confirmed' && b.start_date >= today(), out: (b: any) => b.status === 'out', overdue: (b: any) => state(b) === 'overdue', owing: (b: any) => b.status !== 'cancelled' && b.rent + b.charges - b.paid > 0, alterations: (b: any) => b.status !== 'cancelled' && !!b.alteration_notes, done: (b: any) => b.status === 'returned', cancelled: (b: any) => b.status === 'cancelled' }
   const FL: any = { all: 'All bookings', created_today: 'Made today', pending: 'Awaiting confirmation', upcoming: 'Upcoming deliveries', out: 'Currently rented', overdue: 'Overdue returns', owing: 'Balance due', alterations: 'With alteration notes', done: 'Completed', cancelled: 'Cancelled' }
   const live = B.filter(b => b.status !== 'cancelled')
@@ -160,7 +170,9 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   async function csv() { const q = (v: any) => '"' + String(v ?? '').replace(/"/g, '""') + '"'; const rows = [['ID', 'Dress', 'Customer', 'Phone', 'Delivery', 'Return', 'Rent', 'Received', 'Status'], ...B.map(b => [b.id, b.dress_code, b.customer_name, b.phone, b.start_date, b.end_date, b.rent, b.paid, b.status])]
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(',')).join('\n')])); a.download = 'bookings.csv'; a.click() }
   const ob = openB && (ops ? B.find(x => x.id === openB.id) : openB.row)
-  const custs = Object.values(B.reduce((m: any, b) => { const k = b.phone.replace(/\D/g, '').slice(-10); const c = (m[k] ??= { n: b.customer_name, p: b.phone, e: b.email, c: 0, s: 0, last: '' }); c.c++; if (b.status !== 'cancelled') c.s += b.rent; if (b.start_date > c.last) c.last = b.start_date; return m }, {})) as any[]
+  const mStart = today().slice(0, 7) + '-01', nEnd = (() => { const d = new Date(mStart + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 2); d.setUTCDate(0); return d.toISOString().slice(0, 10) })()
+  const custB = owner ? B : B.filter(b => b.status !== 'cancelled' && b.start_date <= nEnd && b.end_date >= mStart)   // manager: this month and next month only
+  const custs = Object.values(custB.reduce((m: any, b) => { const k = b.phone.replace(/\D/g, '').slice(-10); const c = (m[k] ??= { n: b.customer_name, p: b.phone, e: b.email, c: 0, s: 0, last: '' }); c.c++; if (b.status !== 'cancelled') c.s += b.rent; if (b.start_date > c.last) c.last = b.start_date; return m }, {})) as any[]
   const [cq, setCq] = useState('')
   const title = NAV.find(n => n[0] === tab)?.[1] || ''
   return (<div className="adm"><style>{CSS}</style>
@@ -191,7 +203,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
         {ed && <p className="mut" style={{ fontSize: 12 }}>Changing the code or any detail updates it everywhere. Existing bookings stay linked to this dress.</p>}
         <div className="flt" style={{ justifyContent: 'flex-start' }}>{([['code', 'Code *', ed?.code, 'text', true], ['name', 'Name *', ed?.name, 'text', true]] as any[]).map(([n, l, v, t, r]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={r} style={{ display: 'block' }} /></label>)}
           <label style={{ margin: 0 }}>Category<select name="category" defaultValue={ed?.category || CATS[0]} style={{ display: 'block' }}>{CATS.map(c => <option key={c} value={c}>{c} → {mainCatOf(c)}</option>)}</select></label>
-          {([['colour', 'Colour (words, optional)', ed?.colour, 'text'], ['sizes', 'Sizes (S, M, L)', ed?.sizes?.join(', '), 'text'], ['price', 'Rent ₹', ed?.price, 'number'], ['deposit', 'Deposit ₹', ed?.deposit, 'number'], ['days', 'Included days', ed?.included_days, 'number'], ['extra', 'Extra day ₹', ed?.extra_day_fee, 'number'], ['dcc', 'Dry-cleaning charge per wash (₹)', ed?.dry_clean_charge, 'number'], ['acquired', 'Acquired on (optional)', ed?.acquired_on, 'date'], ['description', 'Description', ed?.description, 'text']] as any[]).map(([n, l, v, t]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={n === 'price'} style={{ display: 'block' }} /></label>)}
+          {([['colour', 'Colour (words, optional)', ed?.colour, 'text'], ['sizes', 'Sizes (S, M, L)', ed?.sizes?.join(', '), 'text'], ['price', 'Rent ₹', ed?.price, 'number'], ['days', 'Included days', ed?.included_days, 'number'], ['extra', 'Extra day ₹', ed?.extra_day_fee, 'number'], ['dcc', 'Dry-cleaning charge per wash (₹)', ed?.dry_clean_charge, 'number'], ['acquired', 'Acquired on (optional)', ed?.acquired_on, 'date'], ['description', 'Description', ed?.description, 'text']] as any[]).map(([n, l, v, t]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={n === 'price'} style={{ display: 'block' }} /></label>)}
           <label style={{ margin: 0 }}>{ed ? 'Add more photos' : 'Photos'}<input name="photos" type="file" accept="image/*" multiple style={{ display: 'block' }} /></label></div>
         <div style={{ margin: '10px 0' }}><b style={{ fontSize: 13 }}>Colour tags (used by the customer colour filter)</b>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '6px 0' }}>{COLOURS.map(c => <button type="button" key={c.label} className={'tagchip' + (tags.includes(c.label) ? ' on' : '')} onClick={() => setTags(tags.includes(c.label) ? tags.filter(x => x !== c.label) : [...tags, c.label])}><i style={{ width: 14, height: 14, background: c.css, border: '1px solid #8886', display: 'inline-block' }} />{c.label}</button>)}</div>
@@ -202,6 +214,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
         <button className="btn">{ed ? 'Save changes' : 'Save dress'}</button>{ed && <button type="button" className="btn alt" style={{ marginLeft: 8 }} onClick={() => setEd(null)}>Cancel</button>}</form>}
       <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Colours</th><th>Rent</th><th>Wash ₹</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td style={{ whiteSpace: 'normal' }}>{d.category}<div className="mut" style={{ fontSize: 11 }}>{mainCatOf(d.category)}</div></td><td style={{ whiteSpace: 'normal' }}>{(d.colour_tags || []).join(', ') || <span className="mut">none</span>}</td><td>{inr(d.price)}</td><td>{inr(d.dry_clean_charge || 0)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
     {tab === 'customers' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Search name or phone" value={cq} onChange={e => setCq(e.target.value)} /></div>
+      {!owner && <p className="mut" style={{ fontSize: 13 }}>Showing customers with bookings from {dmy(mStart)} to {dmy(nEnd)} (this month and next month).</p>}
       <div className="scroll"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Bookings</th><th>Rental value</th><th>Last delivery</th></tr></thead><tbody>{custs.filter(c => !cq || (c.n + c.p).toLowerCase().includes(cq.toLowerCase())).sort((a, b) => b.last.localeCompare(a.last)).map(c => <tr key={c.p}><td>{c.n}</td><td><a href={'tel:' + c.p}>{c.p}</a></td><td>{c.e}</td><td>{c.c}</td><td>{inr(c.s)}</td><td>{dmy(c.last)}</td></tr>)}</tbody></table></div></>}
     {tab === 'reports' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <RevenueReport ctx={ctx} />
@@ -209,12 +222,13 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       <StaffAdmin ctx={ctx} />
       {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), tryon_daily_limit: +(f.get('t') as string) }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
         <h3>Settings</h3><div className="flt" style={{ justifyContent: 'flex-start' }}><label style={{ margin: 0 }}>Cleaning and preparation days after each return<input name="b" type="number" min="0" max="7" defaultValue={st.buffer_days} style={{ display: 'block' }} /></label>
-          <label style={{ margin: 0 }}>Booking advance: % of rent<input name="a" type="number" min="0" max="100" defaultValue={st.advance_pct} style={{ display: 'block' }} /></label>
-          <label style={{ margin: 0 }}>Booking advance: minimum ₹ (the higher of the two applies)<input name="m" type="number" min="0" defaultValue={st.advance_min ?? 1000} style={{ display: 'block' }} /></label>
+          <label style={{ margin: 0 }}>Refundable deposit: % of rent<input name="a" type="number" min="0" max="100" defaultValue={st.advance_pct} style={{ display: 'block' }} /></label>
+          <label style={{ margin: 0 }}>Refundable deposit: minimum ₹ (the higher of the two applies)<input name="m" type="number" min="0" defaultValue={st.advance_min ?? 1000} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Virtual try-on per visitor per day<input name="t" type="number" min="0" defaultValue={st.tryon_daily_limit} style={{ display: 'block' }} /></label></div>
         <p className="mut" style={{ fontSize: 12 }}>A changed cleaning period applies to new bookings. Bookings already made keep the gap they were made with.</p><button className="btn">Save settings</button></form>}</div>}
     </main>
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
+    {payB && B.find(x => x.id === payB) && <PaymentRecord key={payB} ctx={ctx} b={B.find(x => x.id === payB)} onClose={() => setPayB(null)} />}
     {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 80, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
       <form className="box" style={{ background: 'var(--bg)', maxWidth: 440, width: '100%' }} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget), v: Record<string, string> = {}; dlg.fields.forEach((x: Fld) => { v[x.name] = String(f.get(x.name) ?? '') }); const r = dlg.res; setDlg(null); r(v) }}>
         <h3>{dlg.title}</h3>{dlg.note && <p className="mut">{dlg.note}</p>}

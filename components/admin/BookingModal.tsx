@@ -53,7 +53,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
           {b.late_fee > 0 && row('Late-return fee', inr(b.late_fee))}{b.damage_charge > 0 && row('Damage / repair charge', inr(b.damage_charge))}
           {b.charges - b.late_fee - b.damage_charge > 0 && row('Other charges', inr(b.charges - b.late_fee - b.damage_charge))}
           {row('Received so far', inr(b.paid))}<div className="row"><b>{due >= 0 ? 'Balance due' : 'Overpaid'}</b><b>{inr(Math.abs(due))}</b></div>
-          {row('Security deposit held', `${inr(b.deposit_held)} of ${inr(b.deposit)}`)}</div>
+          {row('Refundable deposit held', `${inr(b.deposit_held)} of ${inr(b.deposit)}`)}</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>{ctx.sel(b)}</div>
         {!!b.log?.length && <details style={{ marginTop: 12 }}><summary className="mut" style={{ cursor: 'pointer' }}>History</summary>
           {b.log.slice().reverse().map((l: any, i: number) => <div key={i} className="mut" style={{ fontSize: 12, padding: '2px 0' }}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}</>}

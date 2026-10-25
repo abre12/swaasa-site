@@ -63,7 +63,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
         {!follow.length && <p className="ok" style={{ margin: 0 }}>Nothing to chase. Every dress due out this week is in the shop.</p>}</div>
       <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>ALTERATIONS TO COMPLETE</h3><PrepBoard ctx={ctx} compact /></div>
     </div>
-    <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>
+    {ctx.owner && <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>}
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>

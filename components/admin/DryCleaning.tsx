@@ -1,10 +1,12 @@
 'use client'
+import { useState } from 'react'
 import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
 const ERR = (m: string) => m.includes('CLEAN_CONFLICT') ? 'This dress is booked, or with a customer, during those dates. Choose an earlier return date, or move the booking first.' : m.includes('ALREADY_CLEANING') ? 'This dress is already out for dry cleaning.' : m
 const retDate = (b: any) => b.returned_at ? istDate(b.returned_at) : b.end_date
 // Every time a dress goes for dry cleaning is recorded here. While it is away it cannot be booked and it shows on the calendar.
 export default function DryCleaning({ ctx }: { ctx: any }) {
   const today = todayIST(); const DC: any[] = ctx.DC, owner = ctx.owner
+  const [q, setQ] = useState('')
   const away = DC.filter(c => !c.returned_on)
   async function send(pre?: any) {
     const eligible = ctx.D.filter((d: any) => !['archived', 'retired'].includes(d.status) && !away.some(c => c.dress_id === d.id))
@@ -43,11 +45,21 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
         {away.map(c => { const late = c.expected_back < today; return <tr key={c.id} style={late ? { background: '#b4493f14' } : undefined}><td>{cell(c.dress_id)}</td><td>{dmy(c.sent_on)}</td><td>{dmy(c.expected_back)}{late && <div className="bad"><b>OVERDUE</b></div>}</td><td>{inr(c.charge)}</td><td style={{ whiteSpace: 'normal', minWidth: 140 }}>{c.notes || '–'}</td>
           <td style={{ whiteSpace: 'normal' }}><button className="btn sm" onClick={() => back(c)}>Mark back</button> <button className="btn alt sm" onClick={() => edit(c)}>Change</button>{owner && <> <button className="btn alt sm" onClick={() => remove(c)}>Remove</button></>}</td></tr> })}
         {!away.length && <tr><td colSpan={6} className="mut">No dress is out for dry cleaning.</td></tr>}</tbody></table></div></div>
+    {owner ? (
     <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>RENTALS SINCE LAST WASH</h3>
       <p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>Completed rentals since the dress was last sent for dry cleaning. Dresses with 2 or more are highlighted.</p>
       <div className="scroll"><table><thead><tr><th>Dress</th><th>Last washed</th><th>Rentals since</th><th>Standard charge</th><th></th></tr></thead><tbody>
         {need.map(({ d, last, since, away: aw }: any) => <tr key={d.id} style={since >= 3 ? { background: '#b4493f14' } : since === 2 ? { background: '#c58a2b14' } : undefined}><td>{cell(d.id)}</td><td>{last ? dmy(last.returned_on || last.sent_on) : <span className="mut">Never</span>}</td><td><b>{since}</b></td><td>{inr(d.dry_clean_charge || 0)}</td>
           <td>{aw ? <span className="mut">Away now</span> : <button className="btn alt sm" onClick={() => send(d)}>Send for cleaning</button>}</td></tr>)}</tbody></table></div></div>
+    ) : (
+    <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>DRESSES</h3>
+      <p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>Search by dress code or name. Use "Send for cleaning" to record a wash.</p>
+      <input placeholder="Search dress code or name" value={q} onChange={e => setQ(e.target.value)} style={{ maxWidth: 320, marginBottom: 8 }} />
+      <div className="scroll"><table><thead><tr><th>Dress</th><th>Last washed</th><th>Standard charge</th><th></th></tr></thead><tbody>
+        {need.filter(({ d }: any) => !q.trim() || `${d.code} ${d.name}`.toLowerCase().includes(q.trim().toLowerCase())).sort((a: any, b: any) => a.d.code.localeCompare(b.d.code)).map(({ d, last, away: aw }: any) => <tr key={d.id}><td>{cell(d.id)}</td><td>{last ? dmy(last.returned_on || last.sent_on) : <span className="mut">Never</span>}</td><td>{inr(d.dry_clean_charge || 0)}</td>
+          <td>{aw ? <span className="mut">Away now</span> : <button className="btn alt sm" onClick={() => send(d)}>Send for cleaning</button>}</td></tr>)}
+        {!need.length && <tr><td colSpan={4} className="mut">No dresses found.</td></tr>}</tbody></table></div></div>
+    )}
     <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>DRY CLEANING HISTORY</h3><p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>{DC.length} wash{DC.length === 1 ? '' : 'es'} recorded · total cost {inr(total)}</p>
       <div className="scroll"><table><thead><tr><th>Dress</th><th>Sent</th><th>Back</th><th>Charge</th><th>Notes</th></tr></thead><tbody>
         {DC.slice(0, 150).map(c => <tr key={c.id}><td>{cell(c.dress_id)}</td><td>{dmy(c.sent_on)}</td><td>{c.returned_on ? dmy(c.returned_on) : <span className="mut">away</span>}</td><td>{inr(c.charge)}</td><td style={{ whiteSpace: 'normal' }}>{c.notes || '–'}</td></tr>)}

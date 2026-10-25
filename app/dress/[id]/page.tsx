@@ -21,7 +21,6 @@ export default async function DressPage({ params, searchParams }: { params: { id
       <p className="mut">Colour: {d.colour} · Sizes: {d.sizes?.join(', ')}<br />Alterations: {d.alterations || 'On request'}</p>
       <div className="row"><span>Rental ({d.included_days} days)</span><b>{inr(d.price)}</b></div>
       <div className="row"><span>Extra day</span><span>{inr(d.extra_day_fee)}</span></div>
-      <div className="row"><span>Refundable deposit</span><span>{inr(d.deposit)}</span></div>
       <p className="mut" style={{ fontSize: 12 }}>{d.policy || 'Cleaning included. Damage beyond normal wear is charged at repair cost.'}</p>
       <Booking dress={d} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} staff={st?.role ?? null} initialFrom={searchParams.from} initialTo={searchParams.to} /></div></div></section>)
 }
