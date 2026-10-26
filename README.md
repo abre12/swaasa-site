@@ -152,3 +152,22 @@ Bookings made before the upgrade keep the deposit they were made with. Only new 
 - **Petty cash expense**: amount and a remark saying what it was for. Added for today only and never edited afterwards.
 - The Excel export now includes the cash-in-hand figures.
 - The month limit for managers is enforced by the database for cash in hand, petty cash and tallies. The payment list itself is limited on screen only, because the same payment records are needed elsewhere (a booking's payments, the payment record).
+
+---
+
+# Version 6 changes
+
+## Upgrade order
+1. Supabase > SQL Editor > run `supabase/migration-v6.sql` (after `migration-v5.sql`). Safe to run again.
+2. Supabase > Authentication > Sign In / Providers > switch OFF "Allow new users to sign up". (Staff logins are created by the owner inside the site, which still works.)
+3. Upload the new website files and deploy.
+4. Sign in as the owner > Dress Inventory > press **Make photos load faster** once. It makes small copies of the photos already uploaded.
+
+## What changed
+- **Private site:** every page needs a staff login. Customers can no longer browse or book online; the site is a staff tool. The database also refuses to return anything to a visitor who is not signed in as staff.
+- **Customization charge:** added when taking the booking (or later with the Customization button). It is collected in addition to the rental and is part of every balance.
+- **Rent before delivery and return:** the refundable deposit is collected first; anything above it counts as rent paid; the rest of the rent is collected at delivery. A booking cannot be delivered or returned until the rental amount (plus customization) has been received. If staff cannot collect all of it, they send a request to the owner (dashboard card "Needs your approval"). The owner approves or declines. The owner can accept a shortfall directly.
+- **Discount after booking:** the owner can give a discount on an open booking. It lowers the rent owed; the refundable deposit stays the same.
+- **Delete staff:** Reports and Settings > Staff logins > Delete. The person can never sign in again; everything they did stays on record under their name, shown as "(removed)".
+- **Speed:** every uploaded photo is stored as thumbnail, medium and original. Catalogue cards and the dress page load the small sizes; the original loads only when a photo is clicked for full screen. The admin stops refreshing while its tab is hidden.
+- **Vercel function region:** set Vercel > Settings > Functions > Function Region to the region closest to your Supabase project (Supabase > Project Settings > General shows it, for example Mumbai = bom1). A mismatch (for example Washington DC and Mumbai) makes every page slow.

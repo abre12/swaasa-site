@@ -30,7 +30,7 @@ function Chart({ B }: { B: any[] }) {
     <p className="mut" style={{ fontSize: 12, margin: '2px 0 0' }}>Cancelled bookings are not counted. The dashed bar is the current month, still in progress.</p>
   </div>)
 }
-type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret'
+type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret' | 'appr'
 export default function Dashboard({ ctx }: { ctx: any }) {
   const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), buf = ctx.buf
   const [pop, setPop] = useState<Pop>(null)
@@ -39,14 +39,20 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const retToday = B.filter(b => b.end_date === today && ['out', 'returned'].includes(b.status))
   const odDel = B.filter(b => b.status === 'confirmed' && b.start_date < today), odRet = B.filter(b => b.status === 'out' && b.end_date < today)
   const pdel = B.filter(b => b.status === 'confirmed' && b.start_date <= in7), pret = B.filter(b => b.status === 'out')
+  const pending = (ctx.APPR || []).filter((a: any) => a.status === 'pending')
+  const decide = async (a: any, yes: boolean) => {
+    const v = await ctx.ask(yes ? 'Approve the shortfall?' : 'Decline the shortfall?', [{ name: 'n', label: 'Note for the team (optional)' }], { ok: yes ? 'Approve' : 'Decline', note: `${yes ? 'The booking can then be delivered or returned' : 'The team must collect the balance'} with ${inr(a.shortfall)} unpaid.` }); if (!v) return
+    const { error } = await ctx.sb.rpc('decide_approval', { p_id: a.id, p_approve: yes, p_note: v.n }); ctx.say(error ? 'Could not save your decision.' : yes ? 'Approved' : 'Declined'); ctx.load()
+  }
   const cards: [Pop, string, number, string, boolean][] = [
     ['made', "Today's Bookings", made.length, 'made today', false], ['del', "Today's Delivery", delToday.length, 'to hand over today', false], ['ret', "Today's Return", retToday.length, 'due back today', false],
     ['over', 'Overdue', odDel.length + odRet.length, `${odDel.length} deliveries · ${odRet.length} returns`, odDel.length + odRet.length > 0],
-    ['pdel', 'Pending Delivery', pdel.length, 'next 7 days', false], ['pret', 'Pending Returns', pret.length, 'out with customers', odRet.length > 0]]
+    ['pdel', 'Pending Delivery', pdel.length, 'next 7 days', false], ['pret', 'Pending Returns', pret.length, 'out with customers', odRet.length > 0],
+    ['appr', ctx.owner ? 'Needs your approval' : 'Approval requests', pending.length, ctx.owner ? 'rental amount short' : 'waiting for the owner', ctx.owner && pending.length > 0]]
   // Follow-up: a dress that is out with a customer but is already booked for someone else soon.
   const follow = pdel.map(n => { const c = B.find(x => x.dress_id === n.dress_id && x.status === 'out' && x.id !== n.id); if (!c) return null
     const over = c.end_date < today, tight = !over && c.end_date >= addD(n.start_date, -(buf + 1)); return { n, c, over, tight } }).filter(Boolean).sort((a: any, b: any) => (+b.over - +a.over) || (+b.tight - +a.tight) || a.n.start_date.localeCompare(b.n.start_date)) as any[]
-  const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers' }
+  const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers', appr: ctx.owner ? 'Shortfalls waiting for your approval' : 'Shortfall requests' }
   const dl = (f: string) => <PendingDeliveries ctx={ctx} filter={f} />, rt = (f: string) => <PendingReturns ctx={ctx} filter={f} />
   return (<div style={{ display: 'grid', gap: 18 }}>
     <div className="adm-cards">{cards.map(([k, l, n, sub, red]) => <button key={k} onClick={() => setPop(k)} className="stat-card" style={red ? { borderColor: 'var(--bad)' } : undefined}>
@@ -74,6 +80,13 @@ export default function Dashboard({ ctx }: { ctx: any }) {
           {pop === 'del' && dl('today-del')}{pop === 'ret' && rt('today-ret')}
           {pop === 'over' && <>{<div><b>Overdue deliveries ({odDel.length})</b>{dl('overdue')}</div>}{<div><b>Overdue returns ({odRet.length})</b>{rt('overdue')}</div>}</>}
           {pop === 'pdel' && dl('next7')}{pop === 'pret' && rt('all')}
+          {pop === 'appr' && <div className="scroll"><table><thead><tr><th>Booking</th><th>Customer</th><th>Rental amount</th><th>Received</th><th>Short by</th><th>Reason</th><th>Asked by</th><th>Status</th><th></th></tr></thead><tbody>
+            {(ctx.APPR || []).filter((a: any) => a.status === 'pending' || a.decided_at > new Date(Date.now() - 7 * 864e5).toISOString()).map((a: any) => { const b = B.find(x => x.id === a.booking_id); return <tr key={a.id}>
+              <td><a href="#" onClick={e => { e.preventDefault(); ctx.openBooking(a.booking_id) }}>{a.booking_id}</a><div className="mut" style={{ fontSize: 12 }}>{b?.dress_code}</div></td><td>{b?.customer_name}</td><td>{b ? inr(b.rent + (b.custom_charge || 0)) : '–'}</td><td>{b ? inr(b.paid) : '–'}</td><td><b className="bad">{inr(a.shortfall)}</b></td>
+              <td style={{ whiteSpace: 'normal', minWidth: 160 }}>{a.reason || '–'}</td><td>{ctx.staffName(a.requested_by) || 'staff'}<div className="mut" style={{ fontSize: 12 }}>{dmy(istDate(a.requested_at))}</div></td>
+              <td style={{ color: a.status === 'approved' ? 'var(--ok)' : a.status === 'rejected' ? 'var(--bad)' : '#c58a2b' }}>{a.status}</td>
+              <td style={{ whiteSpace: 'normal' }}>{ctx.owner && a.status === 'pending' && <><button className="btn sm" onClick={() => decide(a, true)}>Approve</button> <button className="btn alt sm" onClick={() => decide(a, false)}>Decline</button></>}</td></tr> })}
+            {!(ctx.APPR || []).length && <tr><td colSpan={9} className="mut">No requests.</td></tr>}</tbody></table></div>}
         </div></div></div>}
   </div>)
 }

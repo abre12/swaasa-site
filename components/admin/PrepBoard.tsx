@@ -17,7 +17,7 @@ export default function PrepBoard({ ctx, compact }: { ctx: any; compact?: boolea
     <p className="mut" style={{ fontSize: 13, margin: '0 0 8px' }}>Deliveries up to {dmy(addD(today, 7))} that need stitching or fitting. {open.length ? <b className={open.some(late) ? 'bad' : ''}>{open.length} still to do.</b> : <b className="ok">All done.</b>}</p>
     {err && <p className="bad">{err}</p>}
     {[...open, ...done].map(r => <div key={r.id} onClick={() => ctx.openBooking(r.id, r)} style={{ display: 'flex', gap: 10, padding: '8px 10px', border: `1px solid ${late(r) ? 'var(--bad)' : soon(r) ? '#c58a2b' : 'var(--line)'}`, background: late(r) ? '#b4493f14' : soon(r) ? '#c58a2b14' : 'transparent', cursor: 'pointer', marginBottom: 6, opacity: r.prep_status === 'ready' ? 0.6 : 1 }}>
-      {ctx.thumb({ images: r.image ? [r.image] : [] }, 40, 52)}
+      {ctx.thumb(ctx.dmap[r.dress_id] || { images: r.image ? [r.image] : [] }, 40, 52)}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}><b>{dmy(r.start_date)}{r.start_date === today ? ' · TODAY' : r.start_date === tomorrow ? ' · TOMORROW' : ''}</b>
           <span>{r.dress_code} · {r.dress_name}</span><span className="mut" style={{ fontSize: 13 }}>{r.customer_name} · {r.id}</span>

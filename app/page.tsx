@@ -24,7 +24,7 @@ const CSS = `.band{background:#000;color:#f4ecdc;padding:14px 16px 34px}.band .i
 export default async function Home({ searchParams }: { searchParams: P }) {
   const sb = supaServer(); const { q, cat, colour, sort, max, from, to } = searchParams
   const main = MAIN_CATS.find(m => m.key === cat), okDates = !!(from && to && to >= from)
-  let query = sb.from('dresses').select('id,code,name,category,price,images,status,colour_tags').in('status', ['available', 'maintenance'])
+  let query = sb.from('dresses').select('id,code,name,category,price,images,thumbs,status,colour_tags').in('status', ['available', 'maintenance'])
   if (main) query = query.in('category', main.subs)
   if (colour && COLOURS.some(c => c.label === colour)) query = query.contains('colour_tags', [colour])
   if (max && +max > 0) query = query.lte('price', +max)
@@ -48,8 +48,8 @@ export default async function Home({ searchParams }: { searchParams: P }) {
         <label className="mut" style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}>to<input name="to" type="date" defaultValue={to} /></label>
         <button className="btn sm">Apply</button></form>
       <div className="cnt"><b>{dresses?.length || 0} dress{dresses?.length === 1 ? '' : 'es'} {any ? 'match your filters' : 'in the collection'}{main ? ` · ${main.label}` : ''}{colour ? ` · ${colour}` : ''}{okDates ? ` · free ${from} to ${to}` : ''}</b>{any && <Link href="/#collection">Clear all filters</Link>}</div>
-      <div className="grid">{(dresses || []).map((d: any) => (
-        <Link key={d.id} href={`/dress/${d.id}${okDates ? `?from=${from}&to=${to}` : ''}`} className="dress"><div className="ph" style={d.images?.[0] ? { backgroundImage: `url(${d.images[0]})` } : {}} />
+      <div className="grid">{(dresses || []).map((d: any, i: number) => (
+        <Link key={d.id} href={`/dress/${d.id}${okDates ? `?from=${from}&to=${to}` : ''}`} className="dress"><div className="ph">{(d.thumbs?.[0] || d.images?.[0]) && <img src={d.thumbs?.[0] || d.images[0]} alt={d.name} loading={i < 4 ? 'eager' : 'lazy'} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}</div>
           <span className="mut" style={{ fontSize: 12 }}>{d.code} · {d.category}</span><b>{d.name}</b>
           {!!d.colour_tags?.length && <span className="dots">{d.colour_tags.slice(0, 5).map((t: string) => <i key={t} title={t} style={{ background: COLOURS.find(c => c.label === t)?.css || '#bbb' }} />)}</span>}
           <span>{inr(d.price)}</span> <span className="cta">Check availability</span></Link>))}

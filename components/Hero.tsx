@@ -18,7 +18,7 @@ mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 1
 .hero2 h1{font-size:clamp(32px,6vw,58px);margin:26px 0 6px;animation:hfade 1.6s ease-out .3s both}.hero2 p{color:#b8ab94;margin:0 0 20px;animation:hfade 1.6s ease-out .6s both}
 .hero2 a.cta{display:inline-block;color:#f4ecdc;border-bottom:1px solid #f4ecdc;padding-bottom:2px;letter-spacing:.22em;font-size:12px;text-transform:uppercase;text-decoration:none;animation:hfade 1.6s ease-out .9s both}
 @keyframes hfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.hero2 h1,.hero2 p,.hero2 a.cta{animation:none}}`}</style>
-    <div className="vf"><video ref={ref} src={src} poster="/poster.jpg" autoPlay muted loop playsInline preload="auto" aria-label="Swaasa bridal fashion film" onTimeUpdate={e => { const t = e.currentTarget.currentTime, on = t > 6.5 && t < 41; setMk(m => m === on ? m : on) }} />
+    <div className="vf"><video ref={ref} src={src} poster="/poster.jpg" autoPlay muted loop playsInline preload="metadata" aria-label="Swaasa bridal fashion film" onTimeUpdate={e => { const t = e.currentTarget.currentTime, on = t > 6.5 && t < 41; setMk(m => m === on ? m : on) }} />
       <div className={'mk' + (mk ? ' on' : '')} aria-hidden="true"><img src="/logo-mark.png" alt="" /><span>SWAASA RENTALS</span></div></div>
     <h1>Bridal couture, on rent</h1><p>Gowns, lehengas and bridal sarees · Trivandrum</p><a className="cta" href="#collection">Explore the collection</a>
   </section>)

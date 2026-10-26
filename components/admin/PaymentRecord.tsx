@@ -22,7 +22,7 @@ export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; o
       <div className="box" style={{ margin: 0 }}>
         {line('Rent Amount:', inr(rentAmount), true)}
         {b.discount > 0 && line('Original price, less discount ' + inr(b.discount), inr(b.rent + b.discount))}
-        {b.charges > 0 && line('Includes late fee / damage charges', inr(b.charges))}
+        {b.custom_charge > 0 && line('Includes customization charge', inr(b.custom_charge))}{b.charges - (b.custom_charge || 0) > 0 && line('Includes late fee / damage charges', inr(b.charges - (b.custom_charge || 0)))}
         {line('Deposit Paid:', inr(depositPaid), true, DEP)}
         {line('Refundable deposit for this booking', inr(b.deposit))}
         {line('Rent Paid:', inr(b.paid), true)}

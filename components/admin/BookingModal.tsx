@@ -46,12 +46,15 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       </div>
       {!limited && (() => { const who = (id?: string | null, ts?: string | null) => id ? `${ctx.staffName(id)}${ts ? ' · ' + dmy(new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })) : ''}` : '–'
         return <div className="box"><b>Handled by</b>{row('Booking taken by', b.taken_by ? who(b.taken_by, b.created_at) : b.log?.[0]?.m === 'Requested online' ? 'Online (customer)' : '–')}{row('Prepared by', who(b.prepared_by, b.prepared_at))}{row('Delivered by', who(b.delivered_by, b.picked_up_at))}{row('Return processed by', who(b.returned_by, b.returned_at))}</div> })()}
+      {!limited && (() => { const ap = (ctx.APPR || []).filter((a: any) => a.booking_id === b.id); if (!ap.length) return null
+        return <div className="box"><b>Shortfall approvals</b>{ap.map((a: any) => <div key={a.id} style={{ fontSize: 13, marginTop: 4 }}><b style={{ color: a.status === 'approved' ? 'var(--ok)' : a.status === 'rejected' ? 'var(--bad)' : '#c58a2b' }}>{a.status.toUpperCase()}</b> · short by {inr(a.shortfall)} · asked by {ctx.staffName(a.requested_by) || 'staff'}{a.reason ? ` · “${a.reason}”` : ''}{a.decided_at ? ` · decided by ${ctx.staffName(a.decided_by) || 'owner'}${a.decision_note ? ` (${a.decision_note})` : ''}` : ''}</div>)}</div> })()}
       {b.return_notes && <div className="box"><b>Return condition / damage notes</b><div style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{b.return_notes}</div></div>}
       {!limited && <>
         <div className="box"><b>Payments</b>
           {row('Original rental price', inr(b.rent + b.discount))}{b.discount > 0 && row('Discount', '− ' + inr(b.discount))}{row('Net rental charge', inr(b.rent))}
           {b.late_fee > 0 && row('Late-return fee', inr(b.late_fee))}{b.damage_charge > 0 && row('Damage / repair charge', inr(b.damage_charge))}
-          {b.charges - b.late_fee - b.damage_charge > 0 && row('Other charges', inr(b.charges - b.late_fee - b.damage_charge))}
+          {b.custom_charge > 0 && row('Customization charge', inr(b.custom_charge))}
+          {b.charges - b.late_fee - b.damage_charge - b.custom_charge > 0 && row('Other charges', inr(b.charges - b.late_fee - b.damage_charge - b.custom_charge))}
           {row('Received so far', inr(b.paid))}<div className="row"><b>{due >= 0 ? 'Balance due' : 'Overpaid'}</b><b>{inr(Math.abs(due))}</b></div>
           {row('Refundable deposit held', `${inr(b.deposit_held)} of ${inr(b.deposit)}`)}</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>{ctx.sel(b)}</div>

@@ -10,7 +10,7 @@ const ERR: Record<string, string> = {
 const lab: React.CSSProperties = { fontSize: 13, color: 'var(--mut)', margin: '10px 0 2px' }
 export default function Booking({ dress, advancePct, advanceMin = 1000, staff, initialFrom, initialTo }: { dress: any; advancePct: number; advanceMin?: number; staff?: string | null; initialFrom?: string; initialTo?: string }) {
   const [s, setS] = useState(initialFrom || ''); const [e, setE] = useState(initialTo || ''); const [busy, setBusy] = useState<any[]>([])
-  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', advance: '', mode: '', discount: '' })
+  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', advance: '', mode: '', discount: '', custom: '' })
   const [msg, setMsg] = useState(''); const [id, setId] = useState(''); const [wait, setWait] = useState(false); const [checked, setChecked] = useState(false); const [warn, setWarn] = useState('')
   useEffect(() => { supa().rpc('dress_busy', { p_dress: dress.id }).then(({ data }) => setBusy(data || [])) }, [dress.id])
   const valid = !!(s && e && e >= s)
@@ -23,6 +23,7 @@ export default function Booking({ dress, advancePct, advanceMin = 1000, staff, i
   // Refundable deposit: the higher of a percentage of the rent (50%) or a minimum (₹1,000), worked out on the rent after any discount.
   const net = p ? Math.max(0, p.rent - (+f.discount || 0)) : 0
   const depDue = p ? Math.max(Math.round(net * advancePct / 100), advanceMin) : 0
+  const cust = Math.max(0, Math.round(+f.custom || 0))      // customization charge: collected in addition to the rental
   const showForm = valid && avail && (free || (!!staff && gapOnly && checked))
   const set = (k: string, v: string) => setF({ ...f, [k]: v })
   const dates = (fn: (v: string) => void) => (x: any) => { fn(x.target.value); setChecked(false); setMsg('') }
@@ -40,10 +41,10 @@ export default function Booking({ dress, advancePct, advanceMin = 1000, staff, i
     if (!(amt > 0)) return setMsg('Amount received is required. Enter the amount collected now.')
     if (!f.mode) return setMsg('Please select the payment mode (Cash, GPay / UPI or Card).')
     if (amt < depDue) return setMsg(`Amount received must be at least the refundable deposit of ${inr(depDue)}.`)
-    if (rentPaid > net) return setMsg('Amount received cannot be more than the refundable deposit plus the rent total.')
+    if (rentPaid > net + cust) return setMsg('Amount received cannot be more than the refundable deposit plus the rent and customization charge.')
     setWait(true); setMsg('')
     const { data, error } = await supa().rpc('staff_create_booking', { p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_notes: f.notes || null,
-      p_advance: rentPaid, p_mode: f.mode, p_discount: +f.discount || 0, p_override: gapOnly && checked })
+      p_advance: rentPaid, p_mode: f.mode, p_discount: +f.discount || 0, p_override: gapOnly && checked, p_custom: cust })
     setWait(false)
     if (error) { const k = Object.keys(ERR).find(k => error.message.includes(k)); setMsg(k ? ERR[k] : 'Something went wrong. Please try again.') } else {
       if (dep > 0) {   // deposit is recorded as its own payment, separate from the rent advance
@@ -66,16 +67,17 @@ export default function Booking({ dress, advancePct, advanceMin = 1000, staff, i
     {free && <p className="ok"><b>Available</b> for {p!.n} day(s).</p>}
     {showForm && p && <>
       <div className="row"><span>Rent total</span><b>{inr(p.rent)}</b></div>{net !== p.rent && <div className="row"><span>Rent after discount</span><b>{inr(net)}</b></div>}<div className="row"><span>{staff ? 'Refundable deposit' : 'Refundable deposit (collected at pickup)'}</span><span>{inr(depDue)}</span></div>
-      {staff && <><div className="row"><span>Amount received now</span><span>{inr(+f.advance || 0)}</span></div>
-        <div className="row"><span>Held as refundable deposit</span><span>{inr(Math.min(+f.advance || 0, depDue))}</span></div>
-        <div className="row"><span>Counted towards rent</span><span>{inr(Math.max(0, (+f.advance || 0) - depDue))}</span></div>
-        <div className="row"><b>Balance rent due</b><b>{inr(Math.max(0, net - Math.max(0, (+f.advance || 0) - depDue)))}</b></div></>}
+      {staff && <>{cust > 0 && <div className="row"><span>Customization charge</span><span>{inr(cust)}</span></div>}
+        <div className="row"><span>Amount received now</span><span>{inr(+f.advance || 0)}</span></div>
+        <div className="row"><b>Balance due at delivery</b><b>{inr(Math.max(0, net + cust - Math.max(0, (+f.advance || 0) - depDue)))}</b></div></>}
       <div style={{ marginTop: 12 }}><input placeholder="Full name *" value={f.name} onChange={x => set('name', x.target.value)} />
         <input placeholder="Mobile number *" type="tel" value={f.phone} onChange={x => set('phone', x.target.value)} />
         <input placeholder="Email (optional)" value={f.email} onChange={x => set('email', x.target.value)} />
         <div style={lab}>Alteration notes (optional). For example: shorten sleeves, tighten waist, blouse measurements.</div>
         <textarea rows={4} placeholder="Type any stitching or fitting instructions" value={f.notes} onChange={x => set('notes', x.target.value)} />
-        {staff && <><div style={lab}>Amount received now (₹) *. The refundable deposit is {inr(depDue)} and is collected first. Anything above it counts as rent paid.</div>
+        {staff && <><div style={lab}>Customization charge (₹), optional. Collected in addition to the rental, for example custom stitching.</div>
+          <input placeholder="Amount in ₹ (leave empty if none)" type="number" min="0" value={f.custom} onChange={x => set('custom', x.target.value)} />
+          <div style={lab}>Amount received now (₹) *. The refundable deposit of {inr(depDue)} is collected first. Anything above it counts as rent paid; the rest of the rent is paid at delivery.</div>
           <input placeholder="Amount in ₹" type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} />
           <div style={lab}>Payment mode *</div>
           <select value={f.mode} onChange={x => set('mode', x.target.value)}><option value="">Select payment mode</option>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select>

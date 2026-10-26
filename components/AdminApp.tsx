@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supa } from '@/lib/supabase/client'
 import { addD, CATS, COLOURS, dmy, inr, istDate, mainCatOf, nDays, PAY_MODES, PREP, todayIST } from '@/lib/util'
 import { suggestColours } from '@/lib/colours'
+import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
 import Dashboard from './admin/Dashboard'
 import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
@@ -34,23 +35,23 @@ const CSS = `.adm{display:grid;grid-template-columns:250px minmax(0,1fr);min-hei
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
   const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
-  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
+  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [tags, setTags] = useState<string[]>([]); const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
   const load = useCallback(async () => {
     if (ops) {
-      const [b, k, d, s, dc, sf] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }), sb.from('staff').select('user_id,name,role,active,email').order('name')])
-      setDC(dc.data || []); setSTAFF(sf.data || []); setB(b.data || []); setK(k.data || []); setD(d.data || []); setSt(s.data); setBuf(s.data?.buffer_days ?? 1)
-    } else { const [d, s] = await Promise.all([sb.from('dresses').select('id,code,name,images').order('code'), sb.from('settings').select('buffer_days').single()]); setD(d.data || []); setBuf(s.data?.buffer_days ?? 1) }
+      const [b, k, d, s, dc, sf, ap] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }), sb.from('staff').select('user_id,name,role,active,email,deleted_at').order('name'), sb.from('approvals').select('*').order('requested_at', { ascending: false })])
+      setDC(dc.data || []); setSTAFF(sf.data || []); setAPPR(ap.data || []); setB(b.data || []); setK(k.data || []); setD(d.data || []); setSt(s.data); setBuf(s.data?.buffer_days ?? 1)
+    } else { const [d, s] = await Promise.all([sb.from('dresses').select('id,code,name,images,thumbs,medium').order('code'), sb.from('settings').select('buffer_days').single()]); setD(d.data || []); setBuf(s.data?.buffer_days ?? 1) }
     setTick(t => t + 1)
   }, [sb, ops])
-  useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t) }, [load])   // stays fresh across devices
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load() }, 20000); return () => clearInterval(t) }, [load])   // stays fresh across devices
   useEffect(() => { setTags(ed?.colour_tags || []) }, [ed])
   const dmap: Record<string, any> = useMemo(() => Object.fromEntries(D.map(d => [d.id, d])), [D])
   const showPrev = (src: string, el: HTMLElement) => { const r = el.getBoundingClientRect(), w = 240; const x = r.right + 10 + w > innerWidth ? Math.max(8, r.left - 10 - w) : r.right + 10; setPrev({ src, x, y: Math.min(Math.max(8, r.top - 60), Math.max(8, innerHeight - 330)) }) }
   // Small photo; hover (or tap on a phone) shows it enlarged.
-  const thumb = (d: any, w = 40, h = 52) => { const src = d?.images?.[0]; const s = { width: w, height: h, objectFit: 'cover' as const, border: '1px solid var(--line)', display: 'inline-block', flex: 'none' }
-    return src ? <img src={src} alt="" style={{ ...s, cursor: 'zoom-in' }} onMouseEnter={x => showPrev(src, x.currentTarget)} onMouseLeave={() => setPrev(null)} onClick={x => { x.stopPropagation(); prev?.src === src ? setPrev(null) : showPrev(src, x.currentTarget) }} /> : <span style={{ ...s, background: 'var(--blush)' }} /> }
+  const thumb = (d: any, w = 40, h = 52) => { const src = thumbOf(d), big = mediumOf(d), st = { width: w, height: h, objectFit: 'cover' as const, border: '1px solid var(--line)', display: 'inline-block', flex: 'none' }
+    return src ? <img src={src} alt="" loading="lazy" decoding="async" style={{ ...st, cursor: 'zoom-in' }} onMouseEnter={x => showPrev(big, x.currentTarget)} onMouseLeave={() => setPrev(null)} onClick={x => { x.stopPropagation(); prev?.src === big ? setPrev(null) : showPrev(big, x.currentTarget) }} /> : <span style={{ ...st, background: 'var(--blush)' }} /> }
   const say = (m: string) => { setNote(m); setTimeout(() => setNote(''), 3500) }
   // In-page dialogs. (Browser prompt()/confirm() freeze the whole page while open, which Chrome reports as slow interactions.)
   type Fld = { name: string; label: string; type?: string; value?: string; options?: string[]; required?: boolean }
@@ -58,7 +59,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   async function patch(b: any, p: any, msg: string): Promise<boolean> {
     const { error } = await sb.from('bookings').update({ ...p, log: [...(b.log || []), { t: new Date().toISOString(), m: msg, by: name }] }).eq('id', b.id)
-    say(error ? (error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : error.message) : msg); load(); return !error
+    say(error ? (error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : error.message.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : error.message) : msg); load(); return !error
   }
   // Deposit still to be handed back on return = deposit held, less any rent/charges still unpaid.
   const refundDue = (b: any, extra = 0) => Math.max(0, b.deposit_held - Math.max(0, b.rent + b.charges + extra - b.paid))
@@ -67,23 +68,56 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     const a = +(v?.amt || 0); if (!v || !a) return
     const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind, mode: v.mode }); say(error ? error.message : `${inr(a)} recorded`); load()
   }
+  // The rental amount (plus any customization charge) must be received before a dress goes out or comes back.
+  // If staff cannot collect all of it, the owner has to approve the shortfall. Returns true when it is fine to carry on.
+  async function shortfallOk(bid: string, short: number): Promise<boolean> {
+    if (short <= 0) return true
+    const mine = APPR.filter((a: any) => a.booking_id === bid)
+    if (!owner) {
+      if (mine.some((a: any) => a.status === 'approved' && a.shortfall >= short)) return true
+      if (mine.some((a: any) => a.status === 'pending')) { say('Waiting for the owner to approve the shortfall. Try again once it is approved.'); return false }
+      const rej = mine.find((a: any) => a.status === 'rejected')
+      const v = await ask('Rent not fully received', [{ name: 'r', label: `Short by ${inr(short)}. Why is it being accepted?`, required: true }], { ok: 'Send to owner for approval', note: rej ? `The owner declined an earlier request${rej.decision_note ? ': ' + rej.decision_note : ''}. Collect the balance if you can.` : 'Collect the balance if you can. Otherwise this goes to the owner, and you can continue once it is approved.' }); if (!v) return false
+      const { data, error } = await sb.rpc('request_shortfall', { p_booking: bid, p_reason: v.r })
+      if (error) { say('Could not send the request. Please try again.'); return false }
+      load(); if (data === 'approved') return true
+      say('Sent to the owner for approval. You can continue once it is approved.'); return false
+    }
+    if (!(await askYes('Accept less than the rental amount?', `This booking is short by ${inr(short)}. As the owner you can accept this.`, 'Accept shortfall'))) return false
+    const { error } = await sb.rpc('request_shortfall', { p_booking: bid, p_reason: 'Accepted by owner' })
+    if (error) { say('Could not record that. Please try again.'); return false }
+    return true
+  }
+  async function collectOrApprove(b: any, owing: number): Promise<boolean> {
+    const v = await ask('Rent not fully received', [{ name: 'a', label: `Rent to collect now (₹). Unpaid: ${inr(owing)}`, type: 'number', value: String(owing) }, { name: 'm', label: 'Payment mode', options: PAY_MODES }],
+      { ok: 'Continue', note: 'The rental amount must be received before this step. If you cannot collect all of it, the owner has to approve the shortfall.' }); if (!v) return false
+    const a = Math.round(+(v.a || 0)); if (a < 0 || a > owing) { say(`Enter an amount from 0 to ${inr(owing)}.`); return false }
+    if (a > 0) { if (!v.m) { say('Select the payment mode.'); return false }
+      const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind: 'rent', mode: v.m }); if (error) { say(error.message); return false } }
+    return shortfallOk(b.id, owing - a)
+  }
   async function pickup(b: any) {
     const depPending = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
     const fields: Fld[] = []
     if (depPending > 0) fields.push({ name: 'dep', label: `Refundable deposit still to collect (₹). Deposit ${inr(b.deposit)}, already paid ${inr(b.deposit_held)}`, type: 'number', value: String(depPending), required: true })
-    fields.push({ name: 'adv', label: `Advance on rent collected now (₹). Rent balance due ${inr(owing)}`, type: 'number', value: '0' }, { name: 'mode', label: 'Payment mode for the amount collected now', options: PAY_MODES })
-    const v = await ask('Mark as delivered', fields, { ok: 'Confirm delivery', note: `Refundable deposit ${inr(b.deposit)}: already paid ${inr(b.deposit_held)}${depPending ? `, still to collect ${inr(depPending)}` : ' (nothing more to collect)'}. Rent ${inr(b.rent + b.charges)}: paid ${inr(b.paid)}, balance ${inr(owing)}. Enter only what you collect now; it is recorded as an advance on the rent.` }); if (!v) return
-    const d = depPending > 0 ? +(v.dep || 0) : 0, adv = +(v.adv || 0)
+    fields.push({ name: 'adv', label: `Rent to collect now (₹). Rent and customization balance due ${inr(owing)}`, type: 'number', value: String(owing) }, { name: 'mode', label: 'Payment mode for the amount collected now', options: PAY_MODES, required: depPending > 0 || owing > 0 })
+    const v = await ask('Mark as delivered', fields, { ok: 'Confirm delivery', note: `Refundable deposit ${inr(b.deposit)}: already paid ${inr(b.deposit_held)}${depPending ? `, still to collect ${inr(depPending)}` : ' (nothing more to collect)'}. Rent and customization ${inr(b.rent + b.charges)}: paid ${inr(b.paid)}, balance ${inr(owing)}. The rent is paid at delivery. If any of it is not collected, the owner has to approve.` }); if (!v) return
+    const d = depPending > 0 ? +(v.dep || 0) : 0, adv = Math.round(+(v.adv || 0))
     if (depPending > 0 && d !== depPending) return say(`Collect the full refundable deposit of ${inr(depPending)} before delivery.`)
     if (adv < 0) return say('Enter a valid amount.')
-    if (adv > owing) return say(`The rent balance is only ${inr(owing)}. Enter that amount or less.`)
+    if (adv > owing) return say(`The balance is only ${inr(owing)}. Enter that amount or less.`)
+    if ((d > 0 || adv > 0) && !v.mode) return say('Select the payment mode.')
     const rows: any[] = []
     if (d > 0) rows.push({ booking_id: b.id, amount: d, kind: 'deposit', mode: v.mode })
     if (adv > 0) rows.push({ booking_id: b.id, amount: adv, kind: 'rent', mode: v.mode })
     if (rows.length) { const { error } = await sb.from('payments').insert(rows); if (error) return say(error.message) }
-    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Advance on rent ${inr(adv)} collected (${v.mode})` : ''}`)
+    if (!(await shortfallOk(b.id, owing - adv))) { load(); return }
+    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}`)
   }
   async function ret(b: any) {
+    // Rent (and customization) must be fully received before a return is processed; a shortfall needs the owner's approval.
+    const needRent = Math.max(0, b.rent + (b.custom_charge || 0) - b.paid)
+    if (needRent > 0) { if (!(await collectOrApprove(b, needRent))) { load(); return }; const r = await sb.from('booking_view').select('*').eq('id', b.id).single(); if (r.data) b = r.data }
     const late = b.end_date < today() ? Math.max(0, nDays(b.end_date, today()) - 1) : 0, lateFee = late * (+dmap[b.dress_id]?.extra_day_fee || 0), owing = Math.max(0, b.rent + b.charges - b.paid)
     const v = await ask('Process return', [{ name: 'lf', label: 'Late-return fee (₹)', type: 'number', value: '0' }, { name: 'dc', label: 'Damage / repair / cleaning charge (₹)', type: 'number', value: '0' },
       { name: 'n', label: 'Return condition / damage notes (optional)' }, { name: 'rm', label: 'Deposit hand-back mode', options: PAY_MODES, value: 'Cash' }],
@@ -121,12 +155,23 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   }
   async function saveDress(e: any) {
     e.preventDefault(); const form = e.currentTarget, f = new FormData(form), imgs: string[] = []
-    for (const file of f.getAll('photos') as File[]) { if (!file.size) continue; const path = `${Date.now()}-${file.name.replace(/\W/g, '_')}`; const up = await sb.storage.from('dress-images').upload(path, file); if (!up.error) imgs.push(sb.storage.from('dress-images').getPublicUrl(path).data.publicUrl) }
+    const meds: string[] = [], ths: string[] = [], files = (f.getAll('photos') as File[]).filter(x => x.size)
+    if (files.length) say(`Preparing ${files.length} photo${files.length === 1 ? '' : 's'}…`)
+    for (const [i, file] of files.entries()) {
+      try {
+        const z = await makeSizes(file), base = `${Date.now()}-${i}`, up = (pth: string, bl: Blob) => sb.storage.from('dress-images').upload(pth, bl, { cacheControl: '31536000', contentType: 'image/jpeg' })
+        const [o, m, t] = await Promise.all([up(`${base}.jpg`, z.original), up(`m-${base}.jpg`, z.medium), up(`t-${base}.jpg`, z.thumb)])
+        if (o.error) { say('A photo could not be uploaded.'); continue }
+        const url = (pth: string) => sb.storage.from('dress-images').getPublicUrl(pth).data.publicUrl
+        imgs.push(url(`${base}.jpg`)); meds.push(m.error ? '' : url(`m-${base}.jpg`)); ths.push(t.error ? '' : url(`t-${base}.jpg`))
+      } catch { say('A photo could not be read.') }
+    }
     const g = (k: string) => String(f.get(k) || '').trim()
     const body = { code: g('code'), name: g('name'), category: g('category'), colour: g('colour') || tags.join(', '), colour_tags: tags, acquired_on: g('acquired') || null, dry_clean_charge: +g('dcc') || 0, sizes: g('sizes').split(',').map(x => x.trim()).filter(Boolean), price: +g('price'), included_days: +g('days') || 3, extra_day_fee: +g('extra'), description: g('description') }
-    const images = [...(ed?.images || []), ...imgs]
-    const { error } = ed ? await sb.from('dresses').update({ ...body, images, try_on_image: ed.try_on_image || images[0] || null }).eq('id', ed.id)
-      : await sb.from('dresses').insert({ ...body, images: imgs, try_on_image: imgs[0] || null })
+    const pad = (arr: string[] | undefined, n: number) => Array.from({ length: n }, (_, i) => (arr || [])[i] || '')   // keeps thumbs and medium lined up with images
+    const images = [...(ed?.images || []), ...imgs], thumbs = [...pad(ed?.thumbs, ed?.images?.length || 0), ...ths], medium = [...pad(ed?.medium, ed?.images?.length || 0), ...meds]
+    const { error } = ed ? await sb.from('dresses').update({ ...body, images, thumbs, medium, try_on_image: ed.try_on_image || images[0] || null }).eq('id', ed.id)
+      : await sb.from('dresses').insert({ ...body, images: imgs, thumbs: ths, medium: meds, try_on_image: imgs[0] || null })
     say(error ? (error.message.includes('duplicate') ? 'That code is already used by another dress.' : error.message) : ed ? 'Dress updated' : 'Dress added')
     if (!error) { setEd(null); setTags([]); form.reset() }; load()
   }
@@ -136,8 +181,38 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     try { const s = await suggestColours(src); setTags(s); say(s.length ? `Suggested: ${s.join(', ')}. Please check and correct before saving.` : 'Could not tell the colours. Please choose them yourself.') } catch { say('Could not read that photo. Please choose the colours yourself.') }
   }
   async function setImages(d: any, images: string[]) {
-    const { error } = await sb.from('dresses').update({ images, try_on_image: images[0] || null }).eq('id', d.id)
-    if (error) return say(error.message); setEd({ ...d, images, try_on_image: images[0] || null }); load()
+    const idx = images.map(u => d.images.indexOf(u)), pick = (arr?: string[]) => idx.map(i => (arr || [])[i] || '')   // thumbs and medium follow the same order
+    const patchD = { images, thumbs: pick(d.thumbs), medium: pick(d.medium), try_on_image: images[0] || null }
+    const { error } = await sb.from('dresses').update(patchD).eq('id', d.id)
+    if (error) return say(error.message); setEd({ ...d, ...patchD }); load()
+  }
+  // One-time (owner): make small copies of photos that were uploaded before smaller sizes existed. Originals are not touched.
+  async function optimisePhotos() {
+    const todo = D.filter(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i] || !d.medium?.[i]))
+    if (!(await askYes('Make photos load faster?', `This creates small copies of the photos for ${todo.length} dress${todo.length === 1 ? '' : 'es'}. Your original photos are not changed. Keep this page open until it finishes.`, 'Start'))) return
+    let done = 0
+    for (const d of todo) {
+      const thumbs: string[] = [], medium: string[] = []
+      for (let i = 0; i < d.images.length; i++) {
+        let t = d.thumbs?.[i] || '', m = d.medium?.[i] || ''
+        if (!t || !m) { try { const z = await makeSizes(await (await fetch(d.images[i])).blob()), base = `opt-${d.id}-${i}-${Date.now()}`
+          const up = (pth: string, bl: Blob) => sb.storage.from('dress-images').upload(pth, bl, { cacheControl: '31536000', contentType: 'image/jpeg' }), url = (pth: string) => sb.storage.from('dress-images').getPublicUrl(pth).data.publicUrl
+          const [mm, tt] = await Promise.all([up(`m-${base}.jpg`, z.medium), up(`t-${base}.jpg`, z.thumb)]); if (!mm.error) m = url(`m-${base}.jpg`); if (!tt.error) t = url(`t-${base}.jpg`) } catch {} }
+        thumbs.push(t); medium.push(m)
+      }
+      await sb.from('dresses').update({ thumbs, medium }).eq('id', d.id); done++; say(`Photos prepared for ${done} of ${todo.length} dresses…`)
+    }
+    say(`Done. ${done} dress${done === 1 ? '' : 'es'} updated.`); load()
+  }
+  async function discount(b: any) {
+    const v = await ask('Give a discount', [{ name: 'a', label: `Discount amount (₹). The rent is now ${inr(b.rent)}`, type: 'number', required: true }, { name: 'r', label: 'Reason (optional)' }], { ok: 'Give discount', note: 'This lowers the rent that is owed. The refundable deposit stays the same.' }); if (!v) return
+    const a = Math.round(+v.a); if (!(a > 0) || a > b.rent) return say(`Enter an amount from 1 to ${inr(b.rent)}.`)
+    const { error } = await sb.rpc('apply_discount', { p_id: b.id, p_amount: a, p_reason: v.r }); say(error ? 'Could not give the discount.' : `Discount of ${inr(a)} given`); load()
+  }
+  async function customCharge(b: any) {
+    const v = await ask('Customization charge', [{ name: 'a', label: `Charge (₹), collected in addition to the rental. It is ${inr(b.custom_charge || 0)} now.`, type: 'number', value: String(b.custom_charge || 0), required: true }], { ok: 'Save' }); if (!v) return
+    const a = Math.round(+v.a); if (!(a >= 0)) return say('Enter a valid amount.')
+    const { error } = await sb.rpc('set_custom_charge', { p_id: b.id, p_amount: a }); say(error ? 'Could not change the charge.' : `Customization charge set to ${inr(a)}`); load()
   }
   async function cancelBooking(b: any) {
     if (!(await askYes('Cancel this booking?', 'The dress becomes available again for those dates.', 'Yes, cancel'))) return
@@ -154,12 +229,14 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Mark delivered</button>}
     {b.status === 'out' && <button className="btn sm" onClick={() => ret(b)}>Return</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
+    {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
+    {owner && ['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => discount(b)}>Discount</button>}
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
     {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (o.flt) setFlt(o.flt); window.scrollTo({ top: 0 }) }
-  const staffName = (id?: string | null) => id ? (STAFF.find(s => s.user_id === id)?.name || 'Staff') : null
-  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go }
+  const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
+  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go }
   const F: any = { all: () => true, created_today: (b: any) => b.status !== 'cancelled' && istDate(b.created_at) === today(), pending: (b: any) => b.status === 'pending', upcoming: (b: any) => b.status === 'confirmed' && b.start_date >= today(), out: (b: any) => b.status === 'out', overdue: (b: any) => state(b) === 'overdue', owing: (b: any) => b.status !== 'cancelled' && b.rent + b.charges - b.paid > 0, alterations: (b: any) => b.status !== 'cancelled' && !!b.alteration_notes, done: (b: any) => b.status === 'returned', cancelled: (b: any) => b.status === 'cancelled' }
   const FL: any = { all: 'All bookings', created_today: 'Made today', pending: 'Awaiting confirmation', upcoming: 'Upcoming deliveries', out: 'Currently rented', overdue: 'Overdue returns', owing: 'Balance due', alterations: 'With alteration notes', done: 'Completed', cancelled: 'Cancelled' }
   const live = B.filter(b => b.status !== 'cancelled')
@@ -212,6 +289,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
           {i === 0 ? <span className="mut" style={{ fontSize: 11 }}>Main photo</span> : <button type="button" className="btn alt sm" onClick={() => setImages(ed, [u, ...ed.images.filter((x: string) => x !== u)])}>Make main</button>}{' '}
           <button type="button" className="btn alt sm" onClick={async () => (await askYes('Remove this photo?', undefined, 'Remove')) && setImages(ed, ed.images.filter((x: string) => x !== u))}>Remove</button></div>)}</div>}
         <button className="btn">{ed ? 'Save changes' : 'Save dress'}</button>{ed && <button type="button" className="btn alt" style={{ marginLeft: 8 }} onClick={() => setEd(null)}>Cancel</button>}</form>}
+      {owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) && <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div>}
       <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Colours</th><th>Rent</th><th>Wash ₹</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td style={{ whiteSpace: 'normal' }}>{d.category}<div className="mut" style={{ fontSize: 11 }}>{mainCatOf(d.category)}</div></td><td style={{ whiteSpace: 'normal' }}>{(d.colour_tags || []).join(', ') || <span className="mut">none</span>}</td><td>{inr(d.price)}</td><td>{inr(d.dry_clean_charge || 0)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
     {tab === 'customers' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Search name or phone" value={cq} onChange={e => setCq(e.target.value)} /></div>
       {!owner && <p className="mut" style={{ fontSize: 13 }}>Showing customers with bookings from {dmy(mStart)} to {dmy(nEnd)} (this month and next month).</p>}
