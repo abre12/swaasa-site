@@ -18,7 +18,7 @@ export default function Gallery({ images, medium = [], thumbs = [], name }: { im
   if (!n) return <div style={{ height: 420, width: '100%', background: 'var(--blush)' }} />
   const nav: React.CSSProperties = { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: '#0009', color: '#fff', border: 0, width: 46, height: 46, fontSize: 28, cursor: 'pointer', borderRadius: 23 }
   return (<>
-    <div style={{ height: 'min(70vh, 540px)', background: 'var(--blush)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ height: 'min(70vh, 540px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <img src={medium[cur] || images[cur]} alt={name} onClick={() => setFull(true)} decoding="async" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'zoom-in' }} /></div>
     {n > 1 && <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}><div style={{ display: 'flex', gap: 6, overflowX: 'auto', maxWidth: '100%', paddingBottom: 4 }}>{images.map((u, k) =>
       <button key={u} type="button" onClick={() => setCur(k)} aria-label={`Show photo ${k + 1}`} style={{ flex: 'none', padding: 0, background: 'none', cursor: 'pointer', border: `2px solid ${k === cur ? 'var(--ink)' : 'var(--line)'}`, opacity: k === cur ? 1 : 0.7 }}>

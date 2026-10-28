@@ -52,3 +52,27 @@ export async function suggestColours(src: string | File): Promise<string[]> {
   const ctx = c.getContext('2d', { willReadFrequently: true })!; ctx.drawImage(img, 0, 0, W, H)
   return suggestFromPixels(ctx.getImageData(0, 0, W, H).data, W, H)
 }
+
+// ---- Colours worked out from words ------------------------------------------------------------------------------------
+// Looks at what staff typed (the colour box, the dress name, the description) before it ever looks at the photo.
+export const COLOUR_WORDS: Record<string, string[]> = {
+  'Black': ['black', 'ebony', 'charcoal'], 'White': ['white', 'snow white'],
+  'Blue': ['blue', 'navy', 'teal', 'turquoise', 'cobalt', 'sapphire', 'indigo', 'sky', 'aqua', 'peacock'],
+  'Green': ['green', 'emerald', 'olive', 'mint', 'sage', 'moss', 'pista'], 'Yellow': ['yellow', 'mustard', 'lemon', 'haldi', 'turmeric'],
+  'Red': ['red', 'crimson', 'scarlet', 'ruby', 'cherry'], 'Brown': ['brown', 'chocolate', 'coffee', 'tan', 'copper', 'bronze', 'mocha'],
+  'Orange': ['orange', 'rust', 'coral', 'peach', 'saffron', 'tangerine'], 'Pink': ['pink', 'blush', 'rose', 'magenta', 'fuchsia', 'rani', 'salmon'],
+  'Gold': ['gold', 'golden', 'zari'], 'Silver': ['silver', 'grey', 'gray', 'steel'],
+  'Purple': ['purple', 'violet', 'lavender', 'lilac', 'mauve', 'plum', 'orchid'], 'Beige / Cream': ['beige', 'cream', 'ivory', 'champagne', 'nude', 'ecru', 'sand'],
+  'Maroon': ['maroon', 'burgundy', 'wine', 'mehroon', 'claret'], 'Floral / Multicolour': ['floral', 'flower', 'flowers', 'multicolour', 'multicolor', 'multi-colour', 'multi colour', 'rainbow'],
+}
+const WORD_RX = Object.entries(COLOUR_WORDS).map(([label, ws]) => [label, new RegExp('\\b(' + ws.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b')] as [string, RegExp])
+export function colourWords(text: string): string[] {
+  const t = (text || '').toLowerCase().replace(/off[\s-]?white/g, ' cream ')
+  return WORD_RX.map(([label, rx]) => [label, t.search(rx)] as [string, number]).filter(([, i]) => i >= 0).sort((a, b) => a[1] - b[1]).map(([l]) => l)
+}
+// Words first. Only if the words give no colour is the photo examined.
+export async function autoColours(text: string, photo?: string | File | null): Promise<{ tags: string[]; source: 'words' | 'photo' | 'none' }> {
+  const w = colourWords(text); if (w.length) return { tags: w.slice(0, 3), source: 'words' }
+  if (photo) { try { const s = await suggestColours(photo); if (s.length) return { tags: s, source: 'photo' } } catch { /* unreadable photo */ } }
+  return { tags: [], source: 'none' }
+}

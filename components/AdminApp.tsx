@@ -1,8 +1,9 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supa } from '@/lib/supabase/client'
-import { addD, CATS, COLOURS, dmy, inr, istDate, mainCatOf, nDays, PAY_MODES, PREP, todayIST } from '@/lib/util'
-import { suggestColours } from '@/lib/colours'
+import { addD, CATS, COLOURS, dmy, inr, istDate, MAIN_CATS, mainCatOf, nDays, PAY_MODES, PREP, todayIST } from '@/lib/util'
+import { autoColours } from '@/lib/colours'
+import DressForm from './admin/DressForm'
 import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
 import Dashboard from './admin/Dashboard'
 import PrepBoard from './admin/PrepBoard'
@@ -37,7 +38,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
   const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
-  const [tags, setTags] = useState<string[]>([]); const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
+  const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
   const load = useCallback(async () => {
     if (ops) {
       const [b, k, d, s, dc, sf, ap] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }), sb.from('staff').select('user_id,name,role,active,email,deleted_at').order('name'), sb.from('approvals').select('*').order('requested_at', { ascending: false })])
@@ -46,7 +47,18 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     setTick(t => t + 1)
   }, [sb, ops])
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load() }, 20000); return () => clearInterval(t) }, [load])   // stays fresh across devices
-  useEffect(() => { setTags(ed?.colour_tags || []) }, [ed])
+  const [showForm, setShowForm] = useState(false); const [dq, setDq] = useState(''); const [dcat, setDcat] = useState('')
+  const tried = useRef<Set<string>>(new Set())
+  // Dresses with no colours yet get them worked out automatically (colour words first, then the photo). They can be corrected in Edit.
+  useEffect(() => {
+    if (tab !== 'dresses' || !owner) return
+    const todo = D.filter(d => !(d.colour_tags || []).length && !tried.current.has(d.id)); if (!todo.length) return
+    todo.forEach(d => tried.current.add(d.id))
+    ;(async () => { let n = 0
+      for (const d of todo) { const r = await autoColours(`${d.colour || ''} ${d.name} ${d.description || ''}`, thumbOf(d) || mediumOf(d)).catch(() => ({ tags: [] as string[] })); const t = r.tags.length ? r.tags : ['Other']
+        const { error } = await sb.from('dresses').update({ colour_tags: t }).eq('id', d.id); if (!error) n++ }
+      if (n) { say(`Colours worked out automatically for ${n} dress${n === 1 ? '' : 'es'}. Check them with Edit.`); load() } })()
+  }, [tab, owner, D])
   const dmap: Record<string, any> = useMemo(() => Object.fromEntries(D.map(d => [d.id, d])), [D])
   const showPrev = (src: string, el: HTMLElement) => { const r = el.getBoundingClientRect(), w = 240; const x = r.right + 10 + w > innerWidth ? Math.max(8, r.left - 10 - w) : r.right + 10; setPrev({ src, x, y: Math.min(Math.max(8, r.top - 60), Math.max(8, innerHeight - 330)) }) }
   // Small photo; hover (or tap on a phone) shows it enlarged.
@@ -153,39 +165,6 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     const k = K.find(x => x.id === id); if (!k) return
     if (await askYes('Dress blocked', `${dmap[k.dress_id]?.code} · ${k.reason || 'no reason given'} · ${dmy(k.start_date)} to ${dmy(k.end_date)}`, 'Remove block')) { await sb.from('blocks').delete().eq('id', id); say('Block removed'); load() }
   }
-  async function saveDress(e: any) {
-    e.preventDefault(); const form = e.currentTarget, f = new FormData(form), imgs: string[] = []
-    const meds: string[] = [], ths: string[] = [], files = (f.getAll('photos') as File[]).filter(x => x.size)
-    if (files.length) say(`Preparing ${files.length} photo${files.length === 1 ? '' : 's'}…`)
-    for (const [i, file] of files.entries()) {
-      try {
-        const z = await makeSizes(file), base = `${Date.now()}-${i}`, up = (pth: string, bl: Blob) => sb.storage.from('dress-images').upload(pth, bl, { cacheControl: '31536000', contentType: 'image/jpeg' })
-        const [o, m, t] = await Promise.all([up(`${base}.jpg`, z.original), up(`m-${base}.jpg`, z.medium), up(`t-${base}.jpg`, z.thumb)])
-        if (o.error) { say('A photo could not be uploaded.'); continue }
-        const url = (pth: string) => sb.storage.from('dress-images').getPublicUrl(pth).data.publicUrl
-        imgs.push(url(`${base}.jpg`)); meds.push(m.error ? '' : url(`m-${base}.jpg`)); ths.push(t.error ? '' : url(`t-${base}.jpg`))
-      } catch { say('A photo could not be read.') }
-    }
-    const g = (k: string) => String(f.get(k) || '').trim()
-    const body = { code: g('code'), name: g('name'), category: g('category'), colour: g('colour') || tags.join(', '), colour_tags: tags, acquired_on: g('acquired') || null, dry_clean_charge: +g('dcc') || 0, sizes: g('sizes').split(',').map(x => x.trim()).filter(Boolean), price: +g('price'), included_days: +g('days') || 3, extra_day_fee: +g('extra'), description: g('description') }
-    const pad = (arr: string[] | undefined, n: number) => Array.from({ length: n }, (_, i) => (arr || [])[i] || '')   // keeps thumbs and medium lined up with images
-    const images = [...(ed?.images || []), ...imgs], thumbs = [...pad(ed?.thumbs, ed?.images?.length || 0), ...ths], medium = [...pad(ed?.medium, ed?.images?.length || 0), ...meds]
-    const { error } = ed ? await sb.from('dresses').update({ ...body, images, thumbs, medium, try_on_image: ed.try_on_image || images[0] || null }).eq('id', ed.id)
-      : await sb.from('dresses').insert({ ...body, images: imgs, thumbs: ths, medium: meds, try_on_image: imgs[0] || null })
-    say(error ? (error.message.includes('duplicate') ? 'That code is already used by another dress.' : error.message) : ed ? 'Dress updated' : 'Dress added')
-    if (!error) { setEd(null); setTags([]); form.reset() }; load()
-  }
-  async function suggest() {
-    const file = (document.querySelector('input[name=photos]') as HTMLInputElement | null)?.files?.[0], src = file || ed?.images?.[0]
-    if (!src) return say('Choose a photo first, then press Suggest.')
-    try { const s = await suggestColours(src); setTags(s); say(s.length ? `Suggested: ${s.join(', ')}. Please check and correct before saving.` : 'Could not tell the colours. Please choose them yourself.') } catch { say('Could not read that photo. Please choose the colours yourself.') }
-  }
-  async function setImages(d: any, images: string[]) {
-    const idx = images.map(u => d.images.indexOf(u)), pick = (arr?: string[]) => idx.map(i => (arr || [])[i] || '')   // thumbs and medium follow the same order
-    const patchD = { images, thumbs: pick(d.thumbs), medium: pick(d.medium), try_on_image: images[0] || null }
-    const { error } = await sb.from('dresses').update(patchD).eq('id', d.id)
-    if (error) return say(error.message); setEd({ ...d, ...patchD }); load()
-  }
   // One-time (owner): make small copies of photos that were uploaded before smaller sizes existed. Originals are not touched.
   async function optimisePhotos() {
     const todo = D.filter(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i] || !d.medium?.[i]))
@@ -276,21 +255,12 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {tab === 'calendar' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
       <div className="cal">{'SMTWTFS'.split('').map((d, i) => <b key={i} style={{ textAlign: 'center' }}>{d}</b>)}{cells.map(d => <div key={d} className="cell" onClick={() => setDay(d)} style={{ cursor: 'pointer', ...(d === today() ? { borderColor: 'var(--gold)' } : {}) }}><span className="mut">{+d.slice(8)}</span>{items.filter(i => d >= i.s && d <= i.e).map((i, n) => <span key={n} className="chip" style={{ background: i.c }} onClick={e => { e.stopPropagation(); i.bid ? openBooking(i.bid) : i.dc ? go('drycleaning') : blockInfo(i.kid) }}>{i.label}</span>)}</div>)}</div>
       <p className="mut" style={{ fontSize: 12 }}>Click a booking for full details. Click a date for everything on that day. {Object.entries(COL).map(([k, c]: any) => <span key={k} style={{ color: c, marginRight: 12 }}>■ {k}</span>)}</p></>}
-    {tab === 'dresses' && ops && <>{owner && <form key={ed?.id || 'new'} className="box" onSubmit={saveDress}><h3>{ed ? `Edit ${ed.code}` : 'Add a dress'}</h3>
-        {ed && <p className="mut" style={{ fontSize: 12 }}>Changing the code or any detail updates it everywhere. Existing bookings stay linked to this dress.</p>}
-        <div className="flt" style={{ justifyContent: 'flex-start' }}>{([['code', 'Code *', ed?.code, 'text', true], ['name', 'Name *', ed?.name, 'text', true]] as any[]).map(([n, l, v, t, r]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={r} style={{ display: 'block' }} /></label>)}
-          <label style={{ margin: 0 }}>Category<select name="category" defaultValue={ed?.category || CATS[0]} style={{ display: 'block' }}>{CATS.map(c => <option key={c} value={c}>{c} → {mainCatOf(c)}</option>)}</select></label>
-          {([['colour', 'Colour (words, optional)', ed?.colour, 'text'], ['sizes', 'Sizes (S, M, L)', ed?.sizes?.join(', '), 'text'], ['price', 'Rent ₹', ed?.price, 'number'], ['days', 'Included days', ed?.included_days, 'number'], ['extra', 'Extra day ₹', ed?.extra_day_fee, 'number'], ['dcc', 'Dry-cleaning charge per wash (₹)', ed?.dry_clean_charge, 'number'], ['acquired', 'Acquired on (optional)', ed?.acquired_on, 'date'], ['description', 'Description', ed?.description, 'text']] as any[]).map(([n, l, v, t]) => <label key={n} style={{ margin: 0 }}>{l}<input name={n} type={t} defaultValue={v ?? ''} required={n === 'price'} style={{ display: 'block' }} /></label>)}
-          <label style={{ margin: 0 }}>{ed ? 'Add more photos' : 'Photos'}<input name="photos" type="file" accept="image/*" multiple style={{ display: 'block' }} /></label></div>
-        <div style={{ margin: '10px 0' }}><b style={{ fontSize: 13 }}>Colour tags (used by the customer colour filter)</b>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '6px 0' }}>{COLOURS.map(c => <button type="button" key={c.label} className={'tagchip' + (tags.includes(c.label) ? ' on' : '')} onClick={() => setTags(tags.includes(c.label) ? tags.filter(x => x !== c.label) : [...tags, c.label])}><i style={{ width: 14, height: 14, background: c.css, border: '1px solid #8886', display: 'inline-block' }} />{c.label}</button>)}</div>
-          <button type="button" className="btn alt sm" onClick={suggest}>Suggest colours from photo</button> <span className="mut" style={{ fontSize: 12 }}>A suggestion only. Please check it before saving.</span></div>
-        {ed && !!ed.images?.length && <div className="flt" style={{ justifyContent: 'flex-start' }}>{ed.images.map((u: string, i: number) => <div key={u} style={{ textAlign: 'center' }}><img src={u} alt="" style={{ height: 80 }} /><br />
-          {i === 0 ? <span className="mut" style={{ fontSize: 11 }}>Main photo</span> : <button type="button" className="btn alt sm" onClick={() => setImages(ed, [u, ...ed.images.filter((x: string) => x !== u)])}>Make main</button>}{' '}
-          <button type="button" className="btn alt sm" onClick={async () => (await askYes('Remove this photo?', undefined, 'Remove')) && setImages(ed, ed.images.filter((x: string) => x !== u))}>Remove</button></div>)}</div>}
-        <button className="btn">{ed ? 'Save changes' : 'Save dress'}</button>{ed && <button type="button" className="btn alt" style={{ marginLeft: 8 }} onClick={() => setEd(null)}>Cancel</button>}</form>}
+    {tab === 'dresses' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}>{owner && <button className="btn" onClick={() => { setEd(null); setShowForm(true) }}>＋ Add a dress</button>}
+        <input placeholder="Search code or name" value={dq} onChange={e => setDq(e.target.value)} /><select value={dcat} onChange={e => setDcat(e.target.value)} style={{ width: 'auto' }}><option value="">All categories</option>{MAIN_CATS.map(m => <option key={m.key}>{m.label}</option>)}</select>
+        <span className="mut" style={{ fontSize: 13 }}>{D.length} dress{D.length === 1 ? '' : 'es'}</span></div>
+      {showForm && owner && <DressForm key={ed?.id || 'new'} ctx={ctx} ed={ed} onClose={() => { setShowForm(false); setEd(null) }} />}
       {owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) && <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div>}
-      <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Colours</th><th>Rent</th><th>Wash ₹</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td style={{ whiteSpace: 'normal' }}>{d.category}<div className="mut" style={{ fontSize: 11 }}>{mainCatOf(d.category)}</div></td><td style={{ whiteSpace: 'normal' }}>{(d.colour_tags || []).join(', ') || <span className="mut">none</span>}</td><td>{inr(d.price)}</td><td>{inr(d.dry_clean_charge || 0)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
+      <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Colours</th><th>Rent</th><th>Wash ₹</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.filter(d => (!dq || (d.code + ' ' + d.name).toLowerCase().includes(dq.toLowerCase())) && (!dcat || mainCatOf(d.category) === dcat)).map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td style={{ whiteSpace: 'normal' }}>{d.category}<div className="mut" style={{ fontSize: 11 }}>{mainCatOf(d.category)}</div></td><td style={{ whiteSpace: 'normal' }}>{(d.colour_tags || []).join(', ') || <span className="mut">none</span>}</td><td>{inr(d.price)}</td><td>{inr(d.dry_clean_charge || 0)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); setShowForm(true) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
     {tab === 'customers' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Search name or phone" value={cq} onChange={e => setCq(e.target.value)} /></div>
       {!owner && <p className="mut" style={{ fontSize: 13 }}>Showing customers with bookings from {dmy(mStart)} to {dmy(nEnd)} (this month and next month).</p>}
       <div className="scroll"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Bookings</th><th>Rental value</th><th>Last delivery</th></tr></thead><tbody>{custs.filter(c => !cq || (c.n + c.p).toLowerCase().includes(cq.toLowerCase())).sort((a, b) => b.last.localeCompare(a.last)).map(c => <tr key={c.p}><td>{c.n}</td><td><a href={'tel:' + c.p}>{c.p}</a></td><td>{c.e}</td><td>{c.c}</td><td>{inr(c.s)}</td><td>{dmy(c.last)}</td></tr>)}</tbody></table></div></>}

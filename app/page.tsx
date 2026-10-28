@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { supaServer } from '@/lib/supabase/server'
 import { COLOURS, inr, MAIN_CATS } from '@/lib/util'
+import { COLOUR_WORDS } from '@/lib/colours'
 import Hero from '@/components/Hero'
 export const dynamic = 'force-dynamic'
 type P = Record<string, string | undefined>
@@ -26,7 +27,7 @@ export default async function Home({ searchParams }: { searchParams: P }) {
   const main = MAIN_CATS.find(m => m.key === cat), okDates = !!(from && to && to >= from)
   let query = sb.from('dresses').select('id,code,name,category,price,images,thumbs,status,colour_tags').in('status', ['available', 'maintenance'])
   if (main) query = query.in('category', main.subs)
-  if (colour && COLOURS.some(c => c.label === colour)) query = query.contains('colour_tags', [colour])
+  if (colour && COLOURS.some(c => c.label === colour)) query = query.or([`colour_tags.cs.{"${colour}"}`, ...(COLOUR_WORDS[colour] || []).map(w => `colour.ilike.%${w}%`)].join(','))     // saved colour tags, or the colour words typed for the dress
   if (max && +max > 0) query = query.lte('price', +max)
   if (q) { const t = q.replace(/[%,()]/g, ''); query = query.or(`name.ilike.%${t}%,code.ilike.%${t}%`) }
   if (okDates) { const { data: bad } = await sb.rpc('dresses_unavailable', { p_from: from, p_to: to }); if (bad?.length) query = query.not('id', 'in', `(${bad.join(',')})`) }   // free for the WHOLE period, cleaning day included

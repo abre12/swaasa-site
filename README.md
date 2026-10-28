@@ -171,3 +171,13 @@ Bookings made before the upgrade keep the deposit they were made with. Only new 
 - **Delete staff:** Reports and Settings > Staff logins > Delete. The person can never sign in again; everything they did stays on record under their name, shown as "(removed)".
 - **Speed:** every uploaded photo is stored as thumbnail, medium and original. Catalogue cards and the dress page load the small sizes; the original loads only when a photo is clicked for full screen. The admin stops refreshing while its tab is hidden.
 - **Vercel function region:** set Vercel > Settings > Functions > Function Region to the region closest to your Supabase project (Supabase > Project Settings > General shows it, for example Mumbai = bom1). A mismatch (for example Washington DC and Mumbai) makes every page slow.
+
+---
+
+# Version 7 changes (no database change; nothing to run in Supabase)
+
+- **Dress Inventory:** a guided form in five steps (photos, basics, pricing, details, colours) with a search box and category filter above the list. "Save and add another" speeds up entering several dresses. You choose the main photo (shown first) before saving.
+- **Colours are automatic:** the colour words you type, the dress name and the description are read first. If they name no colour, the main photo is examined. The colours appear as chips that can be corrected. Dresses that already exist without colours are filled in automatically the first time the owner opens Dress Inventory. The colour filter on the collection page also matches the typed colour words, so it works even for a dress that has no tags.
+- **Payment record:** the customization charge is its own purple entry, separate from the rent amount, with a "Total to collect" line.
+- **Dress page:** the main photo sits on the page background (no pink bars).
+- **Cash tally (checked, unchanged):** only payments marked Cash count toward the physical cash drawer. GPay / UPI and Card are totalled separately and never enter the cash tally. Cash refunds and petty cash expenses are subtracted.
