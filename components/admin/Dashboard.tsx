@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
+import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
 import PrepBoard from './PrepBoard'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
@@ -49,24 +49,36 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     ['over', 'Overdue', odDel.length + odRet.length, `${odDel.length} deliveries · ${odRet.length} returns`, odDel.length + odRet.length > 0],
     ['pdel', 'Pending Delivery', pdel.length, 'next 7 days', false], ['pret', 'Pending Returns', pret.length, 'out with customers', odRet.length > 0],
     ['appr', ctx.owner ? 'Needs your approval' : 'Approval requests', pending.length, ctx.owner ? 'rental amount short' : 'waiting for the owner', ctx.owner && pending.length > 0]]
-  // Follow-up: a dress that is out with a customer but is already booked for someone else soon.
-  const follow = pdel.map(n => { const c = B.find(x => x.dress_id === n.dress_id && x.status === 'out' && x.id !== n.id); if (!c) return null
-    const over = c.end_date < today, tight = !over && c.end_date >= addD(n.start_date, -(buf + 1)); return { n, c, over, tight } }).filter(Boolean).sort((a: any, b: any) => (+b.over - +a.over) || (+b.tight - +a.tight) || a.n.start_date.localeCompare(b.n.start_date)) as any[]
+  // Today's delivery: everything to hand over today (and anything overdue), with what must be ready and what must be collected.
+  const todays = B.filter(b => (b.status === 'confirmed' && b.start_date <= today) || (b.start_date === today && ['out', 'returned'].includes(b.status))).sort((a, b) => a.start_date.localeCompare(b.start_date) || a.dress_code.localeCompare(b.dress_code))
+  const markReady = async (b: any) => { const { error } = await ctx.sb.rpc('set_prep_status', { p_id: b.id, p_status: 'ready' }); ctx.say(error ? 'Could not update the status.' : `${b.dress_code} marked ready`); ctx.load() }
   const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers', appr: ctx.owner ? 'Shortfalls waiting for your approval' : 'Shortfall requests' }
   const dl = (f: string) => <PendingDeliveries ctx={ctx} filter={f} />, rt = (f: string) => <PendingReturns ctx={ctx} filter={f} />
   return (<div style={{ display: 'grid', gap: 18 }}>
     <div className="adm-cards">{cards.map(([k, l, n, sub, red]) => <button key={k} onClick={() => setPop(k)} className="stat-card" style={red ? { borderColor: 'var(--bad)' } : undefined}>
       <span className="mut" style={{ fontSize: 13 }}>{l}</span><b style={{ fontSize: 34, fontFamily: 'Cormorant Garamond, serif', color: red ? 'var(--bad)' : undefined }}>{n}</b><span className="mut" style={{ fontSize: 12 }}>{sub}</span></button>)}</div>
     <div className="adm-two">
-      <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>FOLLOW UP: DRESS NOT BACK YET</h3>
-        <p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>Dresses out with a customer that are already booked for the next 7 days. Call to get them back on time.</p>
-        {follow.map(({ n, c, over, tight }: any) => <div key={n.id} style={{ display: 'flex', gap: 10, padding: '8px 10px', marginBottom: 6, border: `1px solid ${over ? 'var(--bad)' : tight ? '#c58a2b' : 'var(--line)'}`, background: over ? '#b4493f14' : tight ? '#c58a2b14' : 'transparent' }}>
-          {ctx.thumb(ctx.dmap[n.dress_id], 40, 52)}<div style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
-            <b>{n.dress_code} · {n.dress_name}</b><div>Next delivery <b>{dmy(n.start_date)}</b> to {n.customer_name}</div>
-            <div>Now with <b>{c.customer_name}</b> · <a href={'tel:' + c.phone}>{c.phone}</a> · due back <b>{dmy(c.end_date)}</b></div>
-            <div style={{ color: over ? 'var(--bad)' : tight ? '#c58a2b' : 'var(--mut)', fontWeight: 600 }}>{over ? `OVERDUE: call now` : tight ? 'Return is cutting it close to the next delivery' : 'On track'}</div></div>
-          <button className="btn sm" style={{ alignSelf: 'center' }} onClick={() => ctx.ret(c)}>Mark returned</button></div>)}
-        {!follow.length && <p className="ok" style={{ margin: 0 }}>Nothing to chase. Every dress due out this week is in the shop.</p>}</div>
+      <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>TODAY'S DELIVERY</h3>
+        <p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>Check each dress is ready, collect what is due, then press Mark delivered.</p>
+        {todays.map(b => { const done = b.status !== 'confirmed', late = !done && b.start_date < today, owing = Math.max(0, b.rent + b.charges - b.paid), dep = Math.max(0, b.deposit - b.deposit_held)
+          const alt = (b.alteration_notes || '').trim(), ready = !alt || b.prep_status === 'ready'
+          return <div key={b.id} style={{ display: 'flex', gap: 10, padding: '8px 10px', marginBottom: 6, border: `1px solid ${late ? 'var(--bad)' : done ? 'var(--line)' : ready ? 'var(--ok)' : '#c58a2b'}`, background: late ? '#b4493f14' : done ? 'transparent' : ready ? '#4f8a5b12' : '#c58a2b14', opacity: done ? 0.65 : 1 }}>
+            {ctx.thumb(ctx.dmap[b.dress_id], 48, 64)}
+            <div style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
+              <b>{b.dress_code} · {b.dress_name}</b>
+              <div>{b.customer_name} · <a href={'tel:' + b.phone}>{b.phone}</a> · returns {dmy(b.end_date)}</div>
+              {late && <div className="bad"><b>OVERDUE: was due {dmy(b.start_date)}</b></div>}
+              {done ? <div className="ok"><b>✓ Delivered</b></div> : <>
+                <div style={{ fontWeight: 600, color: ready ? 'var(--ok)' : '#c58a2b' }}>{ready ? (alt ? '✓ Ready: alterations done' : '✓ Nothing to prepare') : `Not ready: ${PREP[b.prep_status] || b.prep_status}`}</div>
+                {alt && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>✂ {alt}</div>}
+                <div>To collect now: <b>{inr(owing + dep)}</b> <span className="mut">(rent {inr(owing)}{dep > 0 ? ` + refundable deposit ${inr(dep)}` : ''})</span></div></>}
+            </div>
+            {!done && <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
+              <button className="btn sm" onClick={() => ctx.pickup(b)}>Mark delivered</button>
+              {alt && !ready && <button className="btn alt sm" onClick={() => markReady(b)}>Mark ready</button>}
+              <button className="btn alt sm" onClick={() => ctx.openBooking(b.id)}>Details</button></div>}
+          </div> })}
+        {!todays.length && <p className="mut" style={{ margin: 0 }}>No deliveries today.</p>}</div>
       <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>ALTERATIONS TO COMPLETE</h3><PrepBoard ctx={ctx} compact /></div>
     </div>
     {ctx.owner && <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>}
