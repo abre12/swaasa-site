@@ -181,3 +181,10 @@ Bookings made before the upgrade keep the deposit they were made with. Only new 
 - **Payment record:** the customization charge is its own purple entry, separate from the rent amount, with a "Total to collect" line.
 - **Dress page:** the main photo sits on the page background (no pink bars).
 - **Cash tally (checked, unchanged):** only payments marked Cash count toward the physical cash drawer. GPay / UPI and Card are totalled separately and never enter the cash tally. Cash refunds and petty cash expenses are subtracted.
+
+---
+
+# Version 8 changes (no database change)
+
+- **Overview Dashboard:** "Today's Delivery" replaces "Follow up: dress not back yet" (hand-over list with ready status, amount to collect, Mark ready and Mark delivered). Two quick buttons sit above it: **Petty cash entry** and **Send a dress for dry cleaning**.
+- **Daily Cash Counter:** the customization charge now shows under the Price of each booking (in purple), as its own summary card, and as its own column in the Excel export.

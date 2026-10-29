@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
 import PrepBoard from './PrepBoard'
+import { pettyCashEntry } from './CashCounter'
+import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -57,6 +59,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   return (<div style={{ display: 'grid', gap: 18 }}>
     <div className="adm-cards">{cards.map(([k, l, n, sub, red]) => <button key={k} onClick={() => setPop(k)} className="stat-card" style={red ? { borderColor: 'var(--bad)' } : undefined}>
       <span className="mut" style={{ fontSize: 13 }}>{l}</span><b style={{ fontSize: 34, fontFamily: 'Cormorant Garamond, serif', color: red ? 'var(--bad)' : undefined }}>{n}</b><span className="mut" style={{ fontSize: 12 }}>{sub}</span></button>)}</div>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn" onClick={() => pettyCashEntry(ctx)}>＋ Petty cash entry</button><button className="btn" onClick={() => sendForDryCleaning(ctx)}>＋ Send a dress for dry cleaning</button></div>
     <div className="adm-two">
       <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>TODAY'S DELIVERY</h3>
         <p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>Check each dress is ready, collect what is due, then press Mark delivered.</p>

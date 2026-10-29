@@ -2,16 +2,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { addD, dmy, inr, istTime, modeGroup, PAY_MODES, todayIST } from '@/lib/util'
 import { downloadBlob, makeXlsx, Cell } from '@/lib/xlsx'
+const CUS = '#8a4fbf'                                            // customization charges are shown in purple
 const DEP = '#2f6fd0'                                            // refundable deposits are shown in blue: refundable, not income
 const REC = ['rent', 'deposit']                                  // money received from the customer
 const TYPES: Record<string, string> = { deposit: 'Refundable deposit', deposit_refund: 'Deposit refund', rent_refund: 'Rental refund', charge: 'Deposit applied to dues' }
+// Also used by the Overview Dashboard's quick button.
+export async function pettyCashEntry(ctx: any): Promise<boolean> {
+  const v = await ctx.ask('Petty cash expense', [{ name: 'a', label: 'Amount paid out in cash (₹)', type: 'number', required: true }, { name: 'r', label: 'Remarks: what was this expense for?', required: true }], { ok: 'Save expense', note: 'Taken out of the cash drawer today. It cannot be changed later, so check the amount and the remark.' }); if (!v) return false
+  const a = +v.a, r = v.r.trim(); if (!(a > 0) || !r) { ctx.say('Enter an amount and a remark.'); return false }
+  const { error } = await ctx.sb.from('cash_expenses').insert({ amount: a, remarks: r }); ctx.say(error ? error.message : `${inr(a)} petty cash recorded`); ctx.load(); return !error
+}
 export default function CashCounter({ ctx }: { ctx: any }) {
   const [date, setDate] = useState(todayIST()); const [mode, setMode] = useState(''); const [type, setType] = useState('')
   const [rows, setRows] = useState<any[]>([]); const [open, setOpen] = useState<string | null>(null); const [err, setErr] = useState('')
   const [pos, setPos] = useState<any>(null); const [exp, setExp] = useState<any[]>([]); const owner = ctx.owner, mStart = todayIST().slice(0, 7) + '-01'   // managers see the current month only
   const load = useCallback(async () => {
     const from = new Date(`${date}T00:00:00+05:30`).toISOString(), to = new Date(`${addD(date, 1)}T00:00:00+05:30`).toISOString()
-    const { data, error } = await ctx.sb.from('payments').select('id,booking_id,amount,kind,mode,created_at,created_by,bookings(id,customer_name,rent,discount,charges,deposit,dresses(code,name))').gte('created_at', from).lt('created_at', to).order('created_at')
+    const { data, error } = await ctx.sb.from('payments').select('id,booking_id,amount,kind,mode,created_at,created_by,bookings(id,customer_name,rent,discount,charges,deposit,custom_charge,dresses(code,name))').gte('created_at', from).lt('created_at', to).order('created_at')
     if (error) return setErr('Could not load payments for this date.'); setErr('')
     const ids = [...new Set((data || []).map((r: any) => r.booking_id))]
     const { data: all } = ids.length ? await ctx.sb.from('payments').select('id,booking_id,kind,created_at').in('booking_id', ids) : { data: [] }
@@ -30,7 +37,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   function totals(list: any[]) {
     const sum = (a: any[]) => a.reduce((s, r) => s + r.amount, 0), rec = list.filter(r => REC.includes(r.kind)), ref = list.filter(r => r.kind.endsWith('refund'))
     const bks = [...new Map(list.map(r => [r.booking_id, r.bookings])).values()].filter(Boolean) as any[], by = (g: string) => sum(rec.filter(r => modeGroup(r.mode) === g))
-    return { n: list.length, rental: bks.reduce((s, b) => s + b.rent, 0), rent: sum(list.filter(r => r.kind === 'rent')), dep: sum(list.filter(r => r.kind === 'deposit')), total: sum(rec), cash: by('Cash'), upi: by('GPay / UPI'), card: by('Card'), other: by('Other'), refunds: sum(ref), outstanding: [...new Set(list.map(r => r.booking_id))].reduce((s, id) => s + dueOf(id), 0) }
+    return { n: list.length, rental: bks.reduce((s, b) => s + b.rent, 0), custom: bks.reduce((s, b) => s + (b.custom_charge || 0), 0), rent: sum(list.filter(r => r.kind === 'rent')), dep: sum(list.filter(r => r.kind === 'deposit')), total: sum(rec), cash: by('Cash'), upi: by('GPay / UPI'), card: by('Card'), other: by('Other'), refunds: sum(ref), outstanding: [...new Set(list.map(r => r.booking_id))].reduce((s, id) => s + dueOf(id), 0) }
   }
   const T = totals(rows), TS = totals(shown)
   async function record() {
@@ -47,9 +54,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   }
   async function addExpense() {
     if (date !== todayIST()) return ctx.say('Petty cash can only be added for today.')
-    const v = await ctx.ask('Petty cash expense', [{ name: 'a', label: 'Amount paid out in cash (₹)', type: 'number', required: true }, { name: 'r', label: 'Remarks: what was this expense for?', required: true }], { ok: 'Save expense', note: 'Taken out of the cash drawer today. It cannot be changed later, so check the amount and the remark.' }); if (!v) return
-    const a = +v.a, r = v.r.trim(); if (!(a > 0) || !r) return ctx.say('Enter an amount and a remark.')
-    const { error } = await ctx.sb.from('cash_expenses').insert({ amount: a, remarks: r }); ctx.say(error ? error.message : `${inr(a)} petty cash recorded`); loadBook()
+    if (await pettyCashEntry(ctx)) loadBook()
   }
   async function tally() {
     if (!pos) return ctx.say('Cash in hand is not available yet. Run supabase/migration-v5.sql in Supabase first.')
@@ -61,16 +66,16 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   }
   async function exportXlsx() {
     const R = (n: number): Cell => ({ n, s: 'money' }), RB = (n: number): Cell => ({ n, s: 'moneyBold' })
-    const head = ['Time', 'Booking ID', 'Item Code', 'Customer Name', 'Price', 'Discount', 'Transaction Type', 'Amount', 'Payment Mode'].map(t => ({ t, s: 'head' as const }))
-    const body: Cell[][] = shown.map(r => { const b = r.bookings, refund = r.kind.endsWith('refund'); return [istTime(r.created_at), r.booking_id, b?.dresses?.code || '', b?.customer_name || '', R((b?.rent || 0) + (b?.discount || 0)), R(b?.discount || 0), label(r) + (r.kind === 'deposit' ? ' (refundable)' : ''), { n: refund ? -r.amount : r.amount, s: r.kind === 'deposit' ? 'moneyBlue' : 'money' }, r.kind === 'charge' ? 'Book entry (no cash)' : r.mode || ''] })
+    const head = ['Time', 'Booking ID', 'Item Code', 'Customer Name', 'Price', 'Discount', 'Customization', 'Transaction Type', 'Amount', 'Payment Mode'].map(t => ({ t, s: 'head' as const }))
+    const body: Cell[][] = shown.map(r => { const b = r.bookings, refund = r.kind.endsWith('refund'); return [istTime(r.created_at), r.booking_id, b?.dresses?.code || '', b?.customer_name || '', R((b?.rent || 0) + (b?.discount || 0)), R(b?.discount || 0), R(b?.custom_charge || 0), label(r) + (r.kind === 'deposit' ? ' (refundable)' : ''), { n: refund ? -r.amount : r.amount, s: r.kind === 'deposit' ? 'moneyBlue' : 'money' }, r.kind === 'charge' ? 'Book entry (no cash)' : r.mode || ''] })
     const filt = [mode && `Payment mode: ${mode}`, type && `Type: ${TYPES[type] || type}`].filter(Boolean).join(', ') || 'None'
-    const sum: Cell[][] = [[], [{ t: 'DAILY COLLECTION SUMMARY', s: 'bold' }], ['Transactions', TS.n], ['Rental value after discounts (bookings in this list)', RB(TS.rental)], ['Rent received', RB(TS.rent)], ['Refundable deposits received (refundable, shown in blue)', { n: TS.dep, s: 'moneyBlue' }], ['Total received', RB(TS.total)],
+    const sum: Cell[][] = [[], [{ t: 'DAILY COLLECTION SUMMARY', s: 'bold' }], ['Transactions', TS.n], ['Rental value after discounts (bookings in this list)', RB(TS.rental)], ['Customization charges (bookings in this list)', R(TS.custom)], ['Rent received', RB(TS.rent)], ['Refundable deposits received (refundable, shown in blue)', { n: TS.dep, s: 'moneyBlue' }], ['Total received', RB(TS.total)],
       ['   Cash', R(TS.cash)], ['   GPay / UPI', R(TS.upi)], ['   Card', R(TS.card)], ...(TS.other ? [['   Other', R(TS.other)] as Cell[]] : []), ['Refunds paid', R(TS.refunds)], ['Net cash movement', RB(TS.total - TS.refunds)], ['Outstanding customer balances (these bookings)', R(TS.outstanding)],
       ...((pos ? [[], [{ t: 'CASH IN HAND', s: 'bold' }], ['Opening cash (brought forward)', R(pos.opening)], ['Cash received', R(pos.cash_in)], ['Cash refunds paid', R(pos.cash_out)], ['Petty cash expenses', R(pos.expenses)], ['Expected cash in hand', RB(pos.expected)], ...(pos.counted != null ? [['Counted at day end', R(pos.counted)]] : [])] : []) as unknown as Cell[][])]
-    downloadBlob(await makeXlsx('Daily Cash Counter', [[{ t: 'Swaasa Wedding Rentals', s: 'title' }], [{ t: 'Daily Cash Counter', s: 'bold' }, { d: date, s: 'date' }], [{ t: 'Filters applied', s: 'bold' }, filt], [], head, ...body, ...sum], [10, 14, 12, 26, 14, 14, 30, 16, 20]), `swaasa-cash-counter-${date}.xlsx`)
+    downloadBlob(await makeXlsx('Daily Cash Counter', [[{ t: 'Swaasa Wedding Rentals', s: 'title' }], [{ t: 'Daily Cash Counter', s: 'bold' }, { d: date, s: 'date' }], [{ t: 'Filters applied', s: 'bold' }, filt], [], head, ...body, ...sum], [10, 14, 12, 26, 14, 14, 14, 30, 16, 20]), `swaasa-cash-counter-${date}.xlsx`)
   }
   const sel = (l: string, v: string, set: (x: string) => void, opts: [string, string][]) => <select aria-label={l} value={v} onChange={e => set(e.target.value)} style={{ width: 'auto' }}>{opts.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select>
-  const cards: [string, string, string?][] = [['Transactions', String(T.n)], ['Rental value (after discounts)', inr(T.rental)], ['Rent received', inr(T.rent)], ['Refundable deposits received', inr(T.dep), DEP], ['Total received', inr(T.total)], ['Cash', inr(T.cash)], ['GPay / UPI', inr(T.upi)], ['Card', inr(T.card)], ['Refunds paid', inr(T.refunds)], ['Outstanding balances', inr(T.outstanding)]]
+  const cards: [string, string, string?][] = [['Transactions', String(T.n)], ['Rental value (after discounts)', inr(T.rental)], ['Customization charges', inr(T.custom), CUS], ['Rent received', inr(T.rent)], ['Refundable deposits received', inr(T.dep), DEP], ['Total received', inr(T.total)], ['Cash', inr(T.cash)], ['GPay / UPI', inr(T.upi)], ['Card', inr(T.card)], ['Refunds paid', inr(T.refunds)], ['Outstanding balances', inr(T.outstanding)]]
   return (<div>
     <div className="flt" style={{ justifyContent: 'flex-start' }}><input type="date" value={date} min={owner ? undefined : mStart} max={todayIST()} onChange={e => e.target.value && (owner || e.target.value >= mStart) && e.target.value <= todayIST() && setDate(e.target.value)} aria-label="Date" style={{ width: 'auto' }} /><button className="btn alt sm" onClick={() => setDate(todayIST())}>Today</button>
       {sel('Payment mode', mode, setMode, [['', 'All payment modes'], ['Cash', 'Cash'], ['GPay / UPI', 'GPay / UPI'], ['Card', 'Card'], ['Other', 'Other']])}
@@ -92,7 +97,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
     {T.other > 0 && <p className="mut" style={{ fontSize: 12 }}>Other payment modes: {inr(T.other)}</p>}
     <div className="scroll" style={{ marginTop: 12 }}><table><thead><tr><th>Item Code</th><th>Customer Name</th><th>Price</th><th>Discount / Advance</th><th>Amount</th><th>Payment Mode</th></tr></thead><tbody>
       {shown.map(r => { const b = r.bookings, refund = r.kind.endsWith('refund'), dep = r.kind === 'deposit', nonCash = r.kind === 'charge'; return <><tr key={r.id} onClick={() => setOpen(open === r.id ? null : r.id)} style={{ cursor: 'pointer' }}>
-        <td>{b?.dresses?.code}</td><td>{b?.customer_name}</td><td>{inr((b?.rent || 0) + (b?.discount || 0))}</td>
+        <td>{b?.dresses?.code}</td><td>{b?.customer_name}</td><td>{inr((b?.rent || 0) + (b?.discount || 0))}{b?.custom_charge > 0 && <div style={{ fontSize: 12, color: CUS, fontWeight: 600 }}>+ {inr(b.custom_charge)} customization</div>}</td>
         <td style={{ whiteSpace: 'normal' }}>{b?.discount > 0 && <div>Discount {inr(b.discount)}</div>}<div style={{ color: dep ? DEP : undefined }}>{label(r)}</div></td>
         <td style={{ color: nonCash ? 'var(--mut)' : refund ? 'var(--bad)' : dep ? DEP : undefined, fontWeight: 600, fontStyle: nonCash ? 'italic' : undefined }}>{refund ? '−' : ''}{inr(r.amount)}{dep && <div style={{ fontSize: 11, fontWeight: 400 }}>Refundable deposit</div>}{r.kind === 'deposit_refund' && <div style={{ fontSize: 11, fontWeight: 400 }}>Deposit returned</div>}</td>
         <td>{nonCash ? 'Book entry (no cash)' : r.mode}</td></tr>

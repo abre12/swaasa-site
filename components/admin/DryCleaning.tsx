@@ -3,12 +3,8 @@ import { useState } from 'react'
 import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
 const ERR = (m: string) => m.includes('CLEAN_CONFLICT') ? 'This dress is booked, or with a customer, during those dates. Choose an earlier return date, or move the booking first.' : m.includes('ALREADY_CLEANING') ? 'This dress is already out for dry cleaning.' : m
 const retDate = (b: any) => b.returned_at ? istDate(b.returned_at) : b.end_date
-// Every time a dress goes for dry cleaning is recorded here. While it is away it cannot be booked and it shows on the calendar.
-export default function DryCleaning({ ctx }: { ctx: any }) {
-  const today = todayIST(); const DC: any[] = ctx.DC, owner = ctx.owner
-  const [q, setQ] = useState('')
-  const away = DC.filter(c => !c.returned_on)
-  async function send(pre?: any) {
+export async function sendForDryCleaning(ctx: any, pre?: any) {
+  const today = todayIST(), away = ctx.DC.filter((c: any) => !c.returned_on)
     const eligible = ctx.D.filter((d: any) => !['archived', 'retired'].includes(d.status) && !away.some(c => c.dress_id === d.id))
     const v = await ctx.ask('Send a dress for dry cleaning', [
       { name: 'd', label: 'Dress', options: eligible.map((d: any) => `${d.code} · ${d.name}`), value: pre ? `${pre.code} · ${pre.name}` : undefined, required: !pre },
@@ -20,6 +16,12 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
     const { error } = await ctx.sb.from('dry_cleanings').insert({ dress_id: d.id, sent_on: v.s, expected_back: v.e, charge: v.c !== '' ? +v.c : (d.dry_clean_charge || 0), notes: v.n.trim() || null })
     ctx.say(error ? ERR(error.message) : `${d.code} sent for dry cleaning. Unavailable until ${dmy(v.e)}.`); ctx.load()
   }
+// Every time a dress goes for dry cleaning is recorded here. While it is away it cannot be booked and it shows on the calendar.
+export default function DryCleaning({ ctx }: { ctx: any }) {
+  const today = todayIST(); const DC: any[] = ctx.DC, owner = ctx.owner
+  const [q, setQ] = useState('')
+  const away = DC.filter(c => !c.returned_on)
+  const send = (pre?: any) => sendForDryCleaning(ctx, pre)
   async function back(c: any) {
     const v = await ctx.ask('Dress back from dry cleaning', [{ name: 'r', label: 'Returned on', type: 'date', value: today, required: true }, { name: 'c', label: 'Final charge (₹)', type: 'number', value: String(c.charge), required: true }], { ok: 'Mark back' }); if (!v) return
     const { error } = await ctx.sb.from('dry_cleanings').update({ returned_on: v.r, charge: +v.c }).eq('id', c.id)
