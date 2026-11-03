@@ -5,12 +5,10 @@ const CUS = '#8a4fbf'                                     // customization is it
 const DEP = '#2f6fd0'                                   // refundable deposits are shown in blue: refundable, not income
 const LABEL: Record<string, string> = { rent: 'Rent payment', deposit: 'Refundable deposit received', deposit_refund: 'Deposit refunded', rent_refund: 'Rent refunded', charge: 'Deposit applied to dues' }
 // Every payment on one booking: what is owed, what has been paid, and what is still to be handed back.
-const TEAL = '#0e8f8f'
-const PUR: Record<string, [string, string]> = { advance: ['Advance', TEAL], customization: ['Customization payment', '#8a4fbf'], damage: ['Damage charges', ''], cleaning: ['Cleaning charges', ''], other_charge: ['Other charges', ''], advance_refund: ['Advance refund', 'var(--bad)'] }
 export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; onClose: () => void }) {
   const [rows, setRows] = useState<any[] | null>(null); const [err, setErr] = useState('')
   useEffect(() => {
-    ctx.sb.from('payments').select('id,amount,kind,purpose,mode,created_at,created_by').eq('booking_id', b.id).order('created_at')
+    ctx.sb.from('payments').select('id,amount,kind,mode,created_at,created_by').eq('booking_id', b.id).order('created_at')
       .then(({ data, error }: any) => { if (error) setErr('Could not load the payments.'); else { setErr(''); setRows(data || []) } })
   }, [ctx.sb, b.id, b.paid, b.deposit_held, ctx.tick])
   const sum = (k: string) => (rows || []).filter(r => r.kind === k).reduce((t, r) => t + r.amount, 0)
@@ -40,8 +38,8 @@ export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; o
       <div className="scroll"><table><thead><tr><th>Date</th><th>Type</th><th>Mode</th><th>Amount</th><th>Entered by</th></tr></thead><tbody>
         {custom > 0 && <tr><td className="mut">{dmy(istDate(b.created_at))}</td><td style={{ whiteSpace: 'normal', color: CUS }}>Customization charge (collected with the rent)</td><td>–</td><td style={{ fontWeight: 600, color: CUS }}>{inr(custom)}</td><td>–</td></tr>}
         {(rows || []).map(r => { const refund = r.kind.endsWith('refund'), dep = r.kind === 'deposit'
-          return <tr key={r.id}><td>{dmy(istDate(r.created_at))}<div className="mut" style={{ fontSize: 11 }}>{istTime(r.created_at)}</div></td><td style={{ whiteSpace: 'normal', color: PUR[r.purpose]?.[1] || (dep ? DEP : undefined) }}>{PUR[r.purpose]?.[0] || LABEL[r.kind] || r.kind}</td>
-            <td>{r.kind === 'charge' ? 'Book entry' : r.mode || '–'}</td><td style={{ fontWeight: 600, color: refund ? 'var(--bad)' : PUR[r.purpose]?.[1] || (dep ? DEP : r.kind === 'charge' ? 'var(--mut)' : undefined) }}>{refund ? '−' : ''}{inr(r.amount)}</td><td>{ctx.staffName(r.created_by) || '–'}</td></tr> })}
+          return <tr key={r.id}><td>{dmy(istDate(r.created_at))}<div className="mut" style={{ fontSize: 11 }}>{istTime(r.created_at)}</div></td><td style={{ whiteSpace: 'normal', color: dep ? DEP : undefined }}>{LABEL[r.kind] || r.kind}</td>
+            <td>{r.kind === 'charge' ? 'Book entry' : r.mode || '–'}</td><td style={{ fontWeight: 600, color: refund ? 'var(--bad)' : dep ? DEP : r.kind === 'charge' ? 'var(--mut)' : undefined }}>{refund ? '−' : ''}{inr(r.amount)}</td><td>{ctx.staffName(r.created_by) || '–'}</td></tr> })}
         {rows && !rows.length && <tr><td colSpan={5} className="mut">No payments recorded yet.</td></tr>}
         {!rows && !err && <tr><td colSpan={5} className="mut">Loading…</td></tr>}</tbody></table></div>
     </div></div>)

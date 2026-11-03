@@ -189,29 +189,17 @@ Bookings made before the upgrade keep the deposit they were made with. Only new 
 - **Overview Dashboard:** "Today's Delivery" replaces "Follow up: dress not back yet" (hand-over list with ready status, amount to collect, Mark ready and Mark delivered). Two quick buttons sit above it: **Petty cash entry** and **Send a dress for dry cleaning**.
 - **Daily Cash Counter:** the customization charge now shows under the Price of each booking (in purple), as its own summary card, and as its own column in the Excel export.
 
----
 
-# Version 9: Daily Cash Counter (needs database migration 7)
+## Version 7 – Daily Cash Counter improvements
 
-## Upgrade order
-1. Supabase > SQL Editor > run `supabase/migration-v7.sql` (after migration-v6). Safe to run again. It only adds columns and functions, so the current website keeps working until you deploy.
-2. Upload the new website files and deploy.
-3. Sign in as the owner > Daily Cash Counter > **Set opening cash** (once). Until it is set, the drawer is shown as "not set" instead of assuming zero.
+For an existing v6 database, run `supabase/migration-v7.sql` in Supabase SQL Editor **after migration-v6.sql and before deploying this website update**. It adds expense categories/payment modes, a configurable opening-cash setting, and updates the cash-position calculation so only cash-mode expenses reduce physical cash. Existing expense rows are preserved and default to Cash.
 
-## How each figure is calculated
-- **Expected closing cash** = opening cash + cash received - cash refunds paid - cash expenses. Only entries whose payment mode is **Cash** count. GPay / UPI, Card, bank transfers and "Book Entry" lines (deposit applied to dues) never change it. Voided expenses are ignored.
-- **Opening cash** = the counted cash of the last tallied day before this one; for the first day, the opening the owner set.
-- **Tally** records expected, counted, difference, status (Reconciled or Discrepancy), remark, who and when. It never creates a payment. A remark is required when there is a difference. Staff can tally a day once; only the owner can change a tallied day. Every tally change is kept in an audit table.
-- **Transactions** = number of different dresses that had at least one payment, refund or adjustment that day.
-- **Rental value (after discounts)** = the rent after discounts of the bookings that had activity that day (booking value, not money received).
-- **Rent received** = advance and rent actually received that day, before refunds (refunds are shown under Refunds paid).
-- **Customization charges** = customization charged on those bookings; unpaid = what is still owed (payments settle rent first, then customization).
-- **Advance received, pending refund** = advances taken for bookings not yet delivered or cancelled, less advance refunds paid, as at the end of the chosen day. Once a dress is delivered, the advance counts as rent. An advance kept on a cancelled booking is treated as kept.
-- **Refundable deposits held** = deposits received - deposits returned - deposits kept against dues, all bookings, end of the chosen day. Never income.
-- **Total received** = every customer receipt that day in every mode (rent, advance, customization, charges, deposits). Cash + GPay / UPI + Card (+ other) = Total received.
-- **Refunds paid** = refunds actually paid that day in any mode.
-- **Cash counter balance** = the same number as Expected closing cash.
-- **Outstanding balances** = what customers still owe on the bookings that had activity that day.
+The updated Daily Cash Counter:
+- shows a dedicated clickable Booking ID column in the transaction table and includes it in Excel;
+- counts unique dresses with transactions rather than payment rows;
+- separates physical cash reconciliation from customer receipts across payment modes;
+- records operating expenses with category and payment mode;
+- displays advance refunds pending for cancelled bookings, based on the existing convention that the first rent payment is the advance;
+- simplifies transaction labels and colour-codes advances and refundable deposits.
 
-## Expenses
-Each expense has a category, how it was paid (Cash, GPay / UPI, Card, Bank transfer), who it was paid to, remarks, who entered it and when. A cash expense lowers the drawer straight away; other modes do not. Dry-cleaning payments are recorded from the Dry Cleaning page (Mark back, or Record payment in the history) as a business expense. Expenses cannot be edited; the owner can void one with a reason, and it stays on record.
+**Accounting note:** the current database stores advances as `rent` payments and does not have a separate advance-refund payment kind. The pending-advance figure therefore uses the first rent payment on cancelled bookings, less recorded rent refunds. Confirm this convention against your historical accounting before relying on the figure as a formal liability report.

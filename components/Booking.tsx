@@ -44,15 +44,13 @@ export default function Booking({ dress, advancePct, advanceMin = 1000, staff, i
     if (rentPaid > net + cust) return setMsg('Amount received cannot be more than the refundable deposit plus the rent and customization charge.')
     setWait(true); setMsg('')
     const { data, error } = await supa().rpc('staff_create_booking', { p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_notes: f.notes || null,
-      p_advance: Math.min(rentPaid, net), p_mode: f.mode, p_discount: +f.discount || 0, p_override: gapOnly && checked, p_custom: cust })
+      p_advance: rentPaid, p_mode: f.mode, p_discount: +f.discount || 0, p_override: gapOnly && checked, p_custom: cust })
     setWait(false)
     if (error) { const k = Object.keys(ERR).find(k => error.message.includes(k)); setMsg(k ? ERR[k] : 'Something went wrong. Please try again.') } else {
       if (dep > 0) {   // deposit is recorded as its own payment, separate from the rent advance
-        const r = await supa().from('payments').insert({ booking_id: data, amount: dep, kind: 'deposit', purpose: 'deposit', mode: f.mode })
+        const r = await supa().from('payments').insert({ booking_id: data, amount: dep, kind: 'deposit', mode: f.mode })
         if (r.error) setWarn(`The booking is saved, but the ${inr(dep)} deposit could not be recorded automatically. Record it when the dress is picked up.`)
       }
-      const custPaid = rentPaid - Math.min(rentPaid, net)       // anything above the rent goes to the customization charge, as its own line
-      if (custPaid > 0) { const r = await supa().from('payments').insert({ booking_id: data, amount: custPaid, kind: 'rent', purpose: 'customization', mode: f.mode }); if (r.error) setWarn(`The booking is saved, but the ${inr(custPaid)} customization payment could not be recorded automatically. Record it from the booking.`) }
       setId(data)
     }
   }

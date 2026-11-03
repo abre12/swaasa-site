@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
 const ERR = (m: string) => m.includes('CLEAN_CONFLICT') ? 'This dress is booked, or with a customer, during those dates. Choose an earlier return date, or move the booking first.' : m.includes('ALREADY_CLEANING') ? 'This dress is already out for dry cleaning.' : m
 const retDate = (b: any) => b.returned_at ? istDate(b.returned_at) : b.end_date
@@ -22,22 +22,10 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
   const [q, setQ] = useState('')
   const away = DC.filter(c => !c.returned_on)
   const send = (pre?: any) => sendForDryCleaning(ctx, pre)
-  // Which washes have already been paid for (the payment is a business expense, never customer income).
-  const [paid, setPaid] = useState<Record<string, string>>({})
-  useEffect(() => { ctx.sb.from('cash_expenses').select('dry_cleaning_id,mode').not('dry_cleaning_id', 'is', null).is('voided_at', null).then(({ data }: any) => setPaid(Object.fromEntries((data || []).map((x: any) => [x.dry_cleaning_id, x.mode])))) }, [ctx.sb, ctx.tick])
-  const MODES = ['Cash', 'GPay / UPI', 'Card', 'Bank transfer']
-  async function payWash(c: any) {
-    const v = await ctx.ask('Record payment to the dry cleaner', [{ name: 'm', label: `Paid how? Amount ${inr(c.charge)}`, options: MODES, value: 'Cash' }], { ok: 'Record payment', note: 'This is a business expense. If paid in cash it lowers the expected cash in the drawer today.' }); if (!v) return
-    const { error } = await ctx.sb.rpc('record_wash_payment', { p_wash: c.id, p_mode: v.m }); ctx.say(error ? (error.message.includes('ALREADY_PAID') ? 'This wash is already recorded as paid.' : 'Could not record the payment.') : `${inr(c.charge)} recorded as paid (${v.m})`); ctx.load()
-  }
   async function back(c: any) {
-    const v = await ctx.ask('Dress back from dry cleaning', [{ name: 'r', label: 'Returned on', type: 'date', value: today, required: true }, { name: 'c', label: 'Final charge (₹)', type: 'number', value: String(c.charge), required: true },
-      { name: 'm', label: 'Paid to the cleaner now?', options: ['Cash', 'GPay / UPI', 'Card', 'Bank transfer', 'Not paid yet'], value: 'Cash' }], { ok: 'Mark back', note: 'If you paid the cleaner now, it is recorded as a business expense. Cash payments lower the expected cash in the drawer.' }); if (!v) return
+    const v = await ctx.ask('Dress back from dry cleaning', [{ name: 'r', label: 'Returned on', type: 'date', value: today, required: true }, { name: 'c', label: 'Final charge (₹)', type: 'number', value: String(c.charge), required: true }], { ok: 'Mark back' }); if (!v) return
     const { error } = await ctx.sb.from('dry_cleanings').update({ returned_on: v.r, charge: +v.c }).eq('id', c.id)
-    if (error) { ctx.say(ERR(error.message)); return }
-    if (v.m !== 'Not paid yet' && +v.c > 0) { const r = await ctx.sb.rpc('record_wash_payment', { p_wash: c.id, p_mode: v.m }); if (r.error && !r.error.message.includes('ALREADY_PAID')) ctx.say('The dress is back, but the payment could not be recorded. Use Record payment in the history.'); else ctx.say('Dress is back and can be booked again. Payment recorded.') }
-    else ctx.say('Dress is back and can be booked again.')
-    ctx.load()
+    ctx.say(error ? ERR(error.message) : 'Dress is back and can be booked again.'); ctx.load()
   }
   async function edit(c: any) {
     const v = await ctx.ask('Change this entry', [{ name: 'e', label: 'Expected back on', type: 'date', value: c.expected_back, required: true }, { name: 'c', label: 'Charge (₹)', type: 'number', value: String(c.charge), required: true }, { name: 'n', label: 'Notes', value: c.notes || '' }]); if (!v) return
@@ -75,8 +63,8 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
         {!need.length && <tr><td colSpan={4} className="mut">No dresses found.</td></tr>}</tbody></table></div></div>
     )}
     <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>DRY CLEANING HISTORY</h3><p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>{DC.length} wash{DC.length === 1 ? '' : 'es'} recorded · total cost {inr(total)}</p>
-      <div className="scroll"><table><thead><tr><th>Dress</th><th>Sent</th><th>Back</th><th>Charge</th><th>Paid to cleaner</th><th>Notes</th></tr></thead><tbody>
-        {DC.slice(0, 150).map(c => <tr key={c.id}><td>{cell(c.dress_id)}</td><td>{dmy(c.sent_on)}</td><td>{c.returned_on ? dmy(c.returned_on) : <span className="mut">away</span>}</td><td>{inr(c.charge)}</td><td>{paid[c.id] ? <span className="ok">✓ {paid[c.id]}</span> : c.charge > 0 ? <button className="btn alt sm" onClick={() => payWash(c)}>Record payment</button> : '–'}</td><td style={{ whiteSpace: 'normal' }}>{c.notes || '–'}</td></tr>)}
-        {!DC.length && <tr><td colSpan={6} className="mut">Nothing recorded yet.</td></tr>}</tbody></table></div></div>
+      <div className="scroll"><table><thead><tr><th>Dress</th><th>Sent</th><th>Back</th><th>Charge</th><th>Notes</th></tr></thead><tbody>
+        {DC.slice(0, 150).map(c => <tr key={c.id}><td>{cell(c.dress_id)}</td><td>{dmy(c.sent_on)}</td><td>{c.returned_on ? dmy(c.returned_on) : <span className="mut">away</span>}</td><td>{inr(c.charge)}</td><td style={{ whiteSpace: 'normal' }}>{c.notes || '–'}</td></tr>)}
+        {!DC.length && <tr><td colSpan={5} className="mut">Nothing recorded yet.</td></tr>}</tbody></table></div></div>
   </div>)
 }
