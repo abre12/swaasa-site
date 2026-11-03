@@ -75,10 +75,15 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   }
   // Deposit still to be handed back on return = deposit held, less any rent/charges still unpaid.
   const refundDue = (b: any, extra = 0) => Math.max(0, b.deposit_held - Math.max(0, b.rent + b.charges + extra - b.paid))
+  // Money toward rent and customization is stored as separate lines: rent is settled first, then customization, then any other charge.
+  const rentRows = (b: any, amount: number, mode: string) => {
+    const r = Math.min(amount, Math.max(0, b.rent - b.paid)), cl = Math.max(0, (b.custom_charge || 0) - Math.max(0, b.paid - b.rent)), c = Math.min(amount - r, cl), o = amount - r - c
+    return ([[r, 'rent'], [c, 'customization'], [o, 'other_charge']] as [number, string][]).filter(x => x[0] > 0).map(([a, purpose]) => ({ booking_id: b.id, amount: a, kind: 'rent', purpose, mode }))
+  }
   async function pay(b: any, kind: string) {
     const v = await ask('Record payment', [{ name: 'amt', label: 'Amount (₹)', type: 'number', value: String(Math.max(0, b.rent + b.charges - b.paid)), required: true }, { name: 'mode', label: 'Payment mode', options: PAY_MODES, required: true }])
     const a = +(v?.amt || 0); if (!v || !a) return
-    const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind, mode: v.mode }); say(error ? error.message : `${inr(a)} recorded`); load()
+    const { error } = await sb.from('payments').insert(rentRows(b, a, v.mode)); say(error ? error.message : `${inr(a)} recorded`); load()
   }
   // The rental amount (plus any customization charge) must be received before a dress goes out or comes back.
   // If staff cannot collect all of it, the owner has to approve the shortfall. Returns true when it is fine to carry on.
@@ -105,7 +110,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       { ok: 'Continue', note: 'The rental amount must be received before this step. If you cannot collect all of it, the owner has to approve the shortfall.' }); if (!v) return false
     const a = Math.round(+(v.a || 0)); if (a < 0 || a > owing) { say(`Enter an amount from 0 to ${inr(owing)}.`); return false }
     if (a > 0) { if (!v.m) { say('Select the payment mode.'); return false }
-      const { error } = await sb.from('payments').insert({ booking_id: b.id, amount: a, kind: 'rent', mode: v.m }); if (error) { say(error.message); return false } }
+      const { error } = await sb.from('payments').insert(rentRows(b, a, v.m)); if (error) { say(error.message); return false } }
     return shortfallOk(b.id, owing - a)
   }
   async function pickup(b: any) {
@@ -120,8 +125,8 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     if (adv > owing) return say(`The balance is only ${inr(owing)}. Enter that amount or less.`)
     if ((d > 0 || adv > 0) && !v.mode) return say('Select the payment mode.')
     const rows: any[] = []
-    if (d > 0) rows.push({ booking_id: b.id, amount: d, kind: 'deposit', mode: v.mode })
-    if (adv > 0) rows.push({ booking_id: b.id, amount: adv, kind: 'rent', mode: v.mode })
+    if (d > 0) rows.push({ booking_id: b.id, amount: d, kind: 'deposit', purpose: 'deposit', mode: v.mode })
+    if (adv > 0) rows.push(...rentRows(b, adv, v.mode))
     if (rows.length) { const { error } = await sb.from('payments').insert(rows); if (error) return say(error.message) }
     if (!(await shortfallOk(b.id, owing - adv))) { load(); return }
     await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}`)
@@ -139,8 +144,8 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     const ok = await patch(b, { status: 'returned', returned_at: new Date().toISOString(), charges: b.charges + aLf + aDc, late_fee: b.late_fee + aLf, damage_charge: b.damage_charge + aDc, return_notes: n || b.return_notes || null },
       `Returned${n ? ': ' + n : ''}${(lf || dc) && !owner ? ` (charges ${inr(lf + dc)} to be set by owner)` : ''}. Deposit handed back: ${inr(refund)}${kept ? `. Deposit kept against dues: ${inr(kept)}` : ''}`)
     if (!ok) return
-    if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', mode: v.rm })
-    if (kept > 0) await sb.from('payments').insert({ booking_id: b.id, amount: kept, kind: 'charge', mode: 'Deposit adjusted' })
+    if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.rm })
+    if (kept > 0) await sb.from('payments').insert({ booking_id: b.id, amount: kept, kind: 'charge', purpose: 'deposit_applied', mode: 'Deposit adjusted' })
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
     await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept against unpaid rent or charges.` : ''}${(lf || dc) && !owner ? ` The ${inr(lf + dc)} of charges must be added by the owner, and the amount above does not include it.` : ''} The dress becomes available again after the cleaning period.` })
   }
@@ -200,7 +205,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       const v = await ask('Refund to the customer', [{ name: 'a', label: `Rent paid to refund (₹). Received so far ${inr(b.paid)}. Enter 0 to keep it.`, type: 'number', value: '0' }, { name: 'm', label: 'Refund mode', options: PAY_MODES, value: 'Cash' }],
         { ok: 'Record refund', note: b.deposit_held > 0 ? `The refundable deposit of ${inr(b.deposit_held)} is returned in full.` : undefined }); if (!v) return say('Cancelled. No refund was recorded.')
       const a = Math.min(+(v.a || 0), b.paid), rows: any[] = []
-      if (a > 0) rows.push({ booking_id: b.id, amount: a, kind: 'rent_refund', mode: v.m }); if (b.deposit_held > 0) rows.push({ booking_id: b.id, amount: b.deposit_held, kind: 'deposit_refund', mode: v.m })
+      if (a > 0) rows.push({ booking_id: b.id, amount: a, kind: 'rent_refund', purpose: 'advance_refund', mode: v.m }); if (b.deposit_held > 0) rows.push({ booking_id: b.id, amount: b.deposit_held, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.m })
       if (rows.length) { const { error } = await sb.from('payments').insert(rows); say(error ? error.message : `Refund recorded: ${inr(rows.reduce((t, r) => t + r.amount, 0))}`); load() }
     }
   }
