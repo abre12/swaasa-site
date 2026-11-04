@@ -18,7 +18,7 @@ const PURPOSE: Record<string, [string, string, string]> = {
   rent_refund: ['Rent Refund', RED, 'refund'], deposit_applied: ['Deposit Applied to Dues', 'var(--mut)', 'book'] }
 const KIND_PURPOSE: Record<string, string> = { rent: 'rent', deposit: 'deposit', deposit_refund: 'deposit_refund', rent_refund: 'rent_refund', charge: 'deposit_applied' }
 const expRemark = (c: string) => c === 'Dry cleaning' ? 'Dry-Cleaning Expense' : c === 'Tea & refreshments' || c === 'Petty cash' ? 'Petty Cash Expense' : 'Other Business Expense'
-type Tx = { key: string; at: string; booking: string | null; code: string | null; dressId: string | null; who: string; note: string; remark: string; colour: string; group: string; amount: number; mode: string; by: string | null; flow: 'in' | 'out' | 'book' | 'exp'; voided?: boolean; id?: number; reason?: string }
+type Tx = { key: string; at: string; booking: string | null; code: string | null; dressId: string | null; who: string; note: string; detail: string; remark: string; colour: string; group: string; amount: number; mode: string; by: string | null; flow: 'in' | 'out' | 'book' | 'exp'; voided?: boolean; id?: number; reason?: string }
 
 // Petty cash / business expense entry. Also used by the Overview Dashboard's quick button.
 export async function pettyCashEntry(ctx: any): Promise<boolean> {
@@ -42,7 +42,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
     setLoading(true); setErr('')
     const from = new Date(`${date}T00:00:00+05:30`).toISOString(), to = new Date(`${addD(date, 1)}T00:00:00+05:30`).toISOString()
     const [p, x, cb, lb] = await Promise.all([
-      ctx.sb.from('payments').select('id,booking_id,amount,kind,purpose,mode,created_at,created_by,bookings(id,customer_name,dress_id,dresses(code,name))').gte('created_at', from).lt('created_at', to).order('created_at'),
+      ctx.sb.from('payments').select('id,booking_id,amount,kind,purpose,mode,created_at,created_by,remarks,bookings(id,customer_name,dress_id,dresses(code,name))').gte('created_at', from).lt('created_at', to).order('created_at'),
       ctx.sb.from('cash_expenses').select('*').eq('spent_on', date).order('created_at'), ctx.sb.rpc('cash_book', { p_day: date }), ctx.sb.rpc('cash_liabilities', { p_day: date })])
     if (cb.error) setErr(cb.error.message.includes('FORBIDDEN') ? 'Only the owner can open dates before this month.' : 'Could not load the cash book. Please refresh.')
     else if (p.error || x.error || lb.error) setErr('Could not load this date. Please refresh.')
@@ -53,9 +53,9 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   // every payment and expense becomes one row, so nothing is counted twice and every figure comes from the same list
   const all: Tx[] = useMemo(() => {
     const rows: Tx[] = pays.map(r => { const pu = r.purpose || KIND_PURPOSE[r.kind] || 'rent', [label, colour, group] = PURPOSE[pu] || PURPOSE.rent, b = r.bookings, refund = r.kind.endsWith('refund'), book = r.kind === 'charge'
-      return { key: 'p' + r.id, at: r.created_at, booking: r.booking_id, code: b?.dresses?.code || null, dressId: b?.dress_id || null, who: b?.customer_name || '', note: b?.dresses?.name || '', remark: label, colour, group,
+      return { key: 'p' + r.id, at: r.created_at, booking: r.booking_id, code: b?.dresses?.code || null, dressId: b?.dress_id || null, who: b?.customer_name || '', note: b?.dresses?.name || '', detail: r.remarks || '', remark: label, colour, group,
         amount: refund ? -r.amount : r.amount, mode: book ? 'Book Entry' : r.mode || '', by: r.created_by, flow: book ? 'book' : refund ? 'out' : 'in' } })
-    exps.forEach(x => rows.push({ key: 'e' + x.id, at: x.created_at, booking: null, code: null, dressId: null, who: x.payee || x.remarks, note: x.payee ? `${x.category}: ${x.remarks}` : x.category, remark: expRemark(x.category), colour: RED, group: 'expense',
+    exps.forEach(x => rows.push({ key: 'e' + x.id, at: x.created_at, booking: null, code: null, dressId: null, who: x.payee || x.remarks, note: x.payee ? `${x.category}: ${x.remarks}` : x.category, detail: '', remark: expRemark(x.category), colour: RED, group: 'expense',
       amount: -x.amount, mode: x.mode, by: x.created_by, flow: 'exp', voided: !!x.voided_at, id: x.id, reason: x.void_reason }))
     return rows.sort((a, b) => a.at.localeCompare(b.at))
   }, [pays, exps])
@@ -125,7 +125,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   async function exportXlsx() {
     const M = (n: number, s: any = 'money'): Cell => ({ n, s }), head = ['Date and time', 'Booking ID', 'Item Code', 'Customer / Payee', 'Transaction type', 'Remarks', 'Amount', 'Payment mode', 'Entered by'].map(t => ({ t, s: 'head' as const }))
     const style = (t: Tx) => t.flow === 'exp' || t.flow === 'out' ? 'moneyRed' : t.group === 'advance' ? 'moneyTeal' : t.group === 'customization' ? 'moneyPurple' : t.group === 'deposit' ? 'moneyBlue' : 'money'
-    const tx: Cell[][] = shown.map(t => [`${dmy(date)} ${istTime(t.at)}`, t.booking || '—', t.code || '', t.who, t.remark + (t.voided ? ' (VOIDED)' : ''), t.note, M(t.voided ? 0 : t.amount, style(t)), t.flow === 'book' ? 'Book Entry' : t.mode, ctx.staffName(t.by) || ''])
+    const tx: Cell[][] = shown.map(t => [`${dmy(date)} ${istTime(t.at)}`, t.booking || '—', t.code || '', t.who, t.remark + (t.voided ? ' (VOIDED)' : ''), t.detail ? `${t.detail} (${t.note})` : t.note, M(t.voided ? 0 : t.amount, style(t)), t.flow === 'book' ? 'Book Entry' : t.mode, ctx.staffName(t.by) || ''])
     const petty = cashExp.filter(x => x.category === 'Petty cash' || x.category === 'Tea & refreshments').reduce((s, x) => s + x.amount, 0), other = cashExp.reduce((s, x) => s + x.amount, 0) - petty
     const f = (l: string, v: Cell, bold = false): Cell[] => [bold ? { t: l, s: 'bold' } : l, v]
     const recon: Cell[][] = [[{ t: 'Swaasa Wedding Rentals: cash reconciliation', s: 'title' }], [{ t: 'Date', s: 'bold' }, { d: date }], [],
@@ -187,7 +187,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
         <td>{istTime(t.at)}</td>
         <td>{t.booking ? <a href="#" title="Open this booking" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13 }} onClick={e => { e.preventDefault(); ctx.openBooking(t.booking) }}>{t.booking}</a> : '—'}</td>
         <td>{t.code || '—'}</td><td style={{ whiteSpace: 'normal', minWidth: 130 }}>{t.who}{t.note && <div className="mut" style={{ fontSize: 11 }}>{t.note}</div>}</td>
-        <td style={{ color: t.colour || undefined, fontWeight: t.colour ? 600 : 400, fontStyle: t.flow === 'book' ? 'italic' : undefined }}>{t.remark}{t.voided && <div style={{ fontSize: 11 }}>VOIDED: {t.reason}</div>}</td>
+        <td style={{ color: t.colour || undefined, fontWeight: t.colour ? 600 : 400, fontStyle: t.flow === 'book' ? 'italic' : undefined }}>{t.remark}{t.detail && <div style={{ fontSize: 11, fontWeight: 400 }}>{t.detail}</div>}{t.voided && <div style={{ fontSize: 11 }}>VOIDED: {t.reason}</div>}</td>
         <td style={{ color: t.flow === 'in' && !t.colour ? undefined : t.colour || undefined, fontWeight: 700, fontStyle: t.flow === 'book' ? 'italic' : undefined }}>{t.flow === 'book' ? inr(t.amount) : (t.amount < 0 ? '−' : '+') + inr(Math.abs(t.amount))}</td>
         <td>{t.flow === 'book' ? <span className="mut">Book Entry</span> : t.mode}</td><td>{ctx.staffName(t.by) || '—'}{owner && t.flow === 'exp' && !t.voided && <> <button className="btn alt sm" onClick={() => voidExp(t)}>Void</button></>}</td></tr>)}
       {!loading && !shown.length && <tr><td colSpan={8} className="mut">No transactions for this date{filtered ? ' and filters' : ''}.</td></tr>}</tbody></table></div>

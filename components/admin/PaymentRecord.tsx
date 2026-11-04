@@ -10,7 +10,7 @@ const PUR: Record<string, [string, string]> = { advance: ['Advance', TEAL], cust
 export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; onClose: () => void }) {
   const [rows, setRows] = useState<any[] | null>(null); const [err, setErr] = useState('')
   useEffect(() => {
-    ctx.sb.from('payments').select('id,amount,kind,purpose,mode,created_at,created_by').eq('booking_id', b.id).order('created_at')
+    ctx.sb.from('payments').select('id,amount,kind,purpose,remarks,mode,created_at,created_by').eq('booking_id', b.id).order('created_at')
       .then(({ data, error }: any) => { if (error) setErr('Could not load the payments.'); else { setErr(''); setRows(data || []) } })
   }, [ctx.sb, b.id, b.paid, b.deposit_held, ctx.tick])
   const sum = (k: string) => (rows || []).filter(r => r.kind === k).reduce((t, r) => t + r.amount, 0)
@@ -40,7 +40,7 @@ export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; o
       <div className="scroll"><table><thead><tr><th>Date</th><th>Type</th><th>Mode</th><th>Amount</th><th>Entered by</th></tr></thead><tbody>
         {custom > 0 && <tr><td className="mut">{dmy(istDate(b.created_at))}</td><td style={{ whiteSpace: 'normal', color: CUS }}>Customization charge (collected with the rent)</td><td>–</td><td style={{ fontWeight: 600, color: CUS }}>{inr(custom)}</td><td>–</td></tr>}
         {(rows || []).map(r => { const refund = r.kind.endsWith('refund'), dep = r.kind === 'deposit'
-          return <tr key={r.id}><td>{dmy(istDate(r.created_at))}<div className="mut" style={{ fontSize: 11 }}>{istTime(r.created_at)}</div></td><td style={{ whiteSpace: 'normal', color: PUR[r.purpose]?.[1] || (dep ? DEP : undefined) }}>{PUR[r.purpose]?.[0] || LABEL[r.kind] || r.kind}</td>
+          return <tr key={r.id}><td>{dmy(istDate(r.created_at))}<div className="mut" style={{ fontSize: 11 }}>{istTime(r.created_at)}</div></td><td style={{ whiteSpace: 'normal', color: PUR[r.purpose]?.[1] || (dep ? DEP : undefined) }}>{PUR[r.purpose]?.[0] || LABEL[r.kind] || r.kind}{r.remarks && <div className="mut" style={{ fontSize: 11 }}>{r.remarks}</div>}</td>
             <td>{r.kind === 'charge' ? 'Book entry' : r.mode || '–'}</td><td style={{ fontWeight: 600, color: refund ? 'var(--bad)' : PUR[r.purpose]?.[1] || (dep ? DEP : r.kind === 'charge' ? 'var(--mut)' : undefined) }}>{refund ? '−' : ''}{inr(r.amount)}</td><td>{ctx.staffName(r.created_by) || '–'}</td></tr> })}
         {rows && !rows.length && <tr><td colSpan={5} className="mut">No payments recorded yet.</td></tr>}
         {!rows && !err && <tr><td colSpan={5} className="mut">Loading…</td></tr>}</tbody></table></div>

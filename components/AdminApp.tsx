@@ -141,13 +141,20 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       { ok: 'Mark returned', note: `Deposit held ${inr(b.deposit_held)}${owing ? `. Unpaid rent ${inr(owing)}` : ''}. Before any extra charges, hand back ${inr(refundDue(b))}.${late ? ` Overdue by ${late} day(s): suggested late fee ${inr(lateFee)}.` : ''}` }); if (!v) return
     const lf = +(v.lf || 0), dc = +(v.dc || 0), n = v.n.trim(), aLf = owner ? lf : 0, aDc = owner ? dc : 0, refund = refundDue(b, aLf + aDc)
     const kept = Math.max(0, Math.min(b.deposit_held - refund, Math.max(0, b.rent + b.charges + aLf + aDc - b.paid)))   // deposit kept against unpaid dues
+    // What the kept deposit was applied to, in the order dues are settled: rent, customization, earlier charges, late fee, damage / repair / cleaning.
+    const cust = b.custom_charge || 0, unpaidRent = Math.max(0, b.rent - b.paid), unpaidCust = Math.max(0, cust - Math.max(0, b.paid - b.rent)), unpaidPrev = Math.max(0, Math.max(0, b.rent + b.charges - b.paid) - unpaidRent - unpaidCust)
+    let left = kept; const applied: { amt: number; why: string }[] = []
+    for (const [due, why] of [[unpaidRent, 'Unpaid rent'], [unpaidCust, 'Unpaid customization charge'], [unpaidPrev, 'Earlier late fee / charges'], [aLf, 'Late-return fee'], [aDc, `Damage / repair / cleaning charge${n ? ': ' + n : ''}`]] as [number, string][]) {
+      const t = Math.min(left, due); if (t > 0) { applied.push({ amt: t, why }); left -= t }
+    }
+    if (left > 0) applied.push({ amt: left, why: 'Unpaid dues' })
     const ok = await patch(b, { status: 'returned', returned_at: new Date().toISOString(), charges: b.charges + aLf + aDc, late_fee: b.late_fee + aLf, damage_charge: b.damage_charge + aDc, return_notes: n || b.return_notes || null },
-      `Returned${n ? ': ' + n : ''}${(lf || dc) && !owner ? ` (charges ${inr(lf + dc)} to be set by owner)` : ''}. Deposit handed back: ${inr(refund)}${kept ? `. Deposit kept against dues: ${inr(kept)}` : ''}`)
+      `Returned${n ? ': ' + n : ''}${(lf || dc) && !owner ? ` (charges ${inr(lf + dc)} to be set by owner)` : ''}. Deposit handed back: ${inr(refund)}${kept ? `. Deposit kept against dues: ${inr(kept)} (${applied.map(a => `${a.why} ${inr(a.amt)}`).join(', ')})` : ''}`)
     if (!ok) return
     if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.rm })
-    if (kept > 0) await sb.from('payments').insert({ booking_id: b.id, amount: kept, kind: 'charge', purpose: 'deposit_applied', mode: 'Deposit adjusted' })
+    if (kept > 0) await sb.from('payments').insert(applied.map(a => ({ booking_id: b.id, amount: a.amt, kind: 'charge', purpose: 'deposit_applied', mode: 'Deposit adjusted', remarks: a.why })))
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
-    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept against unpaid rent or charges.` : ''}${(lf || dc) && !owner ? ` The ${inr(lf + dc)} of charges must be added by the owner, and the amount above does not include it.` : ''} The dress becomes available again after the cleaning period.` })
+    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept: ${applied.map(a => `${a.why} ${inr(a.amt)}`).join('; ')}.` : ''}${(lf || dc) && !owner ? ` The ${inr(lf + dc)} of charges must be added by the owner, and the amount above does not include it.` : ''} The dress becomes available again after the cleaning period.` })
   }
   async function resched(b: any) {
     const v = await ask('Reschedule booking', [{ name: 's', label: 'New delivery date', type: 'date', value: b.start_date }, { name: 'e', label: 'New return date', type: 'date', value: b.end_date }]); if (!v) return
