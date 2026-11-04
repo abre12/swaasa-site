@@ -59,31 +59,42 @@ export default function Booking({ dress, advancePct, advanceMin = 1000, staff, i
 
   if (id) return <div className="box"><h2>{staff ? 'Booking confirmed' : 'Booking requested'} ✓</h2><h1 style={{ color: 'var(--gold)' }}>{id}</h1>
     <p>{staff ? 'The booking is confirmed and shows on the calendar.' : 'Keep this ID and your mobile number to check your booking. The store will contact you to confirm the booking and the refundable deposit.'}</p>{warn && <p className="bad">{warn}</p>}{staff && <a className="btn alt sm" href="/admin">Open admin</a>}</div>
-  return (<div className="box"><h3>{staff ? 'Check availability and book (staff)' : 'Check availability'}</h3>
-    <div style={{ display: 'flex', gap: 8, margin: '8px 0' }}><input type="date" min={todayIST()} value={s} onChange={dates(setS)} /><input type="date" min={s || todayIST()} value={e} onChange={dates(setE)} /></div>
-    {valid && !avail && <p className="bad"><b>Not available.</b> This dress is currently marked {dress.status}.</p>}
-    {valid && avail && realClash && <p className="bad"><b>Not available</b> for those dates. Try nearby dates or browse similar dresses.</p>}
-    {valid && avail && gapOnly && <>
-      <p className="bad"><b>{GAP}.</b> Each dress needs a day for cleaning and preparation between rentals.{!staff && ' Please choose dates that start a little later or end a little earlier.'}</p>
-      {staff && <label style={{ display: 'block', margin: '10px 0' }}><input type="checkbox" style={{ width: 'auto' }} checked={checked} onChange={x => setChecked(x.target.checked)} /> I have checked and confirmed availability. Book inside the cleaning period.</label>}</>}
-    {free && <p className="ok"><b>Available</b> for {p!.n} day(s).</p>}
+  const total = net + cust, received = +f.advance || 0, balance = Math.max(0, total - Math.max(0, received - depDue))
+  return (<div>
+    <section className="bk-sec"><h3>Select dates</h3>
+      <div className="bk-dates">
+        <label className="bk-f">From<input type="date" min={todayIST()} value={s} onChange={dates(setS)} /></label>
+        <label className="bk-f">To<input type="date" min={s || todayIST()} value={e} onChange={dates(setE)} /></label>
+        <div className="bk-dur">Duration{valid && p ? <span className="pill">{p.n} day{p.n === 1 ? '' : 's'}</span> : <span className="pill" style={{ opacity: .4 }}>–</span>}</div></div>
+      {valid && !avail && <div className="bk-avail no"><div><b>Not available</b><span>This dress is currently marked {dress.status}.</span></div></div>}
+      {valid && avail && realClash && <div className="bk-avail no"><div><b>Not available for those dates</b><span>Try nearby dates or browse similar dresses.</span></div></div>}
+      {valid && avail && gapOnly && <><div className="bk-avail no"><div><b>{GAP}</b><span>Each dress needs a day for cleaning and preparation between rentals.{!staff && ' Please start a little later or end a little earlier.'}</span></div></div>
+        {staff && <label style={{ display: 'block', margin: '10px 0 0', fontSize: 14 }}><input type="checkbox" style={{ width: 'auto', marginRight: 6 }} checked={checked} onChange={x => setChecked(x.target.checked)} />I have checked and confirmed availability. Book inside the cleaning period.</label>}</>}
+      {free && <div className="bk-avail"><div><b>Available</b><span>Free on the selected dates</span></div></div>}
+    </section>
     {showForm && p && <>
-      <div className="row"><span>Rent total</span><b>{inr(p.rent)}</b></div>{net !== p.rent && <div className="row"><span>Rent after discount</span><b>{inr(net)}</b></div>}<div className="row"><span>{staff ? 'Refundable deposit' : 'Refundable deposit (collected at pickup)'}</span><span>{inr(depDue)}</span></div>
-      {staff && <>{cust > 0 && <div className="row"><span>Customization charge</span><span>{inr(cust)}</span></div>}
-        <div className="row"><span>Amount received now</span><span>{inr(+f.advance || 0)}</span></div>
-        <div className="row"><b>Balance due at delivery</b><b>{inr(Math.max(0, net + cust - Math.max(0, (+f.advance || 0) - depDue)))}</b></div></>}
-      <div style={{ marginTop: 12 }}><input placeholder="Full name *" value={f.name} onChange={x => set('name', x.target.value)} />
-        <input placeholder="Mobile number *" type="tel" value={f.phone} onChange={x => set('phone', x.target.value)} />
-        <input placeholder="Email (optional)" value={f.email} onChange={x => set('email', x.target.value)} />
-        <div style={lab}>Alteration notes (optional). For example: shorten sleeves, tighten waist, blouse measurements.</div>
-        <textarea rows={4} placeholder="Type any stitching or fitting instructions" value={f.notes} onChange={x => set('notes', x.target.value)} />
-        {staff && <><div style={lab}>Customization charge (₹), optional. Collected in addition to the rental, for example custom stitching.</div>
-          <input placeholder="Amount in ₹ (leave empty if none)" type="number" min="0" value={f.custom} onChange={x => set('custom', x.target.value)} />
-          <div style={lab}>Amount received now (₹) *. The refundable deposit of {inr(depDue)} is collected first. Anything above it counts as rent paid; the rest of the rent is paid at delivery.</div>
-          <input placeholder="Amount in ₹" type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} />
-          <div style={lab}>Payment mode *</div>
-          <select value={f.mode} onChange={x => set('mode', x.target.value)}><option value="">Select payment mode</option>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select>
-          {staff === 'owner' && <><div style={lab}>Discount (₹, owner only)</div><input placeholder="Amount in ₹ (optional)" type="number" value={f.discount} onChange={x => set('discount', x.target.value)} /></>}</>}
-        <button className="btn" disabled={wait} onClick={staff ? staffBook : customerBook}>{wait ? 'Checking availability…' : staff ? 'Confirm booking' : 'Request booking'}</button></div></>}
-    {msg && <p className="bad">{msg}</p>}</div>)
+      <section className="bk-sec"><h3>Customer details</h3>
+        <div className="bk-g2">
+          <label className="bk-f">Name *<input value={f.name} onChange={x => set('name', x.target.value)} /></label>
+          <label className="bk-f">Mobile *<input type="tel" inputMode="numeric" value={f.phone} onChange={x => set('phone', x.target.value)} /></label>
+          <label className="bk-f bk-span">Email (optional)<input type="email" placeholder="Email address" value={f.email} onChange={x => set('email', x.target.value)} /></label></div></section>
+      <section className="bk-sec"><h3>Booking details</h3>
+        <div className="bk-g2">
+          <label className="bk-f bk-span">Alteration notes (optional)<textarea rows={3} placeholder="e.g. shorten sleeves, tighten waist" value={f.notes} onChange={x => set('notes', x.target.value)} /></label>
+          {staff && <>
+            <label className="bk-f bk-span">Customization charge (₹), optional<input type="number" min="0" placeholder="e.g. stitching, design changes" value={f.custom} onChange={x => set('custom', x.target.value)} /></label>
+            <label className="bk-f">Payment received now (₹) *<input type="number" min="1" value={f.advance} onChange={x => set('advance', x.target.value)} /><small>Deposit of {inr(depDue)} is taken first; the rest counts as rent.</small></label>
+            <label className="bk-f">Payment mode *<select value={f.mode} onChange={x => set('mode', x.target.value)}><option value="">Select mode</option>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select></label>
+            {staff === 'owner' && <label className="bk-f">Discount (₹), optional<input type="number" min="0" placeholder="Amount (if any)" value={f.discount} onChange={x => set('discount', x.target.value)} /><small>Owner only</small></label>}</>}</div></section>
+      <section className="bk-sum">
+        <div><div className="row"><span>Rent{p.n ? ` (${p.n} day${p.n === 1 ? '' : 's'})` : ''}</span><span>{inr(p.rent)}</span></div>
+          {net !== p.rent && <div className="row"><span>Discount</span><span>−{inr(p.rent - net)}</span></div>}
+          {staff && cust > 0 && <div className="row"><span>Customization</span><span>{inr(cust)}</span></div>}
+          <div className="row tot"><span>Total</span><span>{inr(total)}</span></div></div>
+        <div><div className="row"><span>Refundable deposit{staff ? '' : ' (at pickup)'}</span><span>{inr(depDue)}</span></div>
+          {staff && <><div className="row" style={{ color: 'var(--ok)' }}><span>Received now</span><span>{inr(received)}</span></div>
+            <div className="row bk-due"><span>Balance due at delivery</span><span>{inr(balance)}</span></div></>}</div></section>
+      <div className="bk-act"><button className="btn alt" onClick={() => window.history.back()}>Cancel</button>
+        <button className="btn wine" disabled={wait} onClick={staff ? staffBook : customerBook}>{wait ? 'Checking availability…' : staff ? '✓ Confirm booking' : 'Request booking'}</button></div></>}
+    {msg && <p className="bad" style={{ marginTop: 10 }}>{msg}</p>}</div>)
 }

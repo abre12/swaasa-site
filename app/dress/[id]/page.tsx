@@ -13,14 +13,16 @@ export default async function DressPage({ params, searchParams }: { params: { id
   if (!d) notFound()
   const { data: st } = user ? await sb.from('staff').select('role').eq('user_id', user.id).maybeSingle() : { data: null }
   const viewOnly = st?.role === 'preparation'           // preparation staff can look, not book
-  return (<section className="sec"><div className="two">
-    <div><Gallery images={d.images || []} medium={d.medium || []} thumbs={d.thumbs || []} name={d.name} />
-      <BookedDates dressId={d.id} />
-      <TryOn dressId={d.id} hasImage={!!process.env.FASHN_API_KEY && !!(d.try_on_image || d.images?.length)} /></div>
-    <div><span className="mut">{d.code} · {d.category}</span><h1 style={{ fontSize: 40 }}>{d.name}</h1><p>{d.description}</p>
-      <p className="mut">Colour: {d.colour} · Sizes: {d.sizes?.join(', ')}<br />Alterations: {d.alterations || 'On request'}</p>
-      <div className="row"><span>Rental ({d.included_days} days)</span><b>{inr(d.price)}</b></div>
-      <div className="row"><span>Extra day</span><span>{inr(d.extra_day_fee)}</span></div>
-      <p className="mut" style={{ fontSize: 12 }}>{d.policy || 'Cleaning included. Damage beyond normal wear is charged at repair cost.'}</p>
-      {viewOnly ? <p className="mut">Your login can view dresses but not make bookings.</p> : <Booking dress={d} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} staff={st?.role ?? null} initialFrom={searchParams.from} initialTo={searchParams.to} />}</div></div></section>)
+  return (<section className="sec"><div className="bk-top"><h1>{viewOnly || !st ? d.name : 'Take Booking'}</h1><span className="chip-id">Dress ID: {d.code}</span></div>
+    <div className="bk-page">
+      <div className="bk-card"><Gallery images={d.images || []} medium={d.medium || []} thumbs={d.thumbs || []} name={d.name} />
+        <h2 style={{ fontSize: 24, margin: '14px 0 2px' }}>{d.name}</h2><span className="mut">{d.code} · {d.category}</span>
+        <div style={{ margin: '12px 0' }}><div className="row"><span>Rental ({d.included_days} days)</span><b>{inr(d.price)}</b></div>
+          <div className="row"><span>Extra day (per day)</span><span>{inr(d.extra_day_fee)}</span></div></div>
+        <p className="mut" style={{ fontSize: 13, margin: 0 }}>{d.policy || 'Cleaning included. Damage beyond normal wear is charged at repair cost.'}</p>
+        <details className="bk-more"><summary>Dress details</summary>
+          {d.description && <p>{d.description}</p>}<p className="mut" style={{ fontSize: 13 }}>Colour: {d.colour} · Sizes: {d.sizes?.join(', ')}<br />Alterations: {d.alterations || 'On request'}</p></details>
+        <BookedDates dressId={d.id} />
+        <TryOn dressId={d.id} hasImage={!!process.env.FASHN_API_KEY && !!(d.try_on_image || d.images?.length)} /></div>
+      <div>{viewOnly ? <p className="mut">Your login can view dresses but not make bookings.</p> : <Booking dress={d} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} staff={st?.role ?? null} initialFrom={searchParams.from} initialTo={searchParams.to} />}</div></div></section>)
 }

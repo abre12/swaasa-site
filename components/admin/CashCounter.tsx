@@ -18,7 +18,7 @@ const PURPOSE: Record<string, [string, string, string]> = {
   rent_refund: ['Rent Refund', RED, 'refund'], deposit_applied: ['Deposit Applied to Dues', 'var(--mut)', 'book'] }
 const KIND_PURPOSE: Record<string, string> = { rent: 'rent', deposit: 'deposit', deposit_refund: 'deposit_refund', rent_refund: 'rent_refund', charge: 'deposit_applied' }
 const expRemark = (c: string) => c === 'Dry cleaning' ? 'Dry-Cleaning Expense' : c === 'Tea & refreshments' || c === 'Petty cash' ? 'Petty Cash Expense' : 'Other Business Expense'
-type Tx = { key: string; at: string; booking: string | null; code: string | null; dressId: string | null; who: string; note: string; detail: string; remark: string; colour: string; group: string; amount: number; mode: string; by: string | null; flow: 'in' | 'out' | 'book' | 'exp'; voided?: boolean; id?: number; reason?: string }
+type Tx = { key: string; at: string; booking: string | null; code: string | null; dressId: string | null; who: string; note: string; detail: string; sub: string; rem: string; remark: string; colour: string; group: string; amount: number; mode: string; by: string | null; flow: 'in' | 'out' | 'book' | 'exp'; voided?: boolean; id?: number; reason?: string }
 
 // Petty cash / business expense entry. Also used by the Overview Dashboard's quick button.
 export async function pettyCashEntry(ctx: any): Promise<boolean> {
@@ -35,7 +35,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   const owner = ctx.owner
   const [date, setDate] = useState(todayIST()); const [mode, setMode] = useState(''); const [type, setType] = useState('')
   const [pays, setPays] = useState<any[]>([]), [exps, setExps] = useState<any[]>([]), [book, setBook] = useState<any>(null), [liab, setLiab] = useState<any>(null)
-  const [loading, setLoading] = useState(true), [err, setErr] = useState('')
+  const [loading, setLoading] = useState(true), [err, setErr] = useState(''), [view, setView] = useState<'overview' | 'transactions' | 'expenses' | 'summary'>('overview'), [showF, setShowF] = useState(false)
   const [er, setEr] = useState({ from: todayIST(), to: todayIST() }), [erows, setErows] = useState<any[] | null>(null)
 
   const load = useCallback(async () => {
@@ -53,9 +53,9 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   // every payment and expense becomes one row, so nothing is counted twice and every figure comes from the same list
   const all: Tx[] = useMemo(() => {
     const rows: Tx[] = pays.map(r => { const pu = r.purpose || KIND_PURPOSE[r.kind] || 'rent', [label, colour, group] = PURPOSE[pu] || PURPOSE.rent, b = r.bookings, refund = r.kind.endsWith('refund'), book = r.kind === 'charge'
-      return { key: 'p' + r.id, at: r.created_at, booking: r.booking_id, code: b?.dresses?.code || null, dressId: b?.dress_id || null, who: b?.customer_name || '', note: b?.dresses?.name || '', detail: r.remarks || '', remark: label, colour, group,
+      return { key: 'p' + r.id, at: r.created_at, booking: r.booking_id, code: b?.dresses?.code || null, dressId: b?.dress_id || null, who: b?.customer_name || '', note: b?.dresses?.name || '', detail: r.remarks || '', sub: [b?.dresses?.code, b?.dresses?.name].filter(Boolean).join(' · '), rem: r.remarks || '', remark: label, colour, group,
         amount: refund ? -r.amount : r.amount, mode: book ? 'Book Entry' : r.mode || '', by: r.created_by, flow: book ? 'book' : refund ? 'out' : 'in' } })
-    exps.forEach(x => rows.push({ key: 'e' + x.id, at: x.created_at, booking: null, code: null, dressId: null, who: x.payee || x.remarks, note: x.payee ? `${x.category}: ${x.remarks}` : x.category, detail: '', remark: expRemark(x.category), colour: RED, group: 'expense',
+    exps.forEach(x => rows.push({ key: 'e' + x.id, at: x.created_at, booking: null, code: null, dressId: null, who: x.payee || x.category, note: x.payee ? `${x.category}: ${x.remarks}` : x.category, detail: '', sub: x.payee ? x.category : '', rem: x.remarks || '', remark: expRemark(x.category), colour: RED, group: 'expense',
       amount: -x.amount, mode: x.mode, by: x.created_by, flow: 'exp', voided: !!x.voided_at, id: x.id, reason: x.void_reason }))
     return rows.sort((a, b) => a.at.localeCompare(b.at))
   }, [pays, exps])
@@ -139,66 +139,79 @@ export default function CashCounter({ ctx }: { ctx: any }) {
     downloadBlob(await makeWorkbook([{ name: 'Transactions', widths: [20, 16, 12, 26, 26, 34, 16, 16, 16], rows: [[{ t: 'Swaasa Wedding Rentals: daily transactions', s: 'title' }], [{ t: 'Date', s: 'bold' }, { d: date }], [], head, ...tx] }, { name: 'Cash reconciliation', widths: [48, 36], rows: recon }, { name: 'Financial summary', widths: [58, 22], rows: fin }]), `swaasa-cash-counter-${date}.xlsx`)
   }
 
-  const sel = (l: string, v: string, set: (x: string) => void, opts: [string, string][]) => <select aria-label={l} value={v} onChange={e => set(e.target.value)} style={{ width: 'auto' }}>{opts.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select>
-  const card = (l: string, v: string, tip: string, sub?: string, c?: string) => <div key={l} className="stat-card" title={tip} style={c ? { borderColor: c } : undefined}><span className="mut" style={{ fontSize: 13 }}>{l}</span><b style={{ fontSize: 24, fontFamily: 'Cormorant Garamond, serif', color: c }}>{v}</b>{sub && <span className="mut" style={{ fontSize: 11 }}>{sub}</span>}</div>
-  const filtered = !!(mode || type)
+  const sel = (l: string, v: string, set: (x: string) => void, opts: [string, string][]) => <select aria-label={l} value={v} onChange={e => set(e.target.value)} style={{ width: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 8px' }}>{opts.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select>
+  const filtered = !!(mode || type), nF = (mode ? 1 : 0) + (type ? 1 : 0)
+  const money = (t: Tx) => t.flow === 'book' ? <span className="mut" style={{ fontStyle: 'italic' }}>{inr(t.amount)}</span> : <b style={{ color: t.amount < 0 ? 'var(--bad)' : 'var(--ok)' }}>{t.amount < 0 ? '−' : '+'}{inr(Math.abs(t.amount))}</b>
+  const modeCell = (t: Tx) => t.flow === 'book' ? <span className="mut">Book entry</span> : <><span className="dot" style={{ background: { Cash: 'var(--ok)', 'GPay / UPI': PURPLE, Card: BLUE }[modeGroup(t.mode)] || 'var(--mut)' }} />{t.mode}</>
+  const txTable = (list: Tx[], empty: string) => <div className="scroll"><table className="cc-table"><thead><tr><th>Time</th><th>Booking ID</th><th>Customer / Payee</th><th>Type</th><th>Remarks</th><th style={{ textAlign: 'right' }}>Amount</th><th>Payment mode</th><th>Entered by</th></tr></thead><tbody>
+    {loading && !all.length && <tr><td colSpan={8} className="mut">Loading…</td></tr>}
+    {list.map(t => <tr key={t.key} style={t.voided ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
+      <td>{istTime(t.at)}</td>
+      <td>{t.booking ? <a href="#" title="Open this booking" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13, color: BLUE }} onClick={e => { e.preventDefault(); ctx.openBooking(t.booking) }}>{t.booking}</a> : '—'}</td>
+      <td style={{ whiteSpace: 'normal', minWidth: 130 }}>{t.who}{t.sub && <div className="mut" style={{ fontSize: 11 }}>{t.sub}</div>}</td>
+      <td><span className="tag" style={{ color: t.colour || 'var(--ink)' }}>{t.remark}</span></td>
+      <td style={{ whiteSpace: 'normal', minWidth: 140, fontSize: 13 }}>{t.rem || <span className="mut">—</span>}{t.voided && <div className="bad" style={{ fontSize: 11 }}>VOIDED: {t.reason}</div>}</td>
+      <td style={{ textAlign: 'right' }}>{money(t)}</td><td>{modeCell(t)}</td>
+      <td>{ctx.staffName(t.by) || '—'}{owner && t.flow === 'exp' && !t.voided && <> <button className="btn alt sm" onClick={() => voidExp(t)}>Void</button></>}</td></tr>)}
+    {!loading && !list.length && <tr><td colSpan={8} className="mut">{empty}{filtered ? ' with these filters' : ''}.</td></tr>}</tbody></table></div>
+  const kc = (l: string, v: string, tip: string, sub?: string, c?: string, main = false) => <div key={l} className={'cc-card' + (main ? ' main' : '')} title={tip} style={c ? ({ '--c': c } as any) : undefined}><span>{l}</span><b>{v}</b>{sub && <small>{sub}</small>}</div>
+  const card = (l: string, v: string, tip: string, sub?: string, c?: string) => <div key={l} className="stat-card" title={tip} style={{ cursor: 'default', ...(c ? { borderColor: c } : {}) }}><span className="mut" style={{ fontSize: 13 }}>{l}</span><b style={{ fontSize: 22, fontFamily: 'Cormorant Garamond, serif', color: c }}>{v}</b>{sub && <span className="mut" style={{ fontSize: 11 }}>{sub}</span>}</div>
+  const TABS: [typeof view, string][] = [['overview', 'Overview'], ['transactions', 'Transactions'], ['expenses', 'Expenses'], ['summary', 'Summary']]
   return (<div>
-    <div className="flt" style={{ justifyContent: 'flex-start' }}><input type="date" value={date} max={todayIST()} onChange={e => e.target.value && setDate(e.target.value)} aria-label="Date" style={{ width: 'auto' }} /><button className="btn alt sm" onClick={() => setDate(todayIST())}>Today</button>
+    <div className="cc-head"><h2>Daily Cash Counter</h2>
+      <input type="date" value={date} max={todayIST()} onChange={e => e.target.value && setDate(e.target.value)} aria-label="Date" style={{ width: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 8px' }} />
+      <button className="btn alt sm" onClick={() => setDate(todayIST())}>Today</button><span className="cc-sp" />
+      <button className="btn wine sm" onClick={record}>+ Record payment</button><button className="btn alt sm" onClick={() => pettyCashEntry(ctx).then(ok => ok && load())}>+ Petty cash expense</button><button className="btn alt sm" onClick={exportXlsx}>Export</button></div>
+    {err && <p className="bad"><b>{err}</b></p>}
+    {!loading && !known && <div className="cc-banner"><b>Opening cash not set</b><span className="mut">Set the opening cash to start the cash counter.</span><span className="cc-sp" />{owner ? <button className="btn sm" onClick={setupOpening}>Set opening cash</button> : <span>Ask the owner to set it.</span>}</div>}
+    <div className="cc-tabs">{TABS.map(([k, l]) => <button key={k} className={'t' + (view === k ? ' on' : '')} onClick={() => setView(k)}>{l}</button>)}<span className="cc-sp" />
+      {(view === 'overview' || view === 'transactions') && <button className="btn alt sm" onClick={() => setShowF(!showF)}>Filters{nF ? ` (${nF})` : ''}</button>}</div>
+    {showF && (view === 'overview' || view === 'transactions') && <div className="cc-filters">
       {sel('Payment mode', mode, setMode, [['', 'All payment modes'], ['Cash', 'Cash'], ['GPay / UPI', 'GPay / UPI'], ['Card', 'Card'], ['Other', 'Other'], ['Book entry', 'Book entries']])}
       {sel('Type', type, setType, [['', 'All transaction types'], ['advance', 'Advance'], ['rent', 'Rent'], ['customization', 'Customization'], ['charges', 'Damage / cleaning / other charges'], ['deposit', 'Deposits'], ['refund', 'Refunds'], ['expense', 'Expenses'], ['book', 'Book entries']])}
-      <button className="btn sm" onClick={record}>Record payment</button><button className="btn sm" onClick={() => pettyCashEntry(ctx).then(ok => ok && load())}>Petty cash expense</button><button className="btn alt sm" onClick={exportXlsx}>Export to Excel</button></div>
-    {err && <p className="bad"><b>{err}</b></p>}
-    <p className="mut" style={{ fontSize: 13 }}>{dmy(date)}. Money actually received or paid out on this date, not the full booking price. <span style={{ color: BLUE }}><b>Blue = refundable deposits</b></span> (not income) · <span style={{ color: TEAL }}><b>teal = advance</b></span> · <span style={{ color: PURPLE }}><b>purple = customization</b></span> · <span style={{ color: 'var(--bad)' }}><b>red = money paid out</b></span>.</p>
+      {filtered && <button className="btn alt sm" onClick={() => { setMode(''); setType('') }}>Clear</button>}<span className="mut" style={{ fontSize: 12 }}>Balances never change with filters.</span></div>}
 
-    <div className="box" style={{ margin: '0 0 14px' }}>
-      <h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>CASH DRAWER · {dmy(date)}</h3>
-      <p className="mut" style={{ fontSize: 12, margin: '0 0 8px' }}>Physical cash only. GPay / UPI, Card and book entries never change it.</p>
-      {loading && !book ? <p className="mut">Loading…</p> : !known ? <div style={{ border: '1px solid #c58a2b', background: '#c58a2b14', padding: 12 }}><b>The opening cash has not been set.</b> The drawer cannot be worked out until you say how much cash was in it at the start.{' '}
-        {owner ? <button className="btn sm" onClick={setupOpening}>Set opening cash</button> : <span>Please ask the owner to set it.</span>}</div> : <>
-        <div className="adm-cards">{[['Opening cash', inr(book.opening), 'Brought forward from ' + (book.anchor || '')], ['+ Cash received', inr(book.cash_in), 'Cash receipts from customers'], ['− Cash refunds paid', inr(book.cash_refunds), 'Refunds paid out in cash'], ['− Cash expenses', inr(book.expenses), 'Petty cash and other expenses paid in cash']].map(([l, v, t]) => card(l, v, t, undefined))}
-          <div className="stat-card" title="Opening + cash received − cash refunds − cash expenses. Count the drawer and compare." style={{ borderColor: 'var(--ink)', borderWidth: 2 }}><span style={{ fontSize: 13 }}><b>= Expected closing cash</b></span><b style={{ fontSize: 28, fontFamily: 'Cormorant Garamond, serif' }}>{inr(book.expected)}</b></div></div>
-        <p className="mut" style={{ fontSize: 12, margin: '6px 0' }}>Opening is {book.anchor}. Paid in non-cash modes today (no effect on the drawer): received {inr(nonCash.in)}, refunds {inr(nonCash.out)}, expenses {inr(nonCash.exp)}.</p>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '8px 0' }}>
-          {tallied ? <><b style={{ color: book.status === 'reconciled' ? 'var(--ok)' : 'var(--bad)' }}>{book.status === 'reconciled' ? '✓ Reconciled' : `⚠ Discrepancy of ${inr(book.difference)}`}</b><span className="mut">Counted {inr(book.counted)} · expected {inr(book.expected)} when tallied · by {ctx.staffName(book.tallied_by) || 'staff'} at {istTime(book.tallied_at)}{book.note ? ` · “${book.note}”` : ''}</span></> : <b style={{ color: '#c58a2b' }}>Not tallied</b>}
-          {(!tallied || owner) && <button className="btn sm" onClick={tally}>{tallied ? 'Change tally' : 'Tally cash (end of day)'}</button>}
-          {owner && <button className="btn alt sm" onClick={setupOpening}>Opening cash…</button>}</div></>}
-    </div>
+    {view === 'overview' && <>
+      {known && <div className="cc-drawer">
+        <div className="cc-eq"><div><small>Opening cash</small><b>{inr(book.opening)}</b></div><i>+</i><div><small>Cash received</small><b>{inr(book.cash_in)}</b></div><i>−</i><div><small>Cash refunds</small><b>{inr(book.cash_refunds)}</b></div><i>−</i><div><small>Cash expenses</small><b>{inr(book.expenses)}</b></div><i>=</i><div><small>Expected closing cash</small><b style={{ fontSize: 24, fontFamily: 'Cormorant Garamond, serif' }}>{inr(book.expected)}</b></div></div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingTop: 10 }}>
+          {tallied ? <><b style={{ color: book.status === 'reconciled' ? 'var(--ok)' : 'var(--bad)' }}>{book.status === 'reconciled' ? '✓ Reconciled' : `⚠ Discrepancy of ${inr(book.difference)}`}</b><span className="mut" style={{ fontSize: 13 }}>Counted {inr(book.counted)} by {ctx.staffName(book.tallied_by) || 'staff'} at {istTime(book.tallied_at)}{book.note ? ` · “${book.note}”` : ''}</span></> : <b style={{ color: '#c58a2b' }}>Not tallied</b>}
+          {(!tallied || owner) && <button className="btn sm" onClick={tally}>{tallied ? 'Change tally' : 'Tally cash (end of day)'}</button>}{owner && <button className="btn alt sm" onClick={setupOpening}>Opening cash…</button>}</div></div>}
+      <div className="cc-cards">
+        {kc('Total received', inr(T.total), 'Everything received from customers on this date: rent, advance, customization, charges and deposits, in every mode.', `Rent ${inr(T.rent)} · Customization ${inr(T.customToday)}`, undefined, true)}
+        {kc('Total cash', inr(T.cash), 'Received in physical cash.', undefined, 'var(--ok)')}
+        {kc('GPay / UPI', inr(T.upi), 'Goes to the bank, not the drawer.', undefined, PURPLE)}
+        {kc('Card', inr(T.card), 'Goes to the bank, not the drawer.', undefined, BLUE)}
+        {kc('Refunds paid', inr(T.refunds), 'Refunds actually paid out on this date, in any mode.', undefined, 'var(--bad)')}
+        {kc('Counter balance', known ? inr(book.expected) : 'Not set', 'Expected closing cash, the same as in the drawer line above.', undefined, TEAL)}</div>
+      {T.other > 0 && <p className="mut" style={{ fontSize: 12, marginTop: -10 }}>Also received by other modes (bank transfer and similar): {inr(T.other)}.</p>}
+      <div className="cc-h"><h3>Recent transactions{filtered && <span className="mut" style={{ fontSize: 12, fontWeight: 400 }}> · filtered</span>}</h3>{shown.length > 5 && <a href="#" onClick={e => { e.preventDefault(); setView('transactions') }}>View all {shown.length}</a>}</div>
+      {txTable(shown.slice(-5), 'No transactions for this date')}</>}
 
-    <h3 style={{ letterSpacing: '.08em', fontSize: 18, margin: '4px 0 8px' }}>DAILY FINANCIAL SUMMARY{filtered && <span className="mut" style={{ fontSize: 12, letterSpacing: 0 }}> · filtered view (balances below are never filtered)</span>}</h3>
-    <div className="adm-cards">
-      {card('Transactions', String(T.dresses), 'Number of different dresses with at least one payment, refund or adjustment on this date.', 'dresses today')}
-      {card('Rental value (after discounts)', inr(T.rental), 'The rent after discounts for the bookings that had activity today. This is booking value, not money received.', 'bookings with activity')}
-      {card('Customization charges', inr(T.custom), 'Customization charged on those bookings. Payments settle rent first, then customization.', `unpaid ${inr(T.customUnpaid)} · received today ${inr(T.customToday)}`, PURPLE)}
-      {card('Rent received', inr(T.rent), 'Advance and rent actually received today. Refunds are shown separately under Refunds paid.', 'advance + rent')}
-      {card('Advance received, pending refund', inr(liab?.advance_pending || 0), 'Advances held for bookings not yet delivered or cancelled, less advance refunds paid. All bookings, as at the end of the selected day. Becomes rent once the dress is delivered.', 'all bookings · end of day', TEAL)}
-      {card('Refundable deposits held', inr(liab?.deposits_held || 0), 'Deposits received less deposits returned and deposits kept against dues. Not income. All bookings, as at the end of the selected day.', 'all bookings · end of day', BLUE)}
-      {card('Total received', inr(T.total), 'Everything received from customers today: rent, advance, customization, charges and deposits, in every payment mode.', 'all modes')}
-      {card('Cash', inr(T.cash), 'Received in physical cash today.')}{card('GPay / UPI', inr(T.upi), 'Received by GPay or UPI today (goes to the bank, not the drawer).')}{card('Card', inr(T.card), 'Received by card today (goes to the bank, not the drawer).')}
-      {card('Refunds paid', inr(T.refunds), 'Refunds actually paid out today in any mode: deposit, advance and rent refunds. Not pending refunds.', 'today only')}
-      {card('Cash counter balance', known ? inr(book.expected) : 'Not set', 'The same figure as Expected closing cash in the drawer panel above.', 'expected closing cash')}
-      {card('Outstanding balances', inr(T.outstanding), 'What customers still owe on the bookings that had activity today. Not cash in hand.', 'bookings with activity')}
-    </div>
-    {T.other > 0 && <p className="mut" style={{ fontSize: 12 }}>Received by other modes (bank transfer and similar): {inr(T.other)}. Cash + GPay / UPI + Card + other = Total received.</p>}
+    {view === 'transactions' && <><div className="cc-h"><h3>{dmy(date)} · {shown.length} transaction{shown.length === 1 ? '' : 's'}</h3></div>{txTable(shown, 'No transactions for this date')}
+      <p className="mut" style={{ fontSize: 12 }}>Money actually received or paid out on this date, not the full booking price. Amounts in green came in, red went out; Book entries are adjustments that move no money.</p></>}
 
-    <h3 style={{ letterSpacing: '.08em', fontSize: 18, margin: '18px 0 8px' }}>TRANSACTIONS</h3>
-    <div className="scroll"><table><thead><tr><th>Time</th><th>Booking ID</th><th>Item Code</th><th>Customer / Payee</th><th>Remarks</th><th>Amount</th><th>Payment Mode</th><th>Entered By</th></tr></thead><tbody>
-      {loading && !all.length && <tr><td colSpan={8} className="mut">Loading…</td></tr>}
-      {shown.map(t => <tr key={t.key} style={t.voided ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
-        <td>{istTime(t.at)}</td>
-        <td>{t.booking ? <a href="#" title="Open this booking" style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13 }} onClick={e => { e.preventDefault(); ctx.openBooking(t.booking) }}>{t.booking}</a> : '—'}</td>
-        <td>{t.code || '—'}</td><td style={{ whiteSpace: 'normal', minWidth: 130 }}>{t.who}{t.note && <div className="mut" style={{ fontSize: 11 }}>{t.note}</div>}</td>
-        <td style={{ color: t.colour || undefined, fontWeight: t.colour ? 600 : 400, fontStyle: t.flow === 'book' ? 'italic' : undefined }}>{t.remark}{t.detail && <div style={{ fontSize: 11, fontWeight: 400 }}>{t.detail}</div>}{t.voided && <div style={{ fontSize: 11 }}>VOIDED: {t.reason}</div>}</td>
-        <td style={{ color: t.flow === 'in' && !t.colour ? undefined : t.colour || undefined, fontWeight: 700, fontStyle: t.flow === 'book' ? 'italic' : undefined }}>{t.flow === 'book' ? inr(t.amount) : (t.amount < 0 ? '−' : '+') + inr(Math.abs(t.amount))}</td>
-        <td>{t.flow === 'book' ? <span className="mut">Book Entry</span> : t.mode}</td><td>{ctx.staffName(t.by) || '—'}{owner && t.flow === 'exp' && !t.voided && <> <button className="btn alt sm" onClick={() => voidExp(t)}>Void</button></>}</td></tr>)}
-      {!loading && !shown.length && <tr><td colSpan={8} className="mut">No transactions for this date{filtered ? ' and filters' : ''}.</td></tr>}</tbody></table></div>
-
-    <details style={{ marginTop: 18 }}><summary style={{ cursor: 'pointer', letterSpacing: '.08em', fontSize: 15 }}><b>EXPENSE RECORDS (any dates)</b></summary>
-      <div className="flt" style={{ justifyContent: 'flex-start', marginTop: 10 }}><input type="date" value={er.from} onChange={e => setEr({ ...er, from: e.target.value })} aria-label="From" style={{ width: 'auto' }} /><input type="date" value={er.to} onChange={e => setEr({ ...er, to: e.target.value })} aria-label="To" style={{ width: 'auto' }} />
+    {view === 'expenses' && <>
+      <div className="cc-h"><h3>Expense records</h3></div>
+      <div className="flt" style={{ justifyContent: 'flex-start' }}><input type="date" value={er.from} onChange={e => setEr({ ...er, from: e.target.value })} aria-label="From" style={{ width: 'auto' }} /><input type="date" value={er.to} onChange={e => setEr({ ...er, to: e.target.value })} aria-label="To" style={{ width: 'auto' }} />
         <button className="btn sm" onClick={showExpenses}>Show</button>{erows && <button className="btn alt sm" onClick={exportExpenses}>Export expenses</button>}</div>
-      {erows && <div className="scroll"><table><thead><tr><th>Date</th><th>Category</th><th>Paid to / Remarks</th><th>Mode</th><th>Amount</th><th>Entered by</th></tr></thead><tbody>
-        {erows.map(x => <tr key={x.id} style={x.voided_at ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}><td>{dmy(x.spent_on)}</td><td>{x.category}</td><td style={{ whiteSpace: 'normal' }}>{x.payee ? `${x.payee}: ` : ''}{x.remarks}</td><td>{x.mode}</td><td style={{ color: RED, fontWeight: 600 }}>{inr(x.amount)}</td><td>{ctx.staffName(x.created_by) || '—'}</td></tr>)}
+      {!erows && <p className="mut">Pick a date range and press Show.</p>}
+      {erows && <div className="scroll"><table className="cc-table"><thead><tr><th>Date</th><th>Category</th><th>Paid to / Remarks</th><th>Mode</th><th style={{ textAlign: 'right' }}>Amount</th><th>Entered by</th></tr></thead><tbody>
+        {erows.map(x => <tr key={x.id} style={x.voided_at ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}><td>{dmy(x.spent_on)}</td><td>{x.category}</td><td style={{ whiteSpace: 'normal' }}>{x.payee ? `${x.payee}: ` : ''}{x.remarks}</td><td>{x.mode}</td><td style={{ color: RED, fontWeight: 600, textAlign: 'right' }}>{inr(x.amount)}</td><td>{ctx.staffName(x.created_by) || '—'}</td></tr>)}
         {!erows.length && <tr><td colSpan={6} className="mut">No expenses in this range.</td></tr>}
-        {!!erows.length && <tr style={{ fontWeight: 700 }}><td colSpan={4}>Total (voided excluded)</td><td>{inr(erows.filter(x => !x.voided_at).reduce((s, x) => s + x.amount, 0))}</td><td></td></tr>}</tbody></table></div>}
-    </details>
+        {!!erows.length && <tr style={{ fontWeight: 700 }}><td colSpan={4}>Total (voided excluded)</td><td style={{ textAlign: 'right' }}>{inr(erows.filter(x => !x.voided_at).reduce((s, x) => s + x.amount, 0))}</td><td></td></tr>}</tbody></table></div>}</>}
+
+    {view === 'summary' && <>
+      <div className="cc-h"><h3>Bookings with activity on {dmy(date)}</h3></div>
+      <div className="adm-cards">
+        {card('Dresses', String(T.dresses), 'Different dresses with at least one payment, refund or adjustment on this date.')}
+        {card('Rental value', inr(T.rental), 'Rent after discounts for bookings with activity today. Booking value, not money received.')}
+        {card('Customization charges', inr(T.custom), 'Payments settle rent first, then customization.', `unpaid ${inr(T.customUnpaid)} · received ${inr(T.customToday)}`, PURPLE)}
+        {card('Outstanding balances', inr(T.outstanding), 'What customers still owe on these bookings. Not cash in hand.')}</div>
+      <div className="cc-h" style={{ marginTop: 18 }}><h3>Held for customers (all bookings, end of day)</h3></div>
+      <div className="adm-cards">
+        {card('Advance pending refund', inr(liab?.advance_pending || 0), 'Advances held for bookings not yet delivered or cancelled, less advance refunds paid. Becomes rent once the dress is delivered.', undefined, TEAL)}
+        {card('Refundable deposits held', inr(liab?.deposits_held || 0), 'Deposits received less deposits returned and deposits kept against dues. Not income.', undefined, BLUE)}</div>
+      <p className="mut" style={{ fontSize: 12, marginTop: 14 }}>The Excel export has the full transaction list, the cash reconciliation and this summary on three sheets.</p></>}
   </div>)
 }
