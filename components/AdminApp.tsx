@@ -39,10 +39,10 @@ const CSS = `.adm{display:grid;grid-template-columns:232px minmax(0,1fr);min-hei
 .stat-card{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;color:inherit;cursor:pointer}
 .adm-two{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}@media(min-width:1400px){.adm-two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .tagchip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);background:none;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px;color:inherit}.tagchip.on{border-color:var(--ink);background:var(--blush);font-weight:600}
-@media(max-width:860px){.adm{grid-template-columns:1fr}.adm-side{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:6px;gap:4px;align-items:center}.adm-brand,.adm-me,.adm-side .sp{display:none}.adm-side .nv{white-space:nowrap;width:auto!important}.adm-main{padding:14px 12px}}`
+`
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
-  const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
+  const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
   const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
@@ -248,7 +248,12 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const custs = Object.values(custB.reduce((m: any, b) => { const k = b.phone.replace(/\D/g, '').slice(-10); const c = (m[k] ??= { n: b.customer_name, p: b.phone, e: b.email, c: 0, s: 0, last: '' }); c.c++; if (b.status !== 'cancelled') c.s += b.rent; if (b.start_date > c.last) c.last = b.start_date; return m }, {})) as any[]
   const [cq, setCq] = useState('')
   const title = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
+
+  const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
+  const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
+  const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
   return (<div className="adm"><style>{CSS}</style>
+    <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" /><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
       {NAV.filter(n => n[3].includes(role)).map(([k, l, i]) => <button key={k} className={'nv' + (tab === k ? ' on' : '')} onClick={() => k === 'workflow' ? (setTab('dashboard'), setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)) : go(k)}><Ic n={i} s={22} />{l}</button>)}
       <span className="sp" />
@@ -286,6 +291,11 @@ export default function AdminApp({ role, name }: { role: string; name: string })
           <label style={{ margin: 0 }}>Virtual try-on per visitor per day<input name="t" type="number" min="0" defaultValue={st.tryon_daily_limit} style={{ display: 'block' }} /></label></div>
         <p className="mut" style={{ fontSize: 12 }}>A changed cleaning period applies to new bookings. Bookings already made keep the gap they were made with.</p><button className="btn">Save settings</button></form>}</div>}
     </main>
+    {ops && <nav className="adm-bot" aria-label="Main">{BOT.map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => goNav(k)}><Ic n={i} s={22} /><span>{k === 'cash' ? 'Payments' : l}</span></button>)}<button className={drawer ? 'on' : ''} onClick={() => setDrawer(true)}><Ic n="menu" s={22} /><span>More</span></button></nav>}
+    {drawer && <div className="adm-sheet" onClick={() => setDrawer(false)}><div className="in" onClick={e => e.stopPropagation()}><div className="hd"><img src="/logo-mark.png" alt="" /><div><b>Swaasa</b><span>Wedding Rentals</span></div><button onClick={() => setDrawer(false)} aria-label="Close menu">✕</button></div>
+      {myNav.map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => goNav(k)}><Ic n={i} s={22} />{l}</button>)}
+      <div className="me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
+      <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
     {payB && B.find(x => x.id === payB) && <PaymentRecord key={payB} ctx={ctx} b={B.find(x => x.id === payB)} onClose={() => setPayB(null)} />}
     {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 80, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>

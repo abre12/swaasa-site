@@ -1,6 +1,7 @@
 import './globals.css'
 import Link from 'next/link'
 export const metadata = { title: 'Swaasa Wedding Rentals · Breathe your fashion', description: 'Bridal and occasion wear rentals in Trivandrum, Kerala.' }
+export const viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' as const }
 export default function Root({ children }: { children: React.ReactNode }) {
   return (<html lang="en"><head><link rel="preconnect" href="https://fonts.googleapis.com" />{process.env.NEXT_PUBLIC_SUPABASE_URL && <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="" />}
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" /></head>

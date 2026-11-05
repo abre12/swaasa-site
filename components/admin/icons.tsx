@@ -43,6 +43,7 @@ const P: Record<string, React.ReactNode> = {
   box: <path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10" />,
   dots2: <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />,
   flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
 }
 export const Ic = ({ n, s = 18, style }: { n: string; s?: number; style?: React.CSSProperties }) =>
