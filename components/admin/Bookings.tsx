@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addD, inr, istDate, mainCatOf, MAIN_CATS, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
+import MonthPick from './MonthPick'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
 const fmt = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const TABS: [string, string][] = [['all', 'All Bookings'], ['upcoming', 'Upcoming Deliveries'], ['today', 'Due Today'], ['out', 'Out for Rental'], ['returns', 'Returns Due'], ['overdue', 'Overdue'], ['done', 'Completed']]
@@ -78,7 +79,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
     <div className="bk-tabs" role="tablist">{TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={cur === k && !EXTRA[flt]} className={cur === k && !EXTRA[flt] ? 'on' : ''} onClick={() => setFlt(k)}>{l}<span className={'n' + (k === 'overdue' && count(k) ? ' red' : '')}>{count(k)}</span></button>)}</div>
     <div className="bk-bar">
       {EXTRA[flt] && <span className="bdg" style={tint('var(--wine)')}>Showing: {EXTRA[flt]} <button onClick={() => setFlt('all')} aria-label="Clear" style={{ background: 'none', border: 0, cursor: 'pointer', color: 'inherit', padding: 0 }}>✕</button></span>}
-      <span style={{ flex: 1 }} /><label className="mpick" style={{ padding: '2px 10px' }}><Ic n="calendar" s={16} /><input type="month" value={f.month} onChange={e => set('month', e.target.value)} aria-label="Delivery month" title="Show bookings delivering in this month" /></label>
+      <span style={{ flex: 1 }} /><MonthPick compact value={f.month} onChange={v => set('month', v)} title="Show bookings delivering in this month" />
       <select value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort"><option value="del">Sort: Delivery Date – Nearest First</option><option value="ret">Sort: Return Date – Nearest First</option><option value="new">Sort: Booking Date – Newest First</option><option value="pend">Sort: Pending Amount – Highest First</option></select>
       <button className="btn alt sm" onClick={() => setShowF(!showF)} style={{ padding: '9px 14px' }}><Ic n="filter" s={15} /> Filters{nF ? ` (${nF})` : ''}</button></div>
     {showF && <div className="bk-filt">

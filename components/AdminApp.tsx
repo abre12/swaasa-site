@@ -15,27 +15,29 @@ import Performance from './admin/Performance'
 import BookingModal from './admin/BookingModal'
 import PaymentRecord from './admin/PaymentRecord'
 import Bookings from './admin/Bookings'
+import Inventory from './admin/Inventory'
+import { Chart } from './admin/Dashboard'
 import { Ic } from './admin/icons'
 const today = todayIST
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
-  ['dresses', 'Dresses', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner', 'manager']], ['cash', 'Payments', 'wallet', ['owner', 'manager']],
-  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['performance', 'Dress Performance', 'chart', ['owner']], ['reports', 'Reports & Settings', 'gear', ['owner']],
+  ['workflow', 'Workflow', 'prog', ['owner', 'manager']], ['dresses', 'Dresses', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner', 'manager']], ['cash', 'Payments', 'wallet', ['owner', 'manager']],
+  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['reports', 'Reports', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
-const CSS = `.adm{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
-.adm-side{background:#6b1230;color:#f6e9ee;padding:18px 12px 12px;position:sticky;top:0;align-self:start;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:2px}
-.adm-brand{text-align:center;padding:2px 0 18px}.adm-brand img{width:52px;display:block;margin:0 auto 4px}.adm-brand b{display:block;font:500 25px "Cormorant Garamond",Georgia,serif;letter-spacing:.04em;color:#fff}.adm-brand span{font-size:12px;color:#e8c9d3}
-.adm-side button.nv,.adm-side a.nv{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:10px;color:inherit;padding:10px 14px;cursor:pointer;font:inherit;font-size:14px;text-decoration:none}
-.adm-side .nv:hover{background:#ffffff1c}.adm-side .nv.on{background:#fff;color:#6b1230;font-weight:600}
+const CSS = `.adm{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.adm-side{background:#780b2c;color:#fff;padding:20px 14px 12px;position:sticky;top:0;align-self:start;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.adm-brand{text-align:center;padding:2px 0 18px}.adm-brand img{width:58px;display:block;margin:0 auto 6px;filter:brightness(0) invert(1)}.adm-brand b{display:block;font:500 31px "Playfair Display",Georgia,serif;letter-spacing:.02em;color:#fff}.adm-brand span{font-size:15px;color:#fff}
+.adm-side button.nv,.adm-side a.nv{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:10px;color:inherit;padding:11px 16px;cursor:pointer;font:inherit;font-size:16px;text-decoration:none}
+.adm-side .nv:hover{background:#ffffff1c}.adm-side .nv.on{background:#fff;color:#780b2c;font-weight:700}.adm-side .nv.out{font-size:14px;opacity:.8}
 .adm-side .sp{flex:1;min-height:12px}
 .adm-me{display:flex;gap:10px;align-items:center;border-top:1px solid #ffffff2e;margin-top:8px;padding:12px 6px 4px}.adm-me i{width:38px;height:38px;border-radius:50%;background:#f3d9df;color:#6b1230;display:grid;place-items:center;font:600 17px Inter,sans-serif;font-style:normal;flex:none}
 .adm-me div{min-width:0;font-size:13px;line-height:1.3}.adm-me b{display:block;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.adm-me span{color:#e8c9d3;text-transform:capitalize}
 .adm-main{padding:22px 26px;min-width:0}.adm-main h2.pg{font-size:30px;margin:0 0 14px}
 .adm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
 .stat-card{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;color:inherit;cursor:pointer}
-.adm-two{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}@media(min-width:1280px){.adm-two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.adm-two{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}@media(min-width:1400px){.adm-two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .tagchip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);background:none;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px;color:inherit}.tagchip.on{border-color:var(--ink);background:var(--blush);font-weight:600}
 @media(max-width:860px){.adm{grid-template-columns:1fr}.adm-side{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:6px;gap:4px;align-items:center}.adm-brand,.adm-me,.adm-side .sp{display:none}.adm-side .nv{white-space:nowrap;width:auto!important}.adm-main{padding:14px 12px}}`
 export default function AdminApp({ role, name }: { role: string; name: string }) {
@@ -245,16 +247,14 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const custB = owner ? B : B.filter(b => b.status !== 'cancelled' && b.start_date <= nEnd && b.end_date >= mStart)   // manager: this month and next month only
   const custs = Object.values(custB.reduce((m: any, b) => { const k = b.phone.replace(/\D/g, '').slice(-10); const c = (m[k] ??= { n: b.customer_name, p: b.phone, e: b.email, c: 0, s: 0, last: '' }); c.c++; if (b.status !== 'cancelled') c.s += b.rent; if (b.start_date > c.last) c.last = b.start_date; return m }, {})) as any[]
   const [cq, setCq] = useState('')
-  const title = NAV.find(n => n[0] === tab)?.[1] || ''
+  const title = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
   return (<div className="adm"><style>{CSS}</style>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
-      {NAV.filter(n => n[3].includes(role)).map(([k, l, i]) => <button key={k} className={'nv' + (tab === k ? ' on' : '')} onClick={() => go(k)}><Ic n={i} />{l}</button>)}
-      {ops && <button className="nv" onClick={block}><Ic n="ban" />Block a dress</button>}
-      {ops && <a className="nv" href="/#collection"><Ic n="plus" />New booking</a>}
+      {NAV.filter(n => n[3].includes(role)).map(([k, l, i]) => <button key={k} className={'nv' + (tab === k ? ' on' : '')} onClick={() => k === 'workflow' ? (setTab('dashboard'), setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)) : go(k)}><Ic n={i} s={22} />{l}</button>)}
       <span className="sp" />
-      <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Salesperson' : role}</span></div></div>
-      <button className="nv" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" />Sign out</button></aside>
-    <main className="adm-main">{!(['dashboard', 'bookings', 'cash'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+      <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
+      <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
+    <main className="adm-main">{!(['dashboard', 'bookings', 'cash', 'dresses'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
@@ -262,21 +262,22 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {tab === 'cash' && ops && <Finance ctx={ctx} />}
     {tab === 'performance' && owner && <Performance ctx={ctx} />}
     {tab === 'bookings' && ops && <Bookings ctx={ctx} flt={flt} setFlt={setFlt} />}
-    {tab === 'calendar' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
+    {tab === 'calendar' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input type="month" value={ref} onChange={e => setRef(e.target.value)} /><button className="btn alt sm" onClick={block}>Block a dress</button></div>
       <div className="cal">{'SMTWTFS'.split('').map((d, i) => <b key={i} style={{ textAlign: 'center' }}>{d}</b>)}{cells.map(d => <div key={d} className="cell" onClick={() => setDay(d)} style={{ cursor: 'pointer', ...(d === today() ? { borderColor: 'var(--gold)' } : {}) }}><span className="mut">{+d.slice(8)}</span>{items.filter(i => d >= i.s && d <= i.e).map((i, n) => <span key={n} className="chip" style={{ background: i.c }} onClick={e => { e.stopPropagation(); i.bid ? openBooking(i.bid) : i.dc ? go('drycleaning') : blockInfo(i.kid) }}>{i.label}</span>)}</div>)}</div>
       <p className="mut" style={{ fontSize: 12 }}>Click a booking for full details. Click a date for everything on that day. {Object.entries(COL).map(([k, c]: any) => <span key={k} style={{ color: c, marginRight: 12 }}>■ {k}</span>)}</p></>}
-    {tab === 'dresses' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}>{owner && <button className="btn" onClick={() => { setEd(null); setShowForm(true) }}>＋ Add a dress</button>}
-        <input placeholder="Search code or name" value={dq} onChange={e => setDq(e.target.value)} /><select value={dcat} onChange={e => setDcat(e.target.value)} style={{ width: 'auto' }}><option value="">All categories</option>{MAIN_CATS.map(m => <option key={m.key}>{m.label}</option>)}</select>
-        <span className="mut" style={{ fontSize: 13 }}>{D.length} dress{D.length === 1 ? '' : 'es'}</span></div>
-      {showForm && owner && <DressForm key={ed?.id || 'new'} ctx={ctx} ed={ed} onClose={() => { setShowForm(false); setEd(null) }} />}
-      {owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) && <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div>}
-      <div className="scroll"><table><thead><tr><th></th><th>Code</th><th>Name</th><th>Category</th><th>Colours</th><th>Rent</th><th>Wash ₹</th><th>Status</th>{owner && <th></th>}</tr></thead><tbody>{D.filter(d => (!dq || (d.code + ' ' + d.name).toLowerCase().includes(dq.toLowerCase())) && (!dcat || mainCatOf(d.category) === dcat)).map(d => <tr key={d.id}><td>{thumb(d)}</td><td>{d.code}</td><td>{d.name}</td><td style={{ whiteSpace: 'normal' }}>{d.category}<div className="mut" style={{ fontSize: 11 }}>{mainCatOf(d.category)}</div></td><td style={{ whiteSpace: 'normal' }}>{(d.colour_tags || []).join(', ') || <span className="mut">none</span>}</td><td>{inr(d.price)}</td><td>{inr(d.dry_clean_charge || 0)}</td><td><select value={d.status} onChange={async e => { await sb.rpc('set_dress_status', { p_id: d.id, p_status: e.target.value }); load() }}>{['available', 'maintenance', 'unavailable', 'retired', 'archived'].map(s => <option key={s}>{s}</option>)}</select></td>{owner && <td><button className="btn alt sm" onClick={() => { setEd(d); setShowForm(true) }}>Edit</button></td>}</tr>)}</tbody></table></div></>}
+    {tab === 'dresses' && ops && <Inventory ctx={ctx} D={D} owner={owner} onAdd={() => { setEd(null); setShowForm(true) }} onEdit={d => { setEd(d); setShowForm(true) }}
+      form={showForm && owner ? <DressForm key={ed?.id || 'new'} ctx={ctx} ed={ed} onClose={() => { setShowForm(false); setEd(null) }} /> : null}
+      extra={owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) ? <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div> : null} />}
     {tab === 'customers' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Search name or phone" value={cq} onChange={e => setCq(e.target.value)} /></div>
       {!owner && <p className="mut" style={{ fontSize: 13 }}>Showing customers with bookings from {dmy(mStart)} to {dmy(nEnd)} (this month and next month).</p>}
       <div className="scroll"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Bookings</th><th>Rental value</th><th>Last delivery</th></tr></thead><tbody>{custs.filter(c => !cq || (c.n + c.p).toLowerCase().includes(cq.toLowerCase())).sort((a, b) => b.last.localeCompare(a.last)).map(c => <tr key={c.p}><td>{c.n}</td><td><a href={'tel:' + c.p}>{c.p}</a></td><td>{c.e}</td><td>{c.c}</td><td>{inr(c.s)}</td><td>{dmy(c.last)}</td></tr>)}</tbody></table></div></>}
     {tab === 'reports' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <RevenueReport ctx={ctx} />
       <div><button className="btn alt" onClick={csv}>Export all bookings (CSV)</button> <span className="mut" style={{ fontSize: 13 }}>Cancellation rate {B.length ? Math.round(100 * B.filter((b: any) => b.status === 'cancelled').length / B.length) : 0}%</span></div>
+      <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>
+      {owner && <div><button className="btn alt" onClick={() => go('performance')}>Open Dress Performance</button></div>}
+    </div>}
+    {tab === 'settings' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <StaffAdmin ctx={ctx} />
       {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), tryon_daily_limit: +(f.get('t') as string) }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
         <h3>Settings</h3><div className="flt" style={{ justifyContent: 'flex-start' }}><label style={{ margin: 0 }}>Cleaning and preparation days after each return<input name="b" type="number" min="0" max="7" defaultValue={st.buffer_days} style={{ display: 'block' }} /></label>

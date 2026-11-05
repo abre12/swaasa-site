@@ -139,3 +139,39 @@ body:has(.adm) header.top,body:has(.adm) footer{display:none}
 .exp-sum{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-top:14px}@media(max-width:1000px){.exp-sum{grid-template-columns:1fr}}
 .ico{--c:var(--mut);display:grid;place-items:center;width:34px;height:34px;border-radius:9px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--card))}
 @media(max-width:1100px){.k6[style*="repeat(6"],.k6[style*="repeat(5"]{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+
+/* ---- v10: dress inventory ---- */
+.inv-sel{display:flex;gap:8px;flex-wrap:wrap}.inv-sel select{min-width:150px}.inv-fbtn{display:none!important}
+@media(max-width:760px){.inv-sel{display:none}.inv-fbtn{display:inline-flex!important}}
+.bdg.lg{font-size:13.5px;padding:7px 14px}
+.bt.inv td{padding:10px}.bt.inv td:nth-child(2){font-size:14.5px}
+.mi{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;font-size:14px;color:var(--ink);background:none;border:0;border-radius:8px;padding:9px 12px;cursor:pointer;text-decoration:none}.mi:hover{background:color-mix(in srgb,var(--wine) 8%,transparent)}.mi svg{color:var(--wine)}
+.inv-modal{position:fixed;inset:0;z-index:60;background:#0006;display:grid;place-items:center;padding:16px}.inv-dlg{background:var(--card);border-radius:14px;padding:18px;width:min(720px,100%);max-height:90vh;overflow:auto}
+@media(max-width:760px){.inv-sel.open{display:flex;width:100%}.inv-sel.open select{flex:1}}
+
+/* ---- v11: make every admin page match the design (fonts, buttons, sizes). Later rules intentionally override the earlier ones. ---- */
+.adm{font-family:Inter,system-ui,sans-serif;font-variant-numeric:lining-nums;color:var(--ink)}
+.adm h2,.adm h3,.adm h4{font-family:Inter,system-ui,sans-serif;font-weight:700}
+.pg-head h1,.adm-main h2.pg{font-family:"Playfair Display",Georgia,serif;font-weight:700;color:var(--ink)}
+.pg-head h1{font-size:40px;line-height:1.05}.adm-main h2.pg{font-size:36px;margin-bottom:16px}.pg-head p{font-size:17px;color:var(--ink);opacity:.8}
+.adm .btn{text-transform:none;letter-spacing:0;font-family:inherit;font-size:15px;font-weight:600;padding:11px 20px;border-radius:10px}
+.adm .btn.sm{padding:8px 14px;font-size:13.5px}
+.adm .btn:not(.alt){background:var(--wine);color:#fff}
+.adm .btn.alt,.adm-main .btn.alt{background:var(--card);color:var(--ink);border:1px solid #d9cfc4}.adm .btn.alt:hover{background:color-mix(in srgb,var(--wine) 6%,var(--card))}
+.adm input,.adm select,.adm textarea{font-family:inherit;border-radius:10px}
+.mpick{position:relative;gap:10px;padding:10px 16px;font-size:18px;font-weight:500;border-radius:12px;cursor:pointer}.mpick.sm{padding:8px 12px;font-size:15px}
+.mpick .mp-in{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;border:0}
+.kc{padding:18px;gap:14px;border-radius:16px}.kc b{font:700 clamp(26px,2.3vw,36px)/1.1 Inter,system-ui,sans-serif}.kc span{font-size:16px;font-weight:500}.kc small{font-size:12px}
+.k6{gap:14px}
+.opsbar{padding:14px 20px;border-radius:16px;gap:12px}.opsbar h3{font:700 24px Inter,system-ui,sans-serif}
+.opill{flex:1 1 230px;justify-content:space-between;font-size:18px;padding:14px 20px}
+.pnl{border-radius:16px}.pnl-h{padding:16px 20px}.pnl-h h2{font:700 26px/1.1 Inter,system-ui,sans-serif}.pnl-h a{font-size:16px;font-weight:600}
+.dt{font-size:14.5px}.dt th{font-size:14px;font-weight:600;color:var(--ink);padding:10px 8px;white-space:normal;line-height:1.2;background:color-mix(in srgb,var(--line) 30%,var(--card))}.dt td{padding:10px 8px}
+.dt .dr b{font-size:15px}.dt .dr span{font-size:13px;color:var(--ink);opacity:.75;max-width:150px;white-space:normal}
+.dt .bdg{white-space:normal;line-height:1.15;padding:6px 12px;font-size:13.5px}
+.bdg .bare{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:600;padding:0;margin:0;width:auto;cursor:pointer;outline:0;border-radius:0}
+.wf{font-size:17px;padding:14px 18px;border-radius:12px;gap:12px}.wf b{font-size:18px}
+.wf-list{width:min(520px,100%);box-shadow:0 6px 20px #0001;border-radius:12px}
+.rev{border-radius:16px;padding:16px 22px}.rev h3{font:700 24px Inter,system-ui,sans-serif}.rev .m b{font:600 28px Inter,system-ui,sans-serif}.rev .m span{font-size:16px;color:var(--ink)}.rev .tot b{font-size:36px}.rev .tot span{font-size:16px;color:var(--ink)}
+.ph{font:700 20px Inter,system-ui,sans-serif}.cc-card b{font-family:Inter,system-ui,sans-serif}
+.cash7 .kc b{font-size:clamp(20px,1.8vw,26px)}

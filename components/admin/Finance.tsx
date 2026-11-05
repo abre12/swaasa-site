@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { addD, inr, istTime, todayIST } from '@/lib/util'
 import { downloadBlob, makeWorkbook, Cell } from '@/lib/xlsx'
 import { Ic } from './icons'
+import MonthPick from './MonthPick'
 
 // ---- How money is counted (also in the README) ------------------------------------------------------------------------------------------
 //  * Transactions = every payment received and every refund paid, from the payments table, by the date it was recorded (India time).
@@ -118,7 +119,7 @@ export default function Finance({ ctx }: { ctx: any }) {
   const Card = ({ ic, c, v, l, sub, dark }: { ic: string; c: string; v: string; l: string; sub?: string; dark?: boolean }) => <div className={'kc st' + (dark ? ' dark' : '')} style={tint(c)}><Ic n={ic} s={dark ? 32 : 28} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></div>
   const FBtn = () => <button className="btn alt sm" onClick={() => setShowF(!showF)} style={{ padding: '9px 14px' }}><Ic n="filter" s={15} /> Filters{nF ? ` (${nF})` : ''}</button>
   const Sel = ({ k, label, opts }: { k: string; label: string; opts: [string, string][] }) => <label>{label}<select value={(fl as any)[k]} onChange={e => set(k, e.target.value)}>{opts.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label>
-  const MonthPick = () => <label className="mpick"><Ic n="calendar" s={16} /><input type="month" value={month} max={today.slice(0, 7)} onChange={e => e.target.value && setMonth(e.target.value)} aria-label="Month" /></label>
+  const MonthP = () => <MonthPick compact value={month} max={today.slice(0, 7)} onChange={v => v && setMonth(v)} />
   const modeOpts: [string, string][] = [['', 'All payment modes'], ['cash', 'Cash'], ['upi', 'UPI / Online'], ['card', 'Card'], ['bank', 'Bank Transfer']]
 
   // ---------------- Tab 1: Transactions ----------------
@@ -183,7 +184,7 @@ export default function Finance({ ctx }: { ctx: any }) {
         <Card ic="ret" c="var(--red)" v={inr(refPending)} l="Refunds Pending" sub="deposits due back on return" />
         <Card ic="cash" c="var(--blue)" v={inr(cashToday)} l="Cash Collected Today" /></div>
       <div className="bk-card-t" style={{ padding: 14 }}>
-        <div className="bk-bar" style={{ margin: '0 0 12px' }}><h2 style={{ fontSize: 26, marginRight: 'auto' }}>Transactions</h2><MonthPick /><button className="btn alt sm" onClick={exportTx} style={{ padding: '9px 14px' }}>Export</button><FBtn /></div>
+        <div className="bk-bar" style={{ margin: '0 0 12px' }}><h2 style={{ fontSize: 26, marginRight: 'auto' }}>Transactions</h2><MonthP /><button className="btn alt sm" onClick={exportTx} style={{ padding: '9px 14px' }}>Export</button><FBtn /></div>
         {showF && <div className="bk-filt"><Sel k="mode" label="Payment mode" opts={modeOpts} /><Sel k="cat" label="Category" opts={[['', 'All categories'], ...catsSeen.map(c => [c, c] as [string, string])]} /><Sel k="dir" label="Money" opts={[['', 'Received and refunded'], ['in', 'Received only'], ['out', 'Refunds only']]} />
           <label>Search<input value={fl.q} onChange={e => set('q', e.target.value)} placeholder="Customer or booking" /></label><div style={{ alignSelf: 'end' }}><button className="btn alt sm" onClick={() => setFl({ mode: '', cat: '', dir: '', q: '' })}>Clear</button></div></div>}
         <div className="scroll"><table className="bt"><thead><tr><th>Date &amp; Time</th><th>Booking ID</th><th>Customer</th><th>Category (Transaction Type)</th><th>Payment Mode</th><th style={{ textAlign: 'right' }}>Amount</th><th>Entered By</th></tr></thead><tbody>
@@ -236,7 +237,7 @@ export default function Finance({ ctx }: { ctx: any }) {
         {['Store Rent', 'Utilities', 'Salaries', 'Staff Bonus & Incentives', 'Staff Refreshments (Petty Cash)'].map(c => <Card key={c} ic={EXP[c][0]} c={EXP[c][1]} v={inr(sumCat(c))} l={c === 'Utilities' ? 'Utilities (Electricity & Water)' : c} />)}</div>
       <div className="k6" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>{['Dry Cleaning', 'Store Maintenance', 'Delivery / Transport', 'Business Overheads', 'Other Expenses'].map(c => <Card key={c} ic={EXP[c][0]} c={EXP[c][1]} v={inr(sumCat(c))} l={c} />)}</div>
       <div className="bk-card-t" style={{ padding: 14 }}>
-        <div className="bk-bar" style={{ margin: '0 0 12px' }}><h2 style={{ fontSize: 26, marginRight: 'auto' }}>Expense Transactions</h2><MonthPick /><button className="btn alt sm" onClick={exportExp} style={{ padding: '9px 14px' }}>Export</button><FBtn /></div>
+        <div className="bk-bar" style={{ margin: '0 0 12px' }}><h2 style={{ fontSize: 26, marginRight: 'auto' }}>Expense Transactions</h2><MonthP /><button className="btn alt sm" onClick={exportExp} style={{ padding: '9px 14px' }}>Export</button><FBtn /></div>
         {showF && <div className="bk-filt"><Sel k="cat" label="Category" opts={[['', 'All categories'], ...EXP_NAMES.map(c => [c, c] as [string, string])]} /><Sel k="mode" label="Payment mode" opts={modeOpts} />
           <label>Search<input value={fl.q} onChange={e => set('q', e.target.value)} placeholder="Payee, remarks or booking" /></label><div style={{ alignSelf: 'end' }}><button className="btn alt sm" onClick={() => setFl({ mode: '', cat: '', dir: '', q: '' })}>Clear</button></div></div>}
         <div className="scroll"><table className="bt"><thead><tr><th>Date &amp; Time</th><th>Category (Expense Type)</th><th>Payee / Vendor</th><th>Booking ID</th><th>Payment Mode</th><th style={{ textAlign: 'right' }}>Amount</th><th>Remarks</th><th>Entered By</th></tr></thead><tbody>

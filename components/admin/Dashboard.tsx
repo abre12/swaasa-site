@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
 import { Ic } from './icons'
-import { addExpense } from './Finance'
+import MonthPick from './MonthPick'
 import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-function Chart({ B }: { B: any[] }) {
+export function Chart({ B }: { B: any[] }) {
   const [by, setBy] = useState<'created' | 'delivery'>('created'); const [hov, setHov] = useState<number | null>(null)
   const cur = todayIST().slice(0, 7)
   const months = Array.from({ length: 13 }, (_, i) => { const d = new Date(cur + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - (12 - i)); return d.toISOString().slice(0, 7) })
@@ -35,7 +35,7 @@ function Chart({ B }: { B: any[] }) {
 type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret' | 'appr'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
 const dShort = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })
-const ALT: Record<string, [string, string, string]> = { not_started: ['Not Started', 'var(--red)', 'xc'], alterations_pending: ['Alterations pending', 'var(--amber)', 'prog'], cleaning_pending: ['Cleaning pending', 'var(--amber)', 'prog'], ready: ['Completed', 'var(--green)', 'checkc'] }
+const ALT: Record<string, [string, string, string]> = { not_started: ['Not Started', 'var(--red)', 'xc'], alterations_pending: ['In Progress', 'var(--amber)', 'prog'], cleaning_pending: ['In Progress (cleaning)', 'var(--amber)', 'prog'], ready: ['Completed', 'var(--green)', 'checkc'] }
 export default function Dashboard({ ctx }: { ctx: any }) {
   const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), tomorrow = addD(today, 1)
   const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [all, setAll] = useState(false); const [wf, setWf] = useState<string | null>(null); const [alts, setAlts] = useState<any[]>([])
@@ -83,13 +83,12 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     { k: 'dc', l: 'Dry Cleaning', ic: 'sparkle', c: '#7a6aa6', rows: dcOpen, dk: 'dc' }]
   const wfOpen = WF.find(w => w.k === wf)
   const rel = (d: string) => d < today ? 'Overdue' : d === today ? 'Today' : d === tomorrow ? 'Tomorrow' : dShort(d)
-  const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={30} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
-  const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 36, 48)}<div><b>{code}</b><span>{name}</span></div></div>
-  const duePill = (r: any) => r.prep_status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span>{dShort(r.due)}</span>
+  const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={40} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
+  const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 46, 60)}<div><b>{code}</b><span>{name}</span></div></div>
+  const duePill = (r: any) => r.prep_status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Ic n="calendar" s={15} />{dShort(r.due)}</span>
   return (<div>
     <div className="pg-head"><div><h1>Dashboard</h1><p>Daily operations, deliveries, alterations and business overview</p></div>
-      <div className="pg-tools"><button className="btn alt sm" onClick={() => addExpense(ctx)}>＋ Add expense</button><button className="btn alt sm" onClick={() => sendForDryCleaning(ctx)}>＋ Dry cleaning</button>
-        <label className="mpick" title="Controls the monthly figures only"><Ic n="calendar" /><input type="month" value={mon} onChange={e => e.target.value && setMon(e.target.value)} aria-label="Month" /></label></div></div>
+      <div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls the monthly figures only" /></div></div>
     <div className="k6">
       <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Total Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />
       <KC ic="truck" c="var(--blue)" v={delToday.length} l="Today's Deliveries" on={() => setPop('del')} />
@@ -101,36 +100,33 @@ export default function Dashboard({ ctx }: { ctx: any }) {
       <button className="opill" style={tint('var(--blue)')} onClick={() => ctx.go('bookings', { flt: 'deltoday' })}><Ic n="truck" s={22} />{delToday.length} Deliveries Today<Ic n="arrow" s={16} /></button>
       <button className="opill" style={tint('var(--purple)')} onClick={() => ctx.go('bookings', { flt: 'rettoday' })}><Ic n="ret" s={22} />{retToday.length} Returns Today<Ic n="arrow" s={16} /></button>
       <button className="opill" style={tint('var(--amber)')} onClick={() => ctx.go('bookings', { flt: 'alterations' })}><Ic n="scissors" s={22} />{openAl} Alterations (Next 7 Days)<Ic n="arrow" s={16} /></button></div>
-    <div className="alsobar"><span>Also:</span>
+    {(pending.length > 0 || odDel.length > 0) && <div className="alsobar">
       {pending.length > 0 && <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button>}
-      {odDel.length > 0 && <button className="hot" onClick={() => setPop('over')}>{odDel.length} overdue {odDel.length === 1 ? 'delivery' : 'deliveries'}</button>}
-      <button onClick={() => setPop('pdel')}>Pending deliveries, 7 days ({pdel.length})</button><button onClick={() => setPop('pret')}>Dresses out with customers ({pret.length})</button><button onClick={() => setPop('made')}>Booked today ({made.length})</button></div>
+      {odDel.length > 0 && <button className="hot" onClick={() => setPop('over')}>{odDel.length} overdue {odDel.length === 1 ? 'delivery' : 'deliveries'}</button>}</div>}
     <div className="adm-two">
       <div className="pnl"><div className="pnl-h" style={tint('var(--blue)')}><h2><Ic n="truck" s={26} />Today's Deliveries ({todays.length})</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'deltoday' }) }}>View All <Ic n="arrow" s={16} /></a></div>
-        <div className="scroll"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Return Date</th><th>Amount Pending</th><th>Status</th><th></th></tr></thead><tbody>
+        <div className="scroll"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Return Date</th><th>Amount Pending</th><th>Status</th></tr></thead><tbody>
           {shownDel.map(b => { const k = stOf(b), [lab, c, ic] = ST[k], pend = Math.max(0, b.rent + b.charges - b.paid) + Math.max(0, b.deposit - b.deposit_held)
             return <tr key={b.id} className="cl" onClick={() => ctx.openBooking(b.id)}><td><span className="bid">{b.id}</span></td><td>{b.customer_name}</td><td>{dressCell(b.dress_code, b.dress_name, b.dress_id)}</td><td>{dShort(b.end_date)}</td>
               <td title="Rent still unpaid plus any refundable deposit still to collect">{k === 2 || !pend ? <span className="mut">—</span> : <b>{inr(pend)}</b>}</td>
-              <td><span className="bdg" style={tint(c)}><Ic n={ic} s={14} />{lab}</span></td>
-              <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>{k === 0 && <button className="btn alt sm" onClick={() => markReady(b)}>Mark ready</button>}{k === 1 && <button className="btn sm" onClick={() => ctx.pickup(b)}>Deliver</button>}</td></tr> })}
-          {!todays.length && <tr><td colSpan={7} className="mut" style={{ padding: 16 }}>No deliveries today.</td></tr>}</tbody></table></div>
+              <td><span className="bdg" style={tint(c)}><Ic n={ic} s={14} />{lab}</span></td></tr> })}
+          {!todays.length && <tr><td colSpan={6} className="mut" style={{ padding: 16 }}>No deliveries today.</td></tr>}</tbody></table></div>
         {todays.length > 5 && <button className="more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `View ${todays.length - 5} more deliveries for today`}</button>}</div>
       <div className="pnl"><div className="pnl-h" style={tint('var(--amber)')}><h2><Ic n="scissors" s={26} />Pending Alterations (Next 7 Days)</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'alterations' }) }}>View All <Ic n="arrow" s={16} /></a></div>
         <div className="scroll"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Delivery Date</th><th>Due By</th><th>Status</th></tr></thead><tbody>
           {alRows.map(r => { const [lab, c, ic] = ALT[r.prep_status] || ALT.not_started
             return <tr key={r.id} className="cl" style={r.prep_status === 'ready' ? { opacity: .6 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><td><span className="bid">{r.id}</span></td><td>{r.customer_name}</td><td>{dressCell(r.dress_code, r.dress_name, r.dress_id, r.image)}</td><td>{dShort(r.start_date)}</td><td>{duePill(r)}</td>
-              <td onClick={e => e.stopPropagation()}><select className="bdg sel" style={tint(c)} value={r.prep_status} onChange={e => setPrep(r, e.target.value)} aria-label="Alteration status">{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{ALT[k][0]}</option>)}</select></td></tr> })}
+              <td onClick={e => e.stopPropagation()}><span className="bdg" style={tint(c)}><Ic n={ic} s={15} /><select className="bare" value={r.prep_status} onChange={e => setPrep(r, e.target.value)} aria-label="Alteration status">{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{ALT[k][0]}</option>)}</select></span></td></tr> })}
           {!alRows.length && <tr><td colSpan={6} className="mut" style={{ padding: 16 }}>No alterations pending in the next 7 days.</td></tr>}</tbody></table></div></div></div>
-    <div className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <button key={w.k} role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
-      <Ic n={w.ic} s={16} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={16} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>)}</div>
-    {wfOpen && <div className="wf-list" style={tint(wfOpen.c)}>
+    <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <button key={w.k} role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
+      <Ic n={w.ic} s={24} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>)}</div>
+    {wfOpen && <div className="wf-list" style={{ ...tint(wfOpen.c), ...(WF.indexOf(wfOpen) <= 2 ? { marginLeft: `calc((100% - 40px) / 5 * ${WF.indexOf(wfOpen)} + ${WF.indexOf(wfOpen) * 10}px)` } : { marginLeft: 'auto' }) }}>
       {wfOpen.dk === 'dc' ? wfOpen.rows.map((c: any) => { const d = ctx.dmap[c.dress_id]; return <div key={c.id} className="wf-r" onClick={() => ctx.go('drycleaning')}>{ctx.thumb(d, 30, 40)}<b>{d?.code || '—'}</b><span className="mut">Sent {dShort(c.sent_on)}</span><span>{d?.name}</span><span className="wf-d">{c.expected_back ? `Back ${rel(c.expected_back)}` : 'In progress'}</span></div> })
         : wfOpen.rows.map((b: any) => { const d = b[wfOpen.dk]; return <div key={b.id} className="wf-r" onClick={() => ctx.openBooking(b.id)}>{ctx.thumb(ctx.dmap[b.dress_id], 30, 40)}<b>{b.id}</b><span>{b.customer_name}</span><span className="mut">{b.dress_code} · {b.dress_name}</span><span className="wf-d" style={d < today ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{wfOpen.dk === 'end_date' ? 'Return ' : ''}{rel(d)}</span></div> })}
       {!wfOpen.rows.length && <p className="mut" style={{ margin: 0, padding: '6px 4px' }}>Nothing here right now.</p>}</div>}
     <div className="rev"><h3><Ic n="calendar" s={22} />{monName.split(' ')[0]} – Revenue &amp; Charges</h3>
       {([['Rent', rent], ['Customization', cust], ['Damage', dmg], ['Late Return', late], ...(other ? [['Other charges', other]] : [])] as [string, number][]).map(([l, v]) => <div className="m" key={l}><b>{inr(v)}</b><span>{l}</span></div>)}
       <div className="m tot"><span>Total Booking Value</span><b>{inr(total)}</b></div></div>
-    {ctx.owner && <div className="box" style={{ margin: '16px 0 0' }}><Chart B={B} /></div>}
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>
