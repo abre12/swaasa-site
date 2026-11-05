@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
 import { Ic } from './icons'
-import { pettyCashEntry } from './CashCounter'
+import { addExpense } from './Finance'
 import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
@@ -88,7 +88,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const duePill = (r: any) => r.prep_status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span>{dShort(r.due)}</span>
   return (<div>
     <div className="pg-head"><div><h1>Dashboard</h1><p>Daily operations, deliveries, alterations and business overview</p></div>
-      <div className="pg-tools"><button className="btn alt sm" onClick={() => pettyCashEntry(ctx)}>＋ Petty cash</button><button className="btn alt sm" onClick={() => sendForDryCleaning(ctx)}>＋ Dry cleaning</button>
+      <div className="pg-tools"><button className="btn alt sm" onClick={() => addExpense(ctx)}>＋ Add expense</button><button className="btn alt sm" onClick={() => sendForDryCleaning(ctx)}>＋ Dry cleaning</button>
         <label className="mpick" title="Controls the monthly figures only"><Ic n="calendar" /><input type="month" value={mon} onChange={e => e.target.value && setMon(e.target.value)} aria-label="Month" /></label></div></div>
     <div className="k6">
       <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Total Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />

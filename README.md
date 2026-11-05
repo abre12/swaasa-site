@@ -81,7 +81,7 @@ Preparation staff see only the Upcoming Delivery Preparation page: dress photo, 
 - Net rental charge = original price minus discount. An advance is a payment, not a discount.
 - The cash counter shows money actually received or paid out on the chosen date (India time), never the full booking price.
 - Net rental revenue (Dress Performance page) = rent after discount on returned rentals, minus rental refunds. Cancelled bookings, deposits, advances and unpaid balances are not revenue. Late fees and damage charges are reported separately.
-- When a deposit is kept to settle unpaid rent or charges, it is recorded as a non-cash book entry ("Deposit applied to dues").
+- When a deposit is kept to settle unpaid rent or charges, it is recorded against the real charge (damage, late return, rent or customisation) with the payment mode "From Security Deposit". No money changes hands, so it is not counted as collected and never touches the cash drawer.
 
 ## Optional hero video
 Set `NEXT_PUBLIC_HERO_VIDEO` in Vercel to the address of a short, silent, looping MP4. The logo animation then plays over it. Without it, the animated logo is shown.
@@ -199,7 +199,7 @@ Bookings made before the upgrade keep the deposit they were made with. Only new 
 3. Sign in as the owner > Daily Cash Counter > **Set opening cash** (once). Until it is set, the drawer is shown as "not set" instead of assuming zero.
 
 ## How each figure is calculated
-- **Expected closing cash** = opening cash + cash received - cash refunds paid - cash expenses. Only entries whose payment mode is **Cash** count. GPay / UPI, Card, bank transfers and "Book Entry" lines (deposit applied to dues) never change it. Voided expenses are ignored.
+- **Expected closing cash** = opening cash + cash received - cash refunds paid - cash expenses. Only entries whose payment mode is **Cash** count. GPay / UPI, Card, bank transfers and charges settled from the security deposit (deposit applied to dues) never change it. Voided expenses are ignored.
 - **Opening cash** = the counted cash of the last tallied day before this one; for the first day, the opening the owner set.
 - **Tally** records expected, counted, difference, status (Reconciled or Discrepancy), remark, who and when. It never creates a payment. A remark is required when there is a difference. Staff can tally a day once; only the owner can change a tallied day. Every tally change is kept in an audit table.
 - **Transactions** = number of different dresses that had at least one payment, refund or adjustment that day.
@@ -215,3 +215,9 @@ Bookings made before the upgrade keep the deposit they were made with. Only new 
 
 ## Expenses
 Each expense has a category, how it was paid (Cash, GPay / UPI, Card, Bank transfer), who it was paid to, remarks, who entered it and when. A cash expense lowers the drawer straight away; other modes do not. Dry-cleaning payments are recorded from the Dry Cleaning page (Mark back, or Record payment in the history) as a business expense. Expenses cannot be edited; the owner can void one with a reason, and it stays on record.
+
+## Payments & Cash Counter (v10, needs migration 9)
+Three tabs: **Transactions** (money received and refunds, by category), **Cash Counter** (physical cash, reconciliation, cash movements) and **Expenses** (ten expense heads, summary chart).
+- Expense categories: Store Rent, Utilities, Salaries, Staff Bonus & Incentives, Staff Refreshments (Petty Cash), Dry Cleaning, Store Maintenance, Delivery / Transport, Business Overheads, Other Expenses (remarks required). Expenses may optionally link to a booking.
+- A cash expense or cash refund lowers the expected cash automatically; nothing is entered twice.
+- Run `supabase/migration-v9.sql` before deploying. It relabels old expense categories (nothing is deleted).

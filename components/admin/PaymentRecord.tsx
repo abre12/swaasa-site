@@ -41,7 +41,7 @@ export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; o
         {custom > 0 && <tr><td className="mut">{dmy(istDate(b.created_at))}</td><td style={{ whiteSpace: 'normal', color: CUS }}>Customization charge (collected with the rent)</td><td>–</td><td style={{ fontWeight: 600, color: CUS }}>{inr(custom)}</td><td>–</td></tr>}
         {(rows || []).map(r => { const refund = r.kind.endsWith('refund'), dep = r.kind === 'deposit'
           return <tr key={r.id}><td>{dmy(istDate(r.created_at))}<div className="mut" style={{ fontSize: 11 }}>{istTime(r.created_at)}</div></td><td style={{ whiteSpace: 'normal', color: PUR[r.purpose]?.[1] || (dep ? DEP : undefined) }}>{PUR[r.purpose]?.[0] || LABEL[r.kind] || r.kind}{r.remarks && <div className="mut" style={{ fontSize: 11 }}>{r.remarks}</div>}</td>
-            <td>{r.kind === 'charge' ? 'Book entry' : r.mode || '–'}</td><td style={{ fontWeight: 600, color: refund ? 'var(--bad)' : PUR[r.purpose]?.[1] || (dep ? DEP : r.kind === 'charge' ? 'var(--mut)' : undefined) }}>{refund ? '−' : ''}{inr(r.amount)}</td><td>{ctx.staffName(r.created_by) || '–'}</td></tr> })}
+            <td>{r.kind === 'charge' ? 'From security deposit' : r.mode || '–'}</td><td style={{ fontWeight: 600, color: refund ? 'var(--bad)' : PUR[r.purpose]?.[1] || (dep ? DEP : r.kind === 'charge' ? 'var(--mut)' : undefined) }}>{refund ? '−' : ''}{inr(r.amount)}</td><td>{ctx.staffName(r.created_by) || '–'}</td></tr> })}
         {rows && !rows.length && <tr><td colSpan={5} className="mut">No payments recorded yet.</td></tr>}
         {!rows && !err && <tr><td colSpan={5} className="mut">Loading…</td></tr>}</tbody></table></div>
     </div></div>)

@@ -10,7 +10,7 @@ import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
 import RevenueReport from './admin/RevenueReport'
 import StaffAdmin from './admin/StaffAdmin'
-import CashCounter from './admin/CashCounter'
+import Finance from './admin/Finance'
 import Performance from './admin/Performance'
 import BookingModal from './admin/BookingModal'
 import PaymentRecord from './admin/PaymentRecord'
@@ -21,7 +21,7 @@ const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue'
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
-  ['dresses', 'Dresses', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner', 'manager']], ['cash', 'Cash Counter', 'wallet', ['owner', 'manager']],
+  ['dresses', 'Dresses', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner', 'manager']], ['cash', 'Payments', 'wallet', ['owner', 'manager']],
   ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['performance', 'Dress Performance', 'chart', ['owner']], ['reports', 'Reports & Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
 const CSS = `.adm{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
@@ -157,7 +157,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       `Returned${n ? ': ' + n : ''}${(lf || dc) && !owner ? ` (charges ${inr(lf + dc)} to be set by owner)` : ''}. Deposit handed back: ${inr(refund)}${kept ? `. Deposit kept against dues: ${inr(kept)} (${applied.map(a => `${a.why} ${inr(a.amt)}`).join(', ')})` : ''}`)
     if (!ok) return
     if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.rm })
-    if (kept > 0) await sb.from('payments').insert(applied.map(a => ({ booking_id: b.id, amount: a.amt, kind: 'charge', purpose: 'deposit_applied', mode: 'Deposit adjusted', remarks: a.why })))
+    if (kept > 0) await sb.from('payments').insert(applied.map(a => ({ booking_id: b.id, amount: a.amt, kind: 'charge', purpose: 'deposit_applied', mode: 'From Security Deposit', remarks: a.why })))
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
     await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept: ${applied.map(a => `${a.why} ${inr(a.amt)}`).join('; ')}.` : ''}${(lf || dc) && !owner ? ` The ${inr(lf + dc)} of charges must be added by the owner, and the amount above does not include it.` : ''} The dress becomes available again after the cleaning period.` })
   }
@@ -232,7 +232,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, COL }
+  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())
@@ -254,12 +254,12 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Salesperson' : role}</span></div></div>
       <button className="nv" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" />Sign out</button></aside>
-    <main className="adm-main">{!(['dashboard', 'bookings'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+    <main className="adm-main">{!(['dashboard', 'bookings', 'cash'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
     {tab === 'drycleaning' && ops && <DryCleaning ctx={ctx} />}
-    {tab === 'cash' && ops && <CashCounter ctx={ctx} />}
+    {tab === 'cash' && ops && <Finance ctx={ctx} />}
     {tab === 'performance' && owner && <Performance ctx={ctx} />}
     {tab === 'bookings' && ops && <Bookings ctx={ctx} flt={flt} setFlt={setFlt} />}
     {tab === 'calendar' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
