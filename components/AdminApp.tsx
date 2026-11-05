@@ -14,25 +14,30 @@ import CashCounter from './admin/CashCounter'
 import Performance from './admin/Performance'
 import BookingModal from './admin/BookingModal'
 import PaymentRecord from './admin/PaymentRecord'
+import Bookings from './admin/Bookings'
+import { Ic } from './admin/icons'
 const today = todayIST
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
-  ['dashboard', 'Overview Dashboard', '◧', ['owner', 'manager']], ['calendar', 'Bookings Calendar', '▦', ['owner', 'manager']], ['bookings', 'All Bookings', '☰', ['owner', 'manager']],
-  ['cash', 'Daily Cash Counter', '₹', ['owner', 'manager']], ['dresses', 'Dress Inventory', '♛', ['owner', 'manager']], ['drycleaning', 'Dry Cleaning', '✦', ['owner', 'manager']],
-  ['performance', 'Dress Performance & Rental History', '★', ['owner']], ['customers', 'Customer Management', '☺', ['owner', 'manager']], ['reports', 'Reports and Settings', '⚙', ['owner']],
-  ['prep', 'Alterations to Complete', '✂', ['preparation']]]
-const CSS = `.adm{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:calc(100vh - 62px)}
-.adm-side{background:#0b0b0b;color:#e9e0cf;padding:14px 8px;position:sticky;top:0;align-self:start;height:100vh;overflow:auto}
-.adm-side .who{padding:6px 12px 14px;font-size:12px;color:#b9ae98;border-bottom:1px solid #2a2418;margin-bottom:8px}
-.adm-side button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;color:inherit;padding:10px 12px;cursor:pointer;font:inherit;font-size:13px;letter-spacing:.03em}
-.adm-side button.on{background:#2a2216;border-left-color:#d2b074;color:#f1dcb0}.adm-side button:hover{background:#1b1710}
-.adm-main{padding:20px;min-width:0}.adm-main h2.pg{font-size:30px;margin:0 0 14px}
+  ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
+  ['dresses', 'Dresses', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner', 'manager']], ['cash', 'Cash Counter', 'wallet', ['owner', 'manager']],
+  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['performance', 'Dress Performance', 'chart', ['owner']], ['reports', 'Reports & Settings', 'gear', ['owner']],
+  ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
+const CSS = `.adm{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+.adm-side{background:#6b1230;color:#f6e9ee;padding:18px 12px 12px;position:sticky;top:0;align-self:start;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.adm-brand{text-align:center;padding:2px 0 18px}.adm-brand img{width:52px;display:block;margin:0 auto 4px}.adm-brand b{display:block;font:500 25px "Cormorant Garamond",Georgia,serif;letter-spacing:.04em;color:#fff}.adm-brand span{font-size:12px;color:#e8c9d3}
+.adm-side button.nv,.adm-side a.nv{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:10px;color:inherit;padding:10px 14px;cursor:pointer;font:inherit;font-size:14px;text-decoration:none}
+.adm-side .nv:hover{background:#ffffff1c}.adm-side .nv.on{background:#fff;color:#6b1230;font-weight:600}
+.adm-side .sp{flex:1;min-height:12px}
+.adm-me{display:flex;gap:10px;align-items:center;border-top:1px solid #ffffff2e;margin-top:8px;padding:12px 6px 4px}.adm-me i{width:38px;height:38px;border-radius:50%;background:#f3d9df;color:#6b1230;display:grid;place-items:center;font:600 17px Inter,sans-serif;font-style:normal;flex:none}
+.adm-me div{min-width:0;font-size:13px;line-height:1.3}.adm-me b{display:block;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.adm-me span{color:#e8c9d3;text-transform:capitalize}
+.adm-main{padding:22px 26px;min-width:0}.adm-main h2.pg{font-size:30px;margin:0 0 14px}
 .adm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
-.stat-card{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--bg);border:1px solid var(--line);padding:14px;font:inherit;color:inherit;cursor:pointer}
-.adm-two{display:grid;grid-template-columns:1fr;gap:16px}@media(min-width:1300px){.adm-two{grid-template-columns:1fr 1fr}}
+.stat-card{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit;color:inherit;cursor:pointer}
+.adm-two{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}@media(min-width:1280px){.adm-two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .tagchip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);background:none;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px;color:inherit}.tagchip.on{border-color:var(--ink);background:var(--blush);font-weight:600}
-@media(max-width:860px){.adm{grid-template-columns:1fr}.adm-side{position:static;height:auto;display:flex;overflow-x:auto;padding:4px}.adm-side .who{display:none}.adm-side button{white-space:nowrap;width:auto;border-left:0;border-bottom:3px solid transparent}.adm-side button.on{border-bottom-color:#d2b074}.adm-main{padding:12px}}`
+@media(max-width:860px){.adm{grid-template-columns:1fr}.adm-side{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:6px;gap:4px;align-items:center}.adm-brand,.adm-me,.adm-side .sp{display:none}.adm-side .nv{white-space:nowrap;width:auto!important}.adm-main{padding:14px 12px}}`
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
   const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
@@ -225,11 +230,9 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
     {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
-  const go = (t: string, o: any = {}) => { setTab(t); if (o.flt) setFlt(o.flt); window.scrollTo({ top: 0 }) }
+  const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go }
-  const F: any = { all: () => true, created_today: (b: any) => b.status !== 'cancelled' && istDate(b.created_at) === today(), pending: (b: any) => b.status === 'pending', upcoming: (b: any) => b.status === 'confirmed' && b.start_date >= today(), out: (b: any) => b.status === 'out', overdue: (b: any) => state(b) === 'overdue', owing: (b: any) => b.status !== 'cancelled' && b.rent + b.charges - b.paid > 0, alterations: (b: any) => b.status !== 'cancelled' && !!b.alteration_notes, done: (b: any) => b.status === 'returned', cancelled: (b: any) => b.status === 'cancelled' }
-  const FL: any = { all: 'All bookings', created_today: 'Made today', pending: 'Awaiting confirmation', upcoming: 'Upcoming deliveries', out: 'Currently rented', overdue: 'Overdue returns', owing: 'Balance due', alterations: 'With alteration notes', done: 'Completed', cancelled: 'Cancelled' }
+  const ctx = { sb, role, owner, ops, name, B, D, K, DC, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())
@@ -244,26 +247,21 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const [cq, setCq] = useState('')
   const title = NAV.find(n => n[0] === tab)?.[1] || ''
   return (<div className="adm"><style>{CSS}</style>
-    <aside className="adm-side"><div className="who">Signed in as <b style={{ color: '#f1dcb0' }}>{name}</b> ({role})</div>
-      {NAV.filter(n => n[3].includes(role)).map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}><span aria-hidden>{i}</span>{l}</button>)}
-      {ops && <button onClick={block}><span aria-hidden>⛔</span>Block a dress</button>}
-      {ops && <a href="/#collection" style={{ display: 'flex', gap: 10, padding: '10px 12px', fontSize: 13, textDecoration: 'none' }}><span aria-hidden>＋</span>New booking</a>}
-      <button onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><span aria-hidden>⏻</span>Sign out</button></aside>
-    <main className="adm-main"><h2 className="pg">{title}</h2>
+    <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
+      {NAV.filter(n => n[3].includes(role)).map(([k, l, i]) => <button key={k} className={'nv' + (tab === k ? ' on' : '')} onClick={() => go(k)}><Ic n={i} />{l}</button>)}
+      {ops && <button className="nv" onClick={block}><Ic n="ban" />Block a dress</button>}
+      {ops && <a className="nv" href="/#collection"><Ic n="plus" />New booking</a>}
+      <span className="sp" />
+      <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Salesperson' : role}</span></div></div>
+      <button className="nv" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" />Sign out</button></aside>
+    <main className="adm-main">{!(['dashboard', 'bookings'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
     {tab === 'drycleaning' && ops && <DryCleaning ctx={ctx} />}
     {tab === 'cash' && ops && <CashCounter ctx={ctx} />}
     {tab === 'performance' && owner && <Performance ctx={ctx} />}
-    {tab === 'bookings' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><select value={flt} onChange={e => setFlt(e.target.value)}>{Object.keys(F).map(k => <option key={k} value={k}>{FL[k]}</option>)}</select></div>
-      <div className="scroll"><table><thead><tr><th>ID</th><th>Dress</th><th>Customer</th><th>Dates</th><th>Balance</th><th>Status</th><th>Handled by</th><th></th></tr></thead><tbody>
-        {B.filter(F[flt]).map(b => <tr key={b.id}><td><a href="#" onClick={e => { e.preventDefault(); openBooking(b.id) }}>{b.id}</a>{b.alteration_notes && <div title={b.alteration_notes} style={{ fontSize: 12 }}>✂ Alterations</div>}</td><td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{thumb(dmap[b.dress_id])}<span>{b.dress_code}<br /><span className="mut" style={{ whiteSpace: 'normal', display: 'inline-block', maxWidth: 170 }}>{b.dress_name}</span></span></div></td><td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td><td>{b.start_date} → {b.end_date}</td><td style={{ whiteSpace: 'normal', minWidth: 210 }}>{(() => { const due = b.rent + b.charges - b.paid; return <>
-            <div className="mut">Rent {inr(b.rent)}{b.charges ? ` + charges ${inr(b.charges)}` : ''} · Received {inr(b.paid)}</div>
-            <b>{due >= 0 ? `Balance due ${inr(due)}` : `Overpaid ${inr(-due)}`}</b>
-            <div className="mut">{b.status === 'returned' ? 'Deposit settled at return' : `Deposit collected ${inr(b.deposit_held)} of ${inr(b.deposit)}`}</div>
-            {b.status === 'out' && <div className="ok"><b>Hand back on return: {inr(refundDue(b))}</b></div>}</> })()}</td>
-          <td style={{ color: COL[state(b)] }}>{state(b)}</td><td style={{ whiteSpace: 'normal', fontSize: 12, minWidth: 130 }}>{([['Booked', b.taken_by ? staffName(b.taken_by) : b.log?.[0]?.m === 'Requested online' ? 'Online' : null], ['Prepared', staffName(b.prepared_by)], ['Delivered', staffName(b.delivered_by)], ['Returned', staffName(b.returned_by)]] as [string, string | null][]).filter(x => x[1]).map(([l, n]) => <div key={l}><span className="mut">{l}:</span> {n}</div>)}</td><td style={{ whiteSpace: 'normal' }}>{sel(b)}</td></tr>)}</tbody></table></div></>}
+    {tab === 'bookings' && ops && <Bookings ctx={ctx} flt={flt} setFlt={setFlt} />}
     {tab === 'calendar' && ops && <><div className="flt" style={{ justifyContent: 'flex-start' }}><input type="month" value={ref} onChange={e => setRef(e.target.value)} /></div>
       <div className="cal">{'SMTWTFS'.split('').map((d, i) => <b key={i} style={{ textAlign: 'center' }}>{d}</b>)}{cells.map(d => <div key={d} className="cell" onClick={() => setDay(d)} style={{ cursor: 'pointer', ...(d === today() ? { borderColor: 'var(--gold)' } : {}) }}><span className="mut">{+d.slice(8)}</span>{items.filter(i => d >= i.s && d <= i.e).map((i, n) => <span key={n} className="chip" style={{ background: i.c }} onClick={e => { e.stopPropagation(); i.bid ? openBooking(i.bid) : i.dc ? go('drycleaning') : blockInfo(i.kid) }}>{i.label}</span>)}</div>)}</div>
       <p className="mut" style={{ fontSize: 12 }}>Click a booking for full details. Click a date for everything on that day. {Object.entries(COL).map(([k, c]: any) => <span key={k} style={{ color: c, marginRight: 12 }}>■ {k}</span>)}</p></>}
@@ -278,7 +276,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       <div className="scroll"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Bookings</th><th>Rental value</th><th>Last delivery</th></tr></thead><tbody>{custs.filter(c => !cq || (c.n + c.p).toLowerCase().includes(cq.toLowerCase())).sort((a, b) => b.last.localeCompare(a.last)).map(c => <tr key={c.p}><td>{c.n}</td><td><a href={'tel:' + c.p}>{c.p}</a></td><td>{c.e}</td><td>{c.c}</td><td>{inr(c.s)}</td><td>{dmy(c.last)}</td></tr>)}</tbody></table></div></>}
     {tab === 'reports' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <RevenueReport ctx={ctx} />
-      <div><button className="btn alt" onClick={csv}>Export all bookings (CSV)</button> <span className="mut" style={{ fontSize: 13 }}>Cancellation rate {B.length ? Math.round(100 * B.filter(F.cancelled).length / B.length) : 0}%</span></div>
+      <div><button className="btn alt" onClick={csv}>Export all bookings (CSV)</button> <span className="mut" style={{ fontSize: 13 }}>Cancellation rate {B.length ? Math.round(100 * B.filter((b: any) => b.status === 'cancelled').length / B.length) : 0}%</span></div>
       <StaffAdmin ctx={ctx} />
       {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), tryon_daily_limit: +(f.get('t') as string) }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
         <h3>Settings</h3><div className="flt" style={{ justifyContent: 'flex-start' }}><label style={{ margin: 0 }}>Cleaning and preparation days after each return<input name="b" type="number" min="0" max="7" defaultValue={st.buffer_days} style={{ display: 'block' }} /></label>

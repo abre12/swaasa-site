@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
-import PrepBoard from './PrepBoard'
+import { Ic } from './icons'
 import { pettyCashEntry } from './CashCounter'
 import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
@@ -33,58 +33,104 @@ function Chart({ B }: { B: any[] }) {
   </div>)
 }
 type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret' | 'appr'
+const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
+const dShort = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })
+const ALT: Record<string, [string, string, string]> = { not_started: ['Not Started', 'var(--red)', 'xc'], alterations_pending: ['Alterations pending', 'var(--amber)', 'prog'], cleaning_pending: ['Cleaning pending', 'var(--amber)', 'prog'], ready: ['Completed', 'var(--green)', 'checkc'] }
 export default function Dashboard({ ctx }: { ctx: any }) {
-  const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), buf = ctx.buf
-  const [pop, setPop] = useState<Pop>(null)
+  const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), tomorrow = addD(today, 1)
+  const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [all, setAll] = useState(false); const [wf, setWf] = useState<string | null>(null); const [alts, setAlts] = useState<any[]>([])
+  useEffect(() => { ctx.sb.rpc('prep_list', { p_days: 7 }).then(({ data }: any) => setAlts((data || []).filter((r: any) => (r.alteration_notes || '').trim()))) }, [ctx.tick])
   const made = B.filter(b => b.status !== 'cancelled' && istDate(b.created_at) === today)
   const delToday = B.filter(b => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status))
   const retToday = B.filter(b => b.end_date === today && ['out', 'returned'].includes(b.status))
   const odDel = B.filter(b => b.status === 'confirmed' && b.start_date < today), odRet = B.filter(b => b.status === 'out' && b.end_date < today)
   const pdel = B.filter(b => b.status === 'confirmed' && b.start_date <= in7), pret = B.filter(b => b.status === 'out')
   const pending = (ctx.APPR || []).filter((a: any) => a.status === 'pending')
+  // Monthly figures: bookings whose delivery date falls in the chosen month (cancelled ones excluded).
+  const mb = B.filter(b => b.status !== 'cancelled' && b.start_date.slice(0, 7) === mon)
+  const sum = (f: (b: any) => number) => mb.reduce((t, b) => t + f(b), 0)
+  const owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid)
+  const rent = sum(b => b.rent), cust = sum(b => b.custom_charge || 0), dmg = sum(b => b.damage_charge || 0), late = sum(b => b.late_fee || 0)
+  const other = Math.max(0, sum(b => b.charges) - cust - dmg - late), total = sum(b => b.rent + b.charges)
+  const monName = new Date(mon + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  // Today's deliveries show only three states: Alteration Pending, Ready, Delivered.
+  const stOf = (b: any) => b.status !== 'confirmed' ? 2 : ((b.alteration_notes || '').trim() && b.prep_status !== 'ready') ? 0 : 1
+  const todays = delToday.slice().sort((a, b) => stOf(a) - stOf(b) || a.id.localeCompare(b.id))
+  const shownDel = all ? todays : todays.slice(0, 5)
+  const ST: [string, string, string][] = [['Alteration Pending', 'var(--amber)', 'scissors'], ['Ready', 'var(--blue)', 'truck'], ['Delivered', 'var(--green)', 'checkc']]
+  // Pending alterations: delivery from today to today+7 (plus any overdue). Due by = the day before delivery, never earlier than today.
+  const dueBy = (r: any) => { const d = addD(r.start_date, -1); return d < today ? today : d }
+  const alRows = alts.filter(r => r.status === 'confirmed' || r.status === 'pending').map(r => ({ ...r, due: dueBy(r), over: r.start_date < today })).sort((a, b) => (a.prep_status === 'ready' ? 1 : 0) - (b.prep_status === 'ready' ? 1 : 0) || a.due.localeCompare(b.due) || a.start_date.localeCompare(b.start_date))
+  const openAl = alRows.filter(r => r.prep_status !== 'ready').length
+  async function setPrep(r: any, v: string) { const { error } = await ctx.sb.rpc('set_prep_status', { p_id: r.id, p_status: v }); ctx.say(error ? 'Could not update the status.' : `${r.dress_code}: ${ALT[v]?.[0] || v}`); ctx.load() }
   const decide = async (a: any, yes: boolean) => {
     const v = await ctx.ask(yes ? 'Approve the shortfall?' : 'Decline the shortfall?', [{ name: 'n', label: 'Note for the team (optional)' }], { ok: yes ? 'Approve' : 'Decline', note: `${yes ? 'The booking can then be delivered or returned' : 'The team must collect the balance'} with ${inr(a.shortfall)} unpaid.` }); if (!v) return
     const { error } = await ctx.sb.rpc('decide_approval', { p_id: a.id, p_approve: yes, p_note: v.n }); ctx.say(error ? 'Could not save your decision.' : yes ? 'Approved' : 'Declined'); ctx.load()
   }
-  const cards: [Pop, string, number, string, boolean][] = [
-    ['made', "Today's Bookings", made.length, 'made today', false], ['del', "Today's Delivery", delToday.length, 'to hand over today', false], ['ret', "Today's Return", retToday.length, 'due back today', false],
-    ['over', 'Overdue', odDel.length + odRet.length, `${odDel.length} deliveries · ${odRet.length} returns`, odDel.length + odRet.length > 0],
-    ['pdel', 'Pending Delivery', pdel.length, 'next 7 days', false], ['pret', 'Pending Returns', pret.length, 'out with customers', odRet.length > 0],
-    ['appr', ctx.owner ? 'Needs your approval' : 'Approval requests', pending.length, ctx.owner ? 'rental amount short' : 'waiting for the owner', ctx.owner && pending.length > 0]]
-  // Today's delivery: everything to hand over today (and anything overdue), with what must be ready and what must be collected.
-  const todays = B.filter(b => (b.status === 'confirmed' && b.start_date <= today) || (b.start_date === today && ['out', 'returned'].includes(b.status))).sort((a, b) => a.start_date.localeCompare(b.start_date) || a.dress_code.localeCompare(b.dress_code))
   const markReady = async (b: any) => { const { error } = await ctx.sb.rpc('set_prep_status', { p_id: b.id, p_status: 'ready' }); ctx.say(error ? 'Could not update the status.' : `${b.dress_code} marked ready`); ctx.load() }
   const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers', appr: ctx.owner ? 'Shortfalls waiting for your approval' : 'Shortfall requests' }
   const dl = (f: string) => <PendingDeliveries ctx={ctx} filter={f} />, rt = (f: string) => <PendingReturns ctx={ctx} filter={f} />
-  return (<div style={{ display: 'grid', gap: 18 }}>
-    <div className="adm-cards">{cards.map(([k, l, n, sub, red]) => <button key={k} onClick={() => setPop(k)} className="stat-card" style={red ? { borderColor: 'var(--bad)' } : undefined}>
-      <span className="mut" style={{ fontSize: 13 }}>{l}</span><b style={{ fontSize: 34, fontFamily: 'Cormorant Garamond, serif', color: red ? 'var(--bad)' : undefined }}>{n}</b><span className="mut" style={{ fontSize: 12 }}>{sub}</span></button>)}</div>
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn" onClick={() => pettyCashEntry(ctx)}>＋ Petty cash entry</button><button className="btn" onClick={() => sendForDryCleaning(ctx)}>＋ Send a dress for dry cleaning</button></div>
+  // Workflow overview (secondary): live lists, each sorted by its nearest relevant date.
+  const needsAlt = (b: any) => !!(b.alteration_notes || '').trim() && b.prep_status !== 'ready'
+  const un = B.filter(b => b.status === 'confirmed' || b.status === 'pending'), outs = B.filter(b => b.status === 'out')
+  const asc = (k: string) => (a: any, b: any) => a[k].localeCompare(b[k]) || a.id.localeCompare(b.id)
+  const dcOpen = (ctx.DC || []).filter((c: any) => !c.returned_on).sort((a: any, b: any) => (a.expected_back || a.sent_on).localeCompare(b.expected_back || b.sent_on))
+  const WF: { k: string; l: string; ic: string; c: string; rows: any[]; dk: 'start_date' | 'end_date' | 'dc' }[] = [
+    { k: 'alt', l: 'Alterations', ic: 'scissors', c: '#c58a2b', rows: un.filter(needsAlt).sort(asc('start_date')), dk: 'start_date' },
+    { k: 'ready', l: 'Ready for Delivery', ic: 'truck', c: '#4d6d9a', rows: B.filter(b => b.status === 'confirmed' && !needsAlt(b)).sort(asc('start_date')), dk: 'start_date' },
+    { k: 'out', l: 'Out for Rental', ic: 'dress', c: '#4f8a5b', rows: outs.slice().sort(asc('end_date')), dk: 'end_date' },
+    { k: 'due', l: 'Due for Return', ic: 'ret', c: '#9a7b6a', rows: outs.filter(b => b.end_date <= addD(today, 2)).sort(asc('end_date')), dk: 'end_date' },
+    { k: 'dc', l: 'Dry Cleaning', ic: 'sparkle', c: '#7a6aa6', rows: dcOpen, dk: 'dc' }]
+  const wfOpen = WF.find(w => w.k === wf)
+  const rel = (d: string) => d < today ? 'Overdue' : d === today ? 'Today' : d === tomorrow ? 'Tomorrow' : dShort(d)
+  const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={30} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
+  const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 36, 48)}<div><b>{code}</b><span>{name}</span></div></div>
+  const duePill = (r: any) => r.prep_status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span>{dShort(r.due)}</span>
+  return (<div>
+    <div className="pg-head"><div><h1>Dashboard</h1><p>Daily operations, deliveries, alterations and business overview</p></div>
+      <div className="pg-tools"><button className="btn alt sm" onClick={() => pettyCashEntry(ctx)}>＋ Petty cash</button><button className="btn alt sm" onClick={() => sendForDryCleaning(ctx)}>＋ Dry cleaning</button>
+        <label className="mpick" title="Controls the monthly figures only"><Ic n="calendar" /><input type="month" value={mon} onChange={e => e.target.value && setMon(e.target.value)} aria-label="Month" /></label></div></div>
+    <div className="k6">
+      <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Total Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />
+      <KC ic="truck" c="var(--blue)" v={delToday.length} l="Today's Deliveries" on={() => setPop('del')} />
+      <KC ic="ret" c="var(--purple)" v={retToday.length} l="Today's Returns" on={() => setPop('ret')} />
+      <KC ic="wallet" c="var(--green)" v={inr(sum(b => Math.max(0, b.paid)))} l="Total Received" sub={`rent, ${monName.split(' ')[0]} bookings`} on={() => ctx.go('cash')} />
+      <KC ic="hourglass" c="var(--amber)" v={inr(sum(owe))} l="Due Pending" sub={`${monName.split(' ')[0]} bookings`} on={() => ctx.go('bookings', { flt: 'owing' })} />
+      <KC ic="warn" c="var(--red)" v={odRet.length} l="Overdue Returns" on={() => setPop('over')} /></div>
+    <div className="opsbar"><h3><Ic n="calcheck" s={22} />Today's Operations</h3>
+      <button className="opill" style={tint('var(--blue)')} onClick={() => ctx.go('bookings', { flt: 'deltoday' })}><Ic n="truck" s={22} />{delToday.length} Deliveries Today<Ic n="arrow" s={16} /></button>
+      <button className="opill" style={tint('var(--purple)')} onClick={() => ctx.go('bookings', { flt: 'rettoday' })}><Ic n="ret" s={22} />{retToday.length} Returns Today<Ic n="arrow" s={16} /></button>
+      <button className="opill" style={tint('var(--amber)')} onClick={() => ctx.go('bookings', { flt: 'alterations' })}><Ic n="scissors" s={22} />{openAl} Alterations (Next 7 Days)<Ic n="arrow" s={16} /></button></div>
+    <div className="alsobar"><span>Also:</span>
+      {pending.length > 0 && <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button>}
+      {odDel.length > 0 && <button className="hot" onClick={() => setPop('over')}>{odDel.length} overdue {odDel.length === 1 ? 'delivery' : 'deliveries'}</button>}
+      <button onClick={() => setPop('pdel')}>Pending deliveries, 7 days ({pdel.length})</button><button onClick={() => setPop('pret')}>Dresses out with customers ({pret.length})</button><button onClick={() => setPop('made')}>Booked today ({made.length})</button></div>
     <div className="adm-two">
-      <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>TODAY'S DELIVERY</h3>
-        <p className="mut" style={{ fontSize: 13, margin: '2px 0 8px' }}>Check each dress is ready, collect what is due, then press Mark delivered.</p>
-        {todays.map(b => { const done = b.status !== 'confirmed', late = !done && b.start_date < today, owing = Math.max(0, b.rent + b.charges - b.paid), dep = Math.max(0, b.deposit - b.deposit_held)
-          const alt = (b.alteration_notes || '').trim(), ready = !alt || b.prep_status === 'ready'
-          return <div key={b.id} style={{ display: 'flex', gap: 10, padding: '8px 10px', marginBottom: 6, border: `1px solid ${late ? 'var(--bad)' : done ? 'var(--line)' : ready ? 'var(--ok)' : '#c58a2b'}`, background: late ? '#b4493f14' : done ? 'transparent' : ready ? '#4f8a5b12' : '#c58a2b14', opacity: done ? 0.65 : 1 }}>
-            {ctx.thumb(ctx.dmap[b.dress_id], 48, 64)}
-            <div style={{ flex: 1, minWidth: 0, fontSize: 14 }}>
-              <b>{b.dress_code} · {b.dress_name}</b>
-              <div>{b.customer_name} · <a href={'tel:' + b.phone}>{b.phone}</a> · returns {dmy(b.end_date)}</div>
-              {late && <div className="bad"><b>OVERDUE: was due {dmy(b.start_date)}</b></div>}
-              {done ? <div className="ok"><b>✓ Delivered</b></div> : <>
-                <div style={{ fontWeight: 600, color: ready ? 'var(--ok)' : '#c58a2b' }}>{ready ? (alt ? '✓ Ready: alterations done' : '✓ Nothing to prepare') : `Not ready: ${PREP[b.prep_status] || b.prep_status}`}</div>
-                {alt && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>✂ {alt}</div>}
-                <div>To collect now: <b>{inr(owing + dep)}</b> <span className="mut">(rent {inr(owing)}{dep > 0 ? ` + refundable deposit ${inr(dep)}` : ''})</span></div></>}
-            </div>
-            {!done && <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
-              <button className="btn sm" onClick={() => ctx.pickup(b)}>Mark delivered</button>
-              {alt && !ready && <button className="btn alt sm" onClick={() => markReady(b)}>Mark ready</button>}
-              <button className="btn alt sm" onClick={() => ctx.openBooking(b.id)}>Details</button></div>}
-          </div> })}
-        {!todays.length && <p className="mut" style={{ margin: 0 }}>No deliveries today.</p>}</div>
-      <div className="box" style={{ margin: 0 }}><h3 style={{ letterSpacing: '.08em', fontSize: 18 }}>ALTERATIONS TO COMPLETE</h3><PrepBoard ctx={ctx} compact /></div>
-    </div>
-    {ctx.owner && <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>}
+      <div className="pnl"><div className="pnl-h" style={tint('var(--blue)')}><h2><Ic n="truck" s={26} />Today's Deliveries ({todays.length})</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'deltoday' }) }}>View All <Ic n="arrow" s={16} /></a></div>
+        <div className="scroll"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Return Date</th><th>Amount Pending</th><th>Status</th><th></th></tr></thead><tbody>
+          {shownDel.map(b => { const k = stOf(b), [lab, c, ic] = ST[k], pend = Math.max(0, b.rent + b.charges - b.paid) + Math.max(0, b.deposit - b.deposit_held)
+            return <tr key={b.id} className="cl" onClick={() => ctx.openBooking(b.id)}><td><span className="bid">{b.id}</span></td><td>{b.customer_name}</td><td>{dressCell(b.dress_code, b.dress_name, b.dress_id)}</td><td>{dShort(b.end_date)}</td>
+              <td title="Rent still unpaid plus any refundable deposit still to collect">{k === 2 || !pend ? <span className="mut">—</span> : <b>{inr(pend)}</b>}</td>
+              <td><span className="bdg" style={tint(c)}><Ic n={ic} s={14} />{lab}</span></td>
+              <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>{k === 0 && <button className="btn alt sm" onClick={() => markReady(b)}>Mark ready</button>}{k === 1 && <button className="btn sm" onClick={() => ctx.pickup(b)}>Deliver</button>}</td></tr> })}
+          {!todays.length && <tr><td colSpan={7} className="mut" style={{ padding: 16 }}>No deliveries today.</td></tr>}</tbody></table></div>
+        {todays.length > 5 && <button className="more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `View ${todays.length - 5} more deliveries for today`}</button>}</div>
+      <div className="pnl"><div className="pnl-h" style={tint('var(--amber)')}><h2><Ic n="scissors" s={26} />Pending Alterations (Next 7 Days)</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'alterations' }) }}>View All <Ic n="arrow" s={16} /></a></div>
+        <div className="scroll"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Delivery Date</th><th>Due By</th><th>Status</th></tr></thead><tbody>
+          {alRows.map(r => { const [lab, c, ic] = ALT[r.prep_status] || ALT.not_started
+            return <tr key={r.id} className="cl" style={r.prep_status === 'ready' ? { opacity: .6 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><td><span className="bid">{r.id}</span></td><td>{r.customer_name}</td><td>{dressCell(r.dress_code, r.dress_name, r.dress_id, r.image)}</td><td>{dShort(r.start_date)}</td><td>{duePill(r)}</td>
+              <td onClick={e => e.stopPropagation()}><select className="bdg sel" style={tint(c)} value={r.prep_status} onChange={e => setPrep(r, e.target.value)} aria-label="Alteration status">{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{ALT[k][0]}</option>)}</select></td></tr> })}
+          {!alRows.length && <tr><td colSpan={6} className="mut" style={{ padding: 16 }}>No alterations pending in the next 7 days.</td></tr>}</tbody></table></div></div></div>
+    <div className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <button key={w.k} role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
+      <Ic n={w.ic} s={16} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={16} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>)}</div>
+    {wfOpen && <div className="wf-list" style={tint(wfOpen.c)}>
+      {wfOpen.dk === 'dc' ? wfOpen.rows.map((c: any) => { const d = ctx.dmap[c.dress_id]; return <div key={c.id} className="wf-r" onClick={() => ctx.go('drycleaning')}>{ctx.thumb(d, 30, 40)}<b>{d?.code || '—'}</b><span className="mut">Sent {dShort(c.sent_on)}</span><span>{d?.name}</span><span className="wf-d">{c.expected_back ? `Back ${rel(c.expected_back)}` : 'In progress'}</span></div> })
+        : wfOpen.rows.map((b: any) => { const d = b[wfOpen.dk]; return <div key={b.id} className="wf-r" onClick={() => ctx.openBooking(b.id)}>{ctx.thumb(ctx.dmap[b.dress_id], 30, 40)}<b>{b.id}</b><span>{b.customer_name}</span><span className="mut">{b.dress_code} · {b.dress_name}</span><span className="wf-d" style={d < today ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{wfOpen.dk === 'end_date' ? 'Return ' : ''}{rel(d)}</span></div> })}
+      {!wfOpen.rows.length && <p className="mut" style={{ margin: 0, padding: '6px 4px' }}>Nothing here right now.</p>}</div>}
+    <div className="rev"><h3><Ic n="calendar" s={22} />{monName.split(' ')[0]} – Revenue &amp; Charges</h3>
+      {([['Rent', rent], ['Customization', cust], ['Damage', dmg], ['Late Return', late], ...(other ? [['Other charges', other]] : [])] as [string, number][]).map(([l, v]) => <div className="m" key={l}><b>{inr(v)}</b><span>{l}</span></div>)}
+      <div className="m tot"><span>Total Booking Value</span><b>{inr(total)}</b></div></div>
+    {ctx.owner && <div className="box" style={{ margin: '16px 0 0' }}><Chart B={B} /></div>}
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>

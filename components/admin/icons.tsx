@@ -1,0 +1,34 @@
+import React from 'react'
+// Outline icons (24x24, stroke 1.7) used by the admin sidebar, dashboard and bookings page.
+const P: Record<string, React.ReactNode> = {
+  home: <path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" /></>,
+  calcheck: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18M9 15.5l2 2 4-4" /></>,
+  calplus: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18M12 13v6M9 16h6" /></>,
+  wallet: <><path d="M3 7a2 2 0 012-2h13v4M3 7v11a2 2 0 002 2h16V9H5a2 2 0 01-2-2z" /><path d="M16 14.5h.01" /></>,
+  dress: <path d="M9 3h6l-1 6 4 12H6l4-12z" />,
+  sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z" />,
+  chart: <path d="M5 20V10M12 20V4M19 20v-7" />,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></>,
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" /></>,
+  scissors: <><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M8.2 8.2L20 20M8.2 15.8L20 4M12 12l-.5.5" /></>,
+  truck: <><path d="M2 6h11v10H2zM13 9h5l3 3v4h-8" /><circle cx="6" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
+  ret: <path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3" />,
+  warn: <path d="M12 3l10 18H2zM12 10v5M12 18h.01" />,
+  hourglass: <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />,
+  search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>,
+  filter: <path d="M3 5h18l-7 8v6l-4 2v-8z" />,
+  dots: <><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></>,
+  down: <path d="M6 9l6 6 6-6" />,
+  check: <path d="M5 13l4 4L19 7" />,
+  checkc: <><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.7 2.7L16 9.5" /></>,
+  xc: <><circle cx="12" cy="12" r="9" /><path d="M15 9l-6 6M9 9l6 6" /></>,
+  prog: <path d="M21 12a9 9 0 11-3-6.7M21 3v5h-5" />,
+  ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  out: <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+}
+export const Ic = ({ n, s = 18, style }: { n: string; s?: number; style?: React.CSSProperties }) =>
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', ...style }}>{P[n]}</svg>
