@@ -1,1 +1,0 @@
-Delete components/admin/CashCounter.tsx from the repository: it is replaced by Finance.tsx.
