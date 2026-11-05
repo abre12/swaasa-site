@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
 import { Ic } from './icons'
 import MonthPick from './MonthPick'
@@ -83,6 +83,12 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     { k: 'dc', l: 'Dry Cleaning', ic: 'sparkle', c: '#7a6aa6', rows: dcOpen, dk: 'dc' }]
   const wfOpen = WF.find(w => w.k === wf)
   const rel = (d: string) => d < today ? 'Overdue' : d === today ? 'Today' : d === tomorrow ? 'Tomorrow' : dShort(d)
+  const wfList = wfOpen ? (
+    <div className="wf-list" style={{ ...tint(wfOpen.c), ...(WF.indexOf(wfOpen) <= 2 ? { marginLeft: `calc((100% - 40px) / 5 * ${WF.indexOf(wfOpen)} + ${WF.indexOf(wfOpen) * 10}px)` } : { marginLeft: 'auto' }) }}>
+      {wfOpen.dk === 'dc' ? wfOpen.rows.map((c: any) => { const d = ctx.dmap[c.dress_id]; return <div key={c.id} className="wf-r" onClick={() => ctx.go('drycleaning')}>{ctx.thumb(d, 30, 40)}<b>{d?.code || '—'}</b><span className="mut">Sent {dShort(c.sent_on)}</span><span>{d?.name}</span><span className="wf-d">{c.expected_back ? `Back ${rel(c.expected_back)}` : 'In progress'}</span></div> })
+        : wfOpen.rows.map((b: any) => { const d = b[wfOpen.dk]; return <div key={b.id} className="wf-r" onClick={() => ctx.openBooking(b.id)}>{ctx.thumb(ctx.dmap[b.dress_id], 30, 40)}<b>{b.id}</b><span>{b.customer_name}</span><span className="mut">{b.dress_code} · {b.dress_name}</span><span className="wf-d" style={d < today ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{wfOpen.dk === 'end_date' ? 'Return ' : ''}{rel(d)}</span></div> })}
+      {!wfOpen.rows.length && <p className="mut" style={{ margin: 0, padding: '6px 4px' }}>Nothing here right now.</p>}</div>
+  ) : null
   const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={40} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
   const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 46, 60)}<div><b>{code}</b><span>{name}</span></div></div>
   const duePill = (r: any) => r.prep_status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Ic n="calendar" s={15} />{dShort(r.due)}</span>
@@ -128,12 +134,9 @@ export default function Dashboard({ ctx }: { ctx: any }) {
             <div className="mc-main"><div className="mc-row"><b>{r.dress_code}</b>{duePill(r)}</div><div className="mc-sub">{r.dress_name}</div><div className="mc-meta">{r.customer_name} · <span className="bid">{r.id}</span></div><div className="mc-meta">Delivery {dShort(r.start_date)}</div></div></div>
             <div className="mc-act" onClick={e => e.stopPropagation()}>{altSel(r, c, ic)}</div></div> })}
           {!alRows.length && <p className="mut" style={{ padding: 14, margin: 0 }}>No alterations pending in the next 7 days.</p>}</div></div></div>
-    <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <button key={w.k} role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
-      <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>)}</div>
-    {wfOpen && <div className="wf-list" style={{ ...tint(wfOpen.c), ...(WF.indexOf(wfOpen) <= 2 ? { marginLeft: `calc((100% - 40px) / 5 * ${WF.indexOf(wfOpen)} + ${WF.indexOf(wfOpen) * 10}px)` } : { marginLeft: 'auto' }) }}>
-      {wfOpen.dk === 'dc' ? wfOpen.rows.map((c: any) => { const d = ctx.dmap[c.dress_id]; return <div key={c.id} className="wf-r" onClick={() => ctx.go('drycleaning')}>{ctx.thumb(d, 30, 40)}<b>{d?.code || '—'}</b><span className="mut">Sent {dShort(c.sent_on)}</span><span>{d?.name}</span><span className="wf-d">{c.expected_back ? `Back ${rel(c.expected_back)}` : 'In progress'}</span></div> })
-        : wfOpen.rows.map((b: any) => { const d = b[wfOpen.dk]; return <div key={b.id} className="wf-r" onClick={() => ctx.openBooking(b.id)}>{ctx.thumb(ctx.dmap[b.dress_id], 30, 40)}<b>{b.id}</b><span>{b.customer_name}</span><span className="mut">{b.dress_code} · {b.dress_name}</span><span className="wf-d" style={d < today ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{wfOpen.dk === 'end_date' ? 'Return ' : ''}{rel(d)}</span></div> })}
-      {!wfOpen.rows.length && <p className="mut" style={{ margin: 0, padding: '6px 4px' }}>Nothing here right now.</p>}</div>}
+    <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
+      <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
+    {wfOpen && <div className="wf-after">{wfList}</div>}
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>

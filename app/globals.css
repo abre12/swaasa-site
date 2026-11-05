@@ -263,3 +263,13 @@ body:has(.adm) header.top,body:has(.adm) footer{display:none}
   .inv-tbl{display:none}.inv-cards{display:grid;gap:8px}.inv-c{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}.inv-b{flex:1;min-width:0}.inv-t{display:flex;justify-content:space-between;align-items:center}.inv-t b{font-size:15px}.inv-n{font-size:13.5px;line-height:1.25;margin:1px 0 2px}
   .bkm-pop{min-width:200px}
 }
+
+/* workflow list: directly under the tapped card on phones, under the whole row on wide screens */
+.wf-in{display:none}.wf-after{display:block}
+@media(max-width:700px){.wf-in{display:block}.wf-after{display:none}.wf-in .wf-list{margin-top:0!important}}
+
+@media(max-width:700px){
+  .wf-r{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"t id d" "t c c" "t dr dr";gap:1px 10px;padding:9px 4px}
+  .wf-r>*:nth-child(1){grid-area:t;align-self:center}.wf-r>*:nth-child(2){grid-area:id}.wf-r>*:nth-child(3){grid-area:c;font-size:13px}.wf-r>*:nth-child(4){grid-area:dr;font-size:12px}.wf-r>*:nth-child(5){grid-area:d}
+  .wf-r span:nth-of-type(1),.wf-r span:nth-of-type(2){display:block!important}
+}
