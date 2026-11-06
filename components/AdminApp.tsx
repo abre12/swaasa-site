@@ -20,6 +20,7 @@ import Alterations from './admin/Alterations'
 import Notifications from './admin/Notifications'
 import Customers from './admin/Customers'
 import Approvals from './admin/Approvals'
+import Calendar from './admin/Calendar'
 import { Chart } from './admin/Dashboard'
 import { Ic } from './admin/icons'
 const today = todayIST
@@ -279,7 +280,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
-    <main className="adm-main"><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!(['dashboard', 'bookings', 'cash', 'dresses'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+    <main className="adm-main"><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
@@ -289,10 +290,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     {tab === 'cash' && ops && <Finance ctx={ctx} />}
     {tab === 'performance' && owner && <Performance ctx={ctx} />}
     {tab === 'bookings' && ops && <Bookings ctx={ctx} flt={flt} setFlt={setFlt} />}
-    {tab === 'calendar' && ops && <><div className="cal-head"><div className="cal-title"><button className="btn alt sm" onClick={()=>moveCalendar(-1)} aria-label="Previous period">‹</button><b>{dateTitle}</b><button className="btn alt sm" onClick={()=>moveCalendar(1)} aria-label="Next period">›</button><button className="btn alt sm" onClick={()=>{setCalFocus(today());setRef(today().slice(0,7))}}>Today</button><input aria-label="Choose month" type="month" value={ref} onChange={e=>changeCalendarMonth(e.target.value)}/></div><div className="cal-tools"><div className="cal-view">{(['month','week','day'] as const).map(v=><button key={v} className={calView===v?'on':''} onClick={()=>setCalendarView(v)}>{v[0].toUpperCase()+v.slice(1)}</button>)}</div><button className="btn alt sm" onClick={block}>Block a dress</button></div></div>
-      <div className="cal-layout"><div className={'cal '+(calView!=='month'?'cal-list-view':'')}>{calView==='month'&&'SMTWTFS'.split('').map((d,i)=><b key={i} className="cal-weekday">{d}</b>)}{calendarDays.map(d=><div key={d} className={'cell'+(d===today()?' today':'')+(calView!=='month'?' cal-focus-day':'')} onClick={()=>setDay(d)} style={{cursor:'pointer'}}><span className="cal-date">{calView==='month'?+d.slice(8):new Date(d+'T00:00:00Z').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'})}</span>{dayItems(d).map((i,n)=><button key={n} className="chip" style={{background:i.c}} title={i.label} onClick={e=>{e.stopPropagation();i.bid?openBooking(i.bid):i.dc?go('drycleaning'):i.alt?go('alterations'):blockInfo(i.kid)}}>{i.label}</button>)}</div>)}</div>
-        <aside className="cal-filters"><b>Filters</b>{([['bookings','Bookings'],['deliveries','Deliveries'],['returns','Returns'],['alterations','Alterations'],['cleaning','Dry Cleaning']] as const).map(([k,l])=><label key={k}><input type="checkbox" checked={calFilters[k]} onChange={e=>setCalFilters({...calFilters,[k]:e.target.checked})}/>{l}</label>)}</aside></div>
-      <p className="mut" style={{fontSize:12}}>Select a booking for its details or choose a date to review the day’s activity.</p></>}
+    {tab === 'calendar' && ops && <Calendar ctx={ctx} onBlock={block} onBlockInfo={blockInfo} />}
     {tab === 'dresses' && ops && <Inventory ctx={ctx} D={D} owner={owner} onAdd={() => { setEd(null); setShowForm(true) }} onEdit={d => { setEd(d); setShowForm(true) }}
       form={showForm && owner ? <DressForm key={ed?.id || 'new'} ctx={ctx} ed={ed} onClose={() => { setShowForm(false); setEd(null) }} /> : null}
       extra={owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) ? <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div> : null} />}
