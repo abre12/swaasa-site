@@ -161,14 +161,11 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     if (cleanRequired) { const act = CR.find((r: any) => r.dress_id === b.dress_id && ['to_be_sent', 'sent', 'returned_pending_check'].includes(r.status)); if (act) say(`This dress is already in the cleaning workflow (${act.status === 'to_be_sent' ? 'To Be Sent' : act.status === 'sent' ? 'Sent to Cleaner' : 'Returned from Cleaner'}); no second record was created.`)
       else { const req = await sb.from('dry_clean_requests').insert({ dress_id:b.dress_id,booking_id:b.id,inspection_id:ins.data.id,condition,condition_notes:n||null,status:'to_be_sent' }); if(req.error) say('Return saved and inspection recorded, but the dress could not be added to the cleaning queue: '+req.error.message) } }
     if (condition === 'damage_repair') {
-      let route = v.route || 'Send to Maintenance'
-      if (route === 'Send for Alteration') {
-        const nb = B.filter((x: any) => x.dress_id === b.dress_id && x.id !== b.id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today()).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0]
-        const j = nb ? await sb.from('alteration_jobs').insert({ booking_id: nb.id, dress_id: b.dress_id, requirements: n || 'Repair after return', status: 'pending_dispatch' }) : null
-        if (!nb || j?.error) { say(!nb ? 'No upcoming booking to attach an alteration to, so the dress was sent to maintenance instead.' : 'Could not create the alteration job, so the dress was sent to maintenance instead.'); route = 'Send to Maintenance' }
-      }
-      await sb.from('dresses').update({ status: route === 'Mark as Unavailable Pending Review' ? 'unavailable' : 'maintenance', condition: n || 'Damage / repair required' }).eq('id', b.dress_id)
-      await sb.from('admin_notifications').insert({target_role:'owner',kind:'maintenance',title:'Maintenance review needed',body:`${b.dress_code} returned with damage or repair required. ${n||''}`.trim(),booking_id:b.id}) }
+      // Damaged Queue: a normal alteration job (same stages) linked to this dress and return inspection.
+      const q = await sb.from('alteration_jobs').insert({ booking_id: b.id, dress_id: b.dress_id, inspection_id: ins.data.id, source: 'damage', requirements: n || 'Damage / repair required', status: 'pending_dispatch' })
+      if (q.error) say('Return saved, but the dress could not be added to the Damaged Queue. Run Supabase migration-v13.sql. ' + q.error.message)
+      else await sb.from('dresses').update({ status: 'maintenance', condition: n || 'Damage / repair required' }).eq('id', b.dress_id)
+      await sb.from('admin_notifications').insert({target_role:'owner',kind:'maintenance',title:'Maintenance review needed',body:`${b.dress_code} returned damaged and was added to Alterations → Damaged Queue. ${n||''}`.trim(),booking_id:b.id}) }
     if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.rm })
     if (kept > 0) await sb.from('payments').insert(applied.map(a => ({ booking_id: b.id, amount: a.amt, kind: 'charge', purpose: 'deposit_applied', mode: 'From Security Deposit', remarks: a.why })))
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
@@ -255,7 +252,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     ...live.map(b => ({ s: b.start_date, e: b.end_date, label: b.dress_code, c: COL[state(b)], type:'bookings', bid: b.id })),
     ...live.map(b=>({s:b.start_date,e:b.start_date,label:'DEL · '+b.dress_code,c:COL.confirmed,type:'deliveries',bid:b.id})),
     ...live.map(b=>({s:b.end_date,e:b.end_date,label:'RET · '+b.dress_code,c:COL.returned,type:'returns',bid:b.id})),
-    ...AJ.filter(a=>!['ready','cancelled'].includes(a.status)).map(a=>{const b=B.find(x=>x.id===a.booking_id);const s=a.expected_return||b?.start_date||today();return{s,e:s,label:'ALT · '+(dmap[a.dress_id]?.code||''),c:COL.dc,type:'alterations',alt:true,bid:a.booking_id}}),
+    ...AJ.filter(a=>a.source!=='damage'&&!['ready','cancelled'].includes(a.status)).map(a=>{const b=B.find(x=>x.id===a.booking_id);const s=a.expected_return||b?.start_date||today();return{s,e:s,label:'ALT · '+(dmap[a.dress_id]?.code||''),c:COL.dc,type:'alterations',alt:true,bid:a.booking_id}}),
     ...K.map(k => ({ s: k.start_date, e: k.end_date, label: (dmap[k.dress_id]?.code||'') + ' · Block', c: COL.block, type:'bookings', kid: k.id }))]
   const weekStart=(d:string)=>{const x=new Date(d+'T00:00:00Z');return addD(d,-((x.getUTCDay()+6)%7))}
   const calendarDays=calView==='month'?cells:calView==='week'?Array.from({length:7},(_,i)=>addD(weekStart(calFocus),i)):[calFocus]

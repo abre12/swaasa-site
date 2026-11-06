@@ -4,7 +4,7 @@ import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
 
 type Stage = 'pending_dispatch' | 'at_unit' | 'quality_check' | 'ready'
-type Queue = Stage | 'all' | 'completed'
+type Queue = Stage | 'all' | 'completed' | 'damaged'
 const STAGES: Stage[] = ['pending_dispatch', 'at_unit', 'quality_check', 'ready']
 const LABEL: Record<Stage, string> = { pending_dispatch: 'Pending Dispatch', at_unit: 'At Tailoring Unit', quality_check: 'Quality Check at Store', ready: 'Ready' }
 const ICON: Record<Stage, string> = { pending_dispatch: '◇', at_unit: '♧', quality_check: '⌕', ready: '✓' }
@@ -13,14 +13,17 @@ const isCompleted = (j: any, bookings: any[]) => j.status === 'ready' && booking
 export default function Alterations({ ctx }: { ctx: any }) {
   const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1)
   const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 5
-  const eligible = bookings.filter((b: any) => ['pending', 'confirmed', 'out'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !['ready', 'cancelled'].includes(j.status)))
-  const count = (s: Stage) => jobs.filter(j => j.status === s && j.status !== 'cancelled' && !isCompleted(j, bookings)).length
+  const isDmg = (j: any) => j.source === 'damage'
+  const eligible = bookings.filter((b: any) => ['pending', 'confirmed', 'out'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !isDmg(j) && !['ready', 'cancelled'].includes(j.status)))
+  const count = (s: Stage) => jobs.filter(j => j.status === s && !isDmg(j) && !isCompleted(j, bookings)).length
+  const damaged = jobs.filter(j => isDmg(j) && !['ready', 'cancelled'].includes(j.status))
   const completed = jobs.filter(j => isCompleted(j, bookings))
   const filtered = useMemo(() => jobs.filter(j => {
     const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings)
     if (j.status === 'cancelled') return false
-    if (tab === 'completed' ? !done : tab !== 'all' && (done || j.status !== tab)) return false
-    if (tab === 'all' && done) return false
+    if (tab === 'damaged') { if (!isDmg(j) || done) return false }
+    else if (tab === 'completed') { if (!done) return false }
+    else if (isDmg(j) || done || (tab !== 'all' && j.status !== tab)) return false
     if (q && !`${j.booking_id} ${b?.customer_name || ''} ${b?.phone || ''} ${d?.code || ''} ${d?.name || ''}`.toLowerCase().includes(q.toLowerCase())) return false
     if (due && b?.start_date !== due) return false
     if (category !== 'all' && (d?.category || '').toLowerCase() !== category) return false
@@ -59,13 +62,14 @@ export default function Alterations({ ctx }: { ctx: any }) {
   async function approve(j: any, qc: Record<string, boolean>, note: string) {
     const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'ready', checked_at: new Date().toISOString(), qc, qc_notes: note.trim() || null, updated_at: new Date().toISOString() }).eq('id', j.id)
     if (error) return ctx.say('Could not approve. Has migration v12 been run? ' + error.message)
-    await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id); await ctx.sb.rpc('set_prep_status', { p_id: j.booking_id, p_status: 'ready' })
+    await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id); if (!isDmg(j)) await ctx.sb.rpc('set_prep_status', { p_id: j.booking_id, p_status: 'ready' })
     ctx.say('Quality check approved. Dress marked ready.'); ctx.load(); setOpenId(null)
   }
   const chooseTab = (next: Queue) => { setTab(next); setPage(1) }
   const action = (j: any) => j.status === 'pending_dispatch' ? <button className="btn sm" onClick={() => dispatch(j)}>Send to Tailoring</button> : j.status === 'at_unit' ? <button className="btn sm" onClick={() => receive(j)}>Receive at Store</button> : j.status === 'quality_check' ? <button className="btn sm" onClick={() => setOpenId(j.id)}>Review</button> : <span className="alt-ready-mark">✓</span>
   const tabs: { id: Queue; label: string; n: number }[] = [
-    { id: 'all', label: 'Alteration Queue', n: jobs.filter(j => j.status !== 'cancelled').length - completed.length },
+    { id: 'all', label: 'Alteration Queue', n: jobs.filter(j => j.status !== 'cancelled' && !isDmg(j) && !isCompleted(j, bookings)).length },
+    { id: 'damaged', label: 'Damaged Queue', n: damaged.length },
     { id: 'at_unit', label: LABEL.at_unit, n: count('at_unit') }, { id: 'quality_check', label: LABEL.quality_check, n: count('quality_check') },
     { id: 'ready', label: LABEL.ready, n: count('ready') }, { id: 'completed', label: 'Completed', n: completed.length },
   ]
@@ -75,13 +79,13 @@ export default function Alterations({ ctx }: { ctx: any }) {
     <div className="alt-overview-cards">{STAGES.map((s, i) => <button key={s} className={`alt-overview-card tone-${i}`} onClick={() => chooseTab(s)}><span className="alt-overview-icon">{ICON[s]}</span><span className="alt-overview-copy"><b>{LABEL[s]}</b><strong>{count(s)}</strong><small>{s === 'pending_dispatch' ? 'Alterations recorded, ready to send' : s === 'at_unit' ? 'With tailoring unit' : s === 'quality_check' ? 'Received from tailoring, awaiting verification' : 'Alteration complete, ready for delivery'}</small></span></button>)}</div>
     <nav className="alt-queue-tabs" aria-label="Alteration queues">{tabs.map(t => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => chooseTab(t.id)}>{t.label}<span>{t.n}</span></button>)}</nav>
     <div className="alt-toolbar"><label className="alt-search"><span>⌕</span><input value={q} onChange={e => { setQ(e.target.value); setPage(1) }} placeholder="Search by booking, customer, or dress..." /></label><label className="alt-filter"><span>▦</span><select aria-label="Delivery date filter" value={due} onChange={e => { setDue(e.target.value); setPage(1) }}><option value="">All Delivery Dates</option><option value={today}>Due Today</option><option value={addD(today, 1)}>Due Tomorrow</option></select></label><label className="alt-filter"><span>♧</span><select aria-label="Dress category filter" value={category} onChange={e => { setCategory(e.target.value); setPage(1) }}><option value="all">All Categories</option>{categories.map(c => <option key={c} value={c.toLowerCase()}>{c}</option>)}</select></label><label className="alt-filter"><span>⚑</span><select aria-label="Status filter" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="all">All Statuses</option>{STAGES.map(s => <option key={s} value={s}>{LABEL[s]}</option>)}</select></label></div>
-    <section className="alt-queue-panel"><div className="alt-queue-heading"><h2>{tab === 'all' ? 'Alteration Queue' : tab === 'completed' ? 'Completed Alterations' : LABEL[tab as Stage]} <span>({filtered.length})</span></h2><small>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</small></div>
+    <section className="alt-queue-panel"><div className="alt-queue-heading"><h2>{tab === 'all' ? 'Alteration Queue' : tab === 'damaged' ? 'Damaged Queue' : tab === 'completed' ? 'Completed Alterations' : LABEL[tab as Stage]} <span>({filtered.length})</span></h2><small>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</small></div>
       <div className="scroll alt-table-scroll"><table className="bt alt-table"><thead><tr><th>Booking</th><th>Customer</th><th>Dress</th><th>Alterations Required</th><th>Delivery Date</th><th>Tailoring Details</th><th>Status</th><th>Action</th><th aria-label="More actions" /></tr></thead><tbody>
-        {rows.map(j => { const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, left = b ? Math.round((+new Date(b.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={late ? 'late' : ''} onClick={() => setOpenId(j.id)}>
+        {rows.map(j => { const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, dmg = isDmg(j), nb = dmg ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : b, left = nb ? Math.round((+new Date(nb.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={late ? 'late' : ''} onClick={() => setOpenId(j.id)}>
           <td><button className="alt-booking-link" onClick={e => { e.stopPropagation(); if (b) ctx.openBooking(b.id) }}>{j.booking_id}</button></td>
-          <td><div className="alt-customer"><b>{b?.customer_name || '—'}</b><small>{b?.phone || ''}</small></div></td>
+          <td><div className="alt-customer"><b>{b?.customer_name || '—'}</b><small>{dmg ? 'Returned damaged' : b?.phone || ''}</small></div></td>
           <td><div className="alt-dress-cell">{ctx.thumb(d, 48, 62)}<span><b>{d?.name || '—'}</b><small>SKU: {d?.code || '—'}</small></span></div></td>
-          <td className="alt-requirements">{summarise(j)}</td><td><b>{b ? dmy(b.start_date) : '—'}</b>{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}</td>
+          <td className="alt-requirements">{dmg && <span className="alt-dmg-tag">Damaged</span>}{summarise(j)}</td><td>{dmg && !nb ? <span className="mut">No upcoming booking</span> : <b>{nb ? dmy(nb.start_date) : '—'}</b>}{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}</td>
           <td className="alt-tailoring-cell">{j.sent_on ? <><span>Sent {dmy(j.sent_on)}</span><span>Expected {j.expected_return ? dmy(j.expected_return) : '—'}</span></> : <span className="mut">Not sent yet</span>}</td>
           <td><span className={`alt-status status-${j.status}`}>{late ? 'Overdue' : done ? 'Completed' : LABEL[j.status as Stage] || j.status}</span></td><td onClick={e => e.stopPropagation()}>{action(j)}</td><td><button className="alt-more" aria-label="Open alteration details" onClick={e => { e.stopPropagation(); setOpenId(j.id) }}>⋮</button></td>
         </tr> })}

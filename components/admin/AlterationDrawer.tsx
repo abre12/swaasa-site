@@ -26,12 +26,16 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
   const [qn, setQn] = useState<string>(job.qc_notes || '')
   const [detailTab, setDetailTab] = useState<'alterations' | 'history'>('alterations')
   const [busy, setBusy] = useState(false)
+  const dmg = job.source === 'damage'
+  const [insp, setInsp] = useState<any>(null)
+  useEffect(() => { if (!job.inspection_id) return; ctx.sb.from('return_inspections').select('photos,notes,condition,inspected_at').eq('id', job.inspection_id).maybeSingle().then(({ data }: any) => setInsp(data || null)) }, [job.inspection_id, ctx.sb])
   useEffect(() => { const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h) }, [onClose])
   const dirty = JSON.stringify(Object.entries(list).map(([k, note]) => ({ k, note }))) !== JSON.stringify((job.checklist || []).map((c: any) => ({ k: c.k, note: c.note || '' }))) || JSON.stringify(meas) !== JSON.stringify(job.measurements || {})
-  const left = b ? Math.round((+new Date(b.start_date) - +new Date(today)) / 864e5) : null
+  const nb = dmg ? ctx.B.filter((x: any) => x.dress_id === job.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : b
+  const left = nb ? Math.round((+new Date(nb.start_date) - +new Date(today)) / 864e5) : null
   const stepIx = STEPS.findIndex(s => s[0] === job.status)
   const late = job.status === 'at_unit' && job.expected_return && job.expected_return < today
-  const risk = !locked && b && job.status !== 'quality_check' && (job.expected_return ? job.expected_return >= addD(b.start_date, -1) : false)
+  const risk = !locked && !dmg && b && job.status !== 'quality_check' && (job.expected_return ? job.expected_return >= addD(b.start_date, -1) : false)
   const soon = job.status === 'at_unit' && job.expected_return && !late && job.expected_return <= addD(today, 1)
   const toggle = (k: string) => setList(l => { const n = { ...l }; if (k in n) delete n[k]; else n[k] = ''; return n })
   async function save() {
@@ -48,7 +52,8 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
     <div className="ad-h"><Ic n="scissors" s={26} /><div><h2>Alteration Details</h2><button type="button" className="ad-chip ad-booking-link" onClick={() => ctx.openBooking(job.booking_id)}>Booking #{job.booking_id}</button></div><button className="ad-x" onClick={onClose} aria-label="Close">✕</button></div>
     <div className="ad-body">
       <div className="ad-dress">{ctx.thumb(d, 96, 128)}<div><b>{d?.name || '—'}</b><span className="ad-chip">SKU: {d?.code}</span>
-        {b && <><p><Ic n="user" s={14} />{b.customer_name}</p><p><Ic n="flag" s={14} />{b.phone}</p><p><Ic n="truck" s={14} />Delivery: {dmy(b.start_date)} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left < 0 ? Math.abs(left) + ' days ago' : left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p><p><Ic n="ret" s={14} />Return: {dmy(b.end_date)}</p></>}</div></div>
+        {b && dmg && <><p><Ic n="user" s={14} />Returned by {b.customer_name} ({b.id})</p><p><Ic n="truck" s={14} />Next booking: {nb ? dmy(nb.start_date) : 'none'} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p></>}
+        {b && !dmg && <><p><Ic n="user" s={14} />{b.customer_name}</p><p><Ic n="flag" s={14} />{b.phone}</p><p><Ic n="truck" s={14} />Delivery: {dmy(b.start_date)} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left < 0 ? Math.abs(left) + ' days ago' : left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p><p><Ic n="ret" s={14} />Return: {dmy(b.end_date)}</p></>}</div></div>
 
       <nav className="ad-tabs" role="tablist" aria-label="Alteration details"><button className={detailTab === 'alterations' ? 'on' : ''} role="tab" aria-selected={detailTab === 'alterations'} onClick={() => setDetailTab('alterations')}>Alterations</button><button className={detailTab === 'history' ? 'on' : ''} role="tab" aria-selected={detailTab === 'history'} onClick={() => setDetailTab('history')}>Notes &amp; History</button></nav>
 
@@ -57,7 +62,8 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
       {risk && <div className="ad-warn"><Ic n="warn" s={16} />Expected return is close to the scheduled delivery date.</div>}
 
       <h3>Alterations Required</h3>
-      {job.requirements && <p className="ad-bn"><b>Booking notes:</b> {job.requirements}</p>}
+      {job.requirements && <p className="ad-bn"><b>{dmg ? 'Damage notes' : 'Booking notes'}:</b> {job.requirements}</p>}
+      {dmg && insp && <div className="ad-insp"><b>Return inspection · {dmy(insp.inspected_at.slice(0, 10))}</b>{insp.notes && <p>{insp.notes}</p>}{(insp.photos || []).length > 0 ? <div className="ad-ph">{insp.photos.map((u: string) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="Return condition" /></a>)}</div> : <small className="mut">No photos were attached.</small>}</div>}
       {GROUPS.map(g => <div key={g.title} className="ad-g"><h4>{g.title}</h4>{g.items.map(([k, l]) => <div key={k} className="ad-it"><label><input type="checkbox" disabled={locked} checked={k in list} onChange={() => toggle(k)} />{l}</label>{k in list && <input className="ad-note" disabled={locked} value={list[k]} onChange={e => setList({ ...list, [k]: e.target.value })} placeholder="Add notes…" />}</div>)}</div>)}
 
       <details className="ad-meas" open={Object.values(meas).some(Boolean)}><summary>Measurements (optional)</summary>
