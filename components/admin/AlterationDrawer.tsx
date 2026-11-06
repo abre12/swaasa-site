@@ -24,6 +24,7 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
   const [meas, setMeas] = useState<Record<string, string>>(job.measurements || {})
   const [qc, setQc] = useState<Record<string, boolean>>(job.qc || {})
   const [qn, setQn] = useState<string>(job.qc_notes || '')
+  const [detailTab, setDetailTab] = useState<'alterations' | 'history'>('alterations')
   const [busy, setBusy] = useState(false)
   useEffect(() => { const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h) }, [onClose])
   const dirty = JSON.stringify(Object.entries(list).map(([k, note]) => ({ k, note }))) !== JSON.stringify((job.checklist || []).map((c: any) => ({ k: c.k, note: c.note || '' }))) || JSON.stringify(meas) !== JSON.stringify(job.measurements || {})
@@ -49,10 +50,11 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
       <div className="ad-dress">{ctx.thumb(d, 96, 128)}<div><b>{d?.name || '—'}</b><span className="ad-chip">SKU: {d?.code}</span>
         {b && <><p><Ic n="user" s={14} />{b.customer_name}</p><p><Ic n="flag" s={14} />{b.phone}</p><p><Ic n="truck" s={14} />Delivery: {dmy(b.start_date)} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left < 0 ? Math.abs(left) + ' days ago' : left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p><p><Ic n="ret" s={14} />Return: {dmy(b.end_date)}</p></>}</div></div>
 
+      <nav className="ad-tabs" role="tablist" aria-label="Alteration details"><button className={detailTab === 'alterations' ? 'on' : ''} role="tab" aria-selected={detailTab === 'alterations'} onClick={() => setDetailTab('alterations')}>Alterations</button><button className={detailTab === 'history' ? 'on' : ''} role="tab" aria-selected={detailTab === 'history'} onClick={() => setDetailTab('history')}>Notes &amp; History</button></nav>
+
+      {detailTab === 'alterations' && <>
       {late && <div className="ad-warn bad"><Ic n="warn" s={16} /><b>Overdue – Awaiting Return from Tailoring Unit</b></div>}
       {risk && <div className="ad-warn"><Ic n="warn" s={16} />Expected return is close to the scheduled delivery date.</div>}
-
-      <div className="ad-track">{STEPS.map(([k, l], i) => <div key={k} className={'st' + (i < stepIx || job.status === 'ready' ? ' done' : i === stepIx ? ' cur' : '')}><i>{i < stepIx || job.status === 'ready' ? '✓' : ''}</i><span>{l}</span></div>)}</div>
 
       <h3>Alterations Required</h3>
       {job.requirements && <p className="ad-bn"><b>Booking notes:</b> {job.requirements}</p>}
@@ -74,7 +76,9 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
           {job.status === 'quality_check' && <button className="btn" disabled={!qcAll || busy} onClick={async () => { setBusy(true); await onApprove(job, qc, qn); setBusy(false) }}>Approve &amp; Mark Ready</button>}
           {job.status === 'quality_check' && !qcAll && <small className="mut">Tick all four checks to approve.</small>}
           {job.status === 'ready' && job.checked_at && <small className="mut">Approved {dmy(job.checked_at.slice(0, 10))}</small>}</div></>}
-      {job.notes && <><h3>Notes &amp; History</h3><p className="ad-bn">{job.notes}</p></>}
+      <h3>Status</h3><div className="ad-track">{STEPS.map(([k, l], i) => <div key={k} className={'st' + (i < stepIx || job.status === 'ready' ? ' done' : i === stepIx ? ' cur' : '')}><i>{i < stepIx || job.status === 'ready' ? '✓' : ''}</i><span>{l}</span></div>)}</div>
+      </>}
+      {detailTab === 'history' && <section className="ad-history"><h3>Notes &amp; History</h3><div className="ad-history-card"><b>Alteration requirements</b><p>{job.requirements || 'No free-text requirements recorded.'}</p></div>{job.notes && <div className="ad-history-card"><b>Work notes</b><p>{job.notes}</p></div>}{job.qc_notes && <div className="ad-history-card"><b>Quality check notes</b><p>{job.qc_notes}</p></div>}<div className="ad-history-list"><div><i>✓</i><span><b>Alteration added to queue</b><small>{job.created_at ? dmy(job.created_at.slice(0, 10)) : 'Date not recorded'}</small></span></div>{job.sent_on && <div><i>↗</i><span><b>Sent to tailoring unit</b><small>{dmy(job.sent_on)}{job.expected_return ? ` · Expected ${dmy(job.expected_return)}` : ''}</small></span></div>}{job.received_at && <div><i>↓</i><span><b>Received at store</b><small>{dmy(job.received_at.slice(0, 10))}</small></span></div>}{job.checked_at && <div><i>✓</i><span><b>Quality check approved</b><small>{dmy(job.checked_at.slice(0, 10))}</small></span></div>}</div></section>}
     </div>
     <div className="ad-f"><button className="btn alt" onClick={onClose}>{dirty ? 'Cancel' : 'Close'}</button>{!locked && <button className="btn" disabled={!dirty || busy} onClick={save}>Save Changes</button>}</div>
   </aside></div>

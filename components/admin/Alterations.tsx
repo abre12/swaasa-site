@@ -3,26 +3,93 @@ import { useMemo, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
 
-type Stage='pending_dispatch'|'at_unit'|'quality_check'|'ready'
-const STAGES:Stage[]=['pending_dispatch','at_unit','quality_check','ready']
-const LABEL:Record<Stage,string>={pending_dispatch:'Pending Dispatch',at_unit:'At Tailoring Unit',quality_check:'Quality Check at Store',ready:'Ready'}
-export default function Alterations({ctx}:{ctx:any}){
-  const [openId,setOpenId]=useState<string|null>(null),[tab,setTab]=useState<Stage| 'all'>('all'),[q,setQ]=useState(''),[due,setDue]=useState('')
-  const jobs:any[]=ctx.AJ||[],today=todayIST()
-  const eligible=ctx.B.filter((b:any)=>['pending','confirmed','out'].includes(b.status)&&!jobs.some((j:any)=>j.booking_id===b.id&&!['ready','cancelled'].includes(j.status)))
-  const rows=useMemo(()=>jobs.filter(j=>tab==='all'||j.status===tab).filter(j=>!q||`${j.booking_id} ${ctx.dmap[j.dress_id]?.code||''} ${ctx.dmap[j.dress_id]?.name||''}`.toLowerCase().includes(q.toLowerCase())).sort((a,b)=>{const p=(s:string)=>STAGES.indexOf(s as Stage);return p(a.status)-p(b.status)||(a.expected_return||'9999').localeCompare(b.expected_return||'9999')}),[jobs,tab,q,ctx.dmap])
-  async function add(){const opts=eligible.map((b:any)=>`${b.id} · ${b.customer_name} · ${b.dress_code}`);if(!opts.length)return ctx.say('No eligible bookings are available.');const v=await ctx.ask('Add alteration',[{name:'booking',label:'Booking',options:opts,required:true},{name:'requirements',label:'Alteration requirements',required:true},{name:'notes',label:'Additional notes'}],{ok:'Add to queue',note:'All work is temporary and reversible. The dress stays at the store until dispatched.'});if(!v)return;const b=eligible.find((x:any)=>`${x.id} · ${x.customer_name} · ${x.dress_code}`===v.booking);if(!b)return;const {error}=await ctx.sb.from('alteration_jobs').insert({booking_id:b.id,dress_id:b.dress_id,requirements:v.requirements.trim(),notes:v.notes.trim()||null});ctx.say(error?error.message:'Alteration added to Pending Dispatch.');ctx.load()}
-  async function dispatch(j:any){const sent=today;const v=await ctx.ask('Send to Tailoring Unit',[{name:'sent',label:'Date sent',type:'date',value:sent,required:true},{name:'expected',label:'Expected return date',type:'date',value:addD(sent,3),required:true},{name:'notes',label:'Dispatch notes'}],{ok:'Confirm dispatch',note:'Normal turnaround is 2–3 days. The expected return date can be adjusted.'});if(!v)return;if(v.expected<v.sent)return ctx.say('Expected return cannot be before dispatch.');const {error}=await ctx.sb.from('alteration_jobs').update({status:'at_unit',sent_on:v.sent,expected_return:v.expected,notes:v.notes.trim()||j.notes,updated_at:new Date().toISOString()}).eq('id',j.id);ctx.say(error?'Could not update the alteration.':'Dress marked At Tailoring Unit.');ctx.load()}
-  async function receive(j:any){const v=await ctx.ask('Receive at Store',[{name:'received',label:'Date received back at the store',type:'date',value:today,required:true},{name:'note',label:'Return notes'}],{ok:'Send to quality check'});if(!v)return;const {error}=await ctx.sb.from('alteration_jobs').update({status:'quality_check',received_at:new Date(`${v.received}T12:00:00+05:30`).toISOString(),notes:[j.notes,v.note.trim()].filter(Boolean).join(' · ')||null,updated_at:new Date().toISOString()}).eq('id',j.id);ctx.say(error?'Could not record receipt.':'Dress received at store; quality check is required.');ctx.load()}
-  async function approve(j:any,qc:Record<string,boolean>,note:string){const {error}=await ctx.sb.from('alteration_jobs').update({status:'ready',checked_at:new Date().toISOString(),qc,qc_notes:note.trim()||null,updated_at:new Date().toISOString()}).eq('id',j.id);if(error)return ctx.say('Could not approve. Has migration v12 been run? '+error.message);await ctx.sb.from('dresses').update({status:'available'}).eq('id',j.dress_id);await ctx.sb.rpc('set_prep_status',{p_id:j.booking_id,p_status:'ready'});ctx.say('Quality check approved. Dress marked ready.');ctx.load();setOpenId(null)}
-  const count=(s:string)=>jobs.filter(j=>j.status===s).length
-  const stageActions=(j:any)=>j.status==='pending_dispatch'?<button className="btn sm" onClick={()=>dispatch(j)}>Send to Tailoring Unit</button>:j.status==='at_unit'?<button className="btn sm" onClick={()=>receive(j)}>Receive at Store</button>:j.status==='quality_check'?<button className="btn sm" onClick={()=>setOpenId(j.id)}>Review</button>:<span className="bdg" style={{'--c':'var(--green)'} as any}>Ready</span>
-  return <div className="alt-page"><div className="pg-head"><div><h1>Alterations</h1><p>Track fitting work from dispatch through final quality check.</p></div><button className="btn" onClick={add}>＋ Add Alteration</button></div>
-    <div className="k6 alt-cards">{STAGES.map(s=><button key={s} className="kc" style={{'--c':s==='ready'?'var(--green)':s==='quality_check'?'var(--purple)':s==='at_unit'?'var(--blue)':'var(--amber)'} as any} onClick={()=>setTab(s)}><b>{count(s)}</b><span>{LABEL[s]}</span>{s==='at_unit'&&<small>2–3 days expected turnaround</small>}</button>)}</div>
-    <div className="bk-tabs">{(['all',...STAGES] as const).map(s=><button key={s} className={tab===s?'on':''} onClick={()=>setTab(s)}>{s==='all'?'All Alterations':LABEL[s]}<span className="n">{s==='all'?jobs.length:count(s)}</span></button>)}</div>
-    <div className="bk-bar"><div className="bk-search"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search booking, dress code or name" /></div><label className="alt-date">Delivery due by <input type="date" value={due} onChange={e=>setDue(e.target.value)} /></label>{due&&<button className="btn alt sm" onClick={()=>setDue('')}>Clear date</button>}</div>
-    <div className="bk-card-t scroll"><table className="bt"><thead><tr><th>Booking</th><th>Customer / Dress</th><th>Requirements</th><th>Status</th><th>Sent</th><th>Expected return</th><th>Delivery date</th><th>Action</th></tr></thead><tbody>{rows.filter(j=>!due||ctx.B.find((b:any)=>b.id===j.booking_id)?.start_date<=due).map(j=>{const b=ctx.B.find((x:any)=>x.id===j.booking_id),d=ctx.dmap[j.dress_id],late=j.status==='at_unit'&&j.expected_return<today;return <tr key={j.id} className={(late?'od ':'')+'cl'} onClick={()=>setOpenId(j.id)}><td onClick={e=>e.stopPropagation()}><button className="textlink" onClick={()=>b&&ctx.openBooking(b.id)}>{j.booking_id}</button></td><td><div className="dr">{ctx.thumb(d,38,50)}<div><b>{b?.customer_name||'—'}</b><span>{d?.code} · {d?.name}</span></div></div></td><td style={{whiteSpace:'normal',minWidth:200}}>{summarise(j)}</td><td><span className="bdg" style={{'--c':j.status==='ready'?'var(--green)':j.status==='quality_check'?'var(--purple)':j.status==='at_unit'?'var(--blue)':'var(--amber)'} as any}>{LABEL[j.status as Stage]||j.status}</span></td><td>{j.sent_on?dmy(j.sent_on):'—'}</td><td>{j.expected_return?dmy(j.expected_return):'—'}{late&&<div className="bad"><b>OVERDUE</b></div>}</td><td>{b?dmy(b.start_date):'—'}</td><td onClick={e=>e.stopPropagation()}>{stageActions(j)}</td></tr>})}{!rows.length&&<tr><td colSpan={8} className="mut">No alteration records in this view.</td></tr>}</tbody></table></div>
-    {openId&&jobs.find(j=>j.id===openId)&&<AlterationDrawer key={openId} ctx={ctx} job={jobs.find(j=>j.id===openId)} onClose={()=>setOpenId(null)} onDispatch={dispatch} onReceive={receive} onApprove={approve} />}
-    <p className="mut alt-foot">All Swaasa alteration work is temporary and reversible. No tailor assignment is required; dresses are sent to the tailoring unit.</p>
+type Stage = 'pending_dispatch' | 'at_unit' | 'quality_check' | 'ready'
+type Queue = Stage | 'all' | 'completed'
+const STAGES: Stage[] = ['pending_dispatch', 'at_unit', 'quality_check', 'ready']
+const LABEL: Record<Stage, string> = { pending_dispatch: 'Pending Dispatch', at_unit: 'At Tailoring Unit', quality_check: 'Quality Check at Store', ready: 'Ready' }
+const ICON: Record<Stage, string> = { pending_dispatch: '◇', at_unit: '♧', quality_check: '⌕', ready: '✓' }
+const isCompleted = (j: any, bookings: any[]) => j.status === 'ready' && bookings.find((b: any) => b.id === j.booking_id)?.status === 'returned'
+
+export default function Alterations({ ctx }: { ctx: any }) {
+  const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1)
+  const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 5
+  const eligible = bookings.filter((b: any) => ['pending', 'confirmed', 'out'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !['ready', 'cancelled'].includes(j.status)))
+  const count = (s: Stage) => jobs.filter(j => j.status === s && j.status !== 'cancelled' && !isCompleted(j, bookings)).length
+  const completed = jobs.filter(j => isCompleted(j, bookings))
+  const filtered = useMemo(() => jobs.filter(j => {
+    const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings)
+    if (j.status === 'cancelled') return false
+    if (tab === 'completed' ? !done : tab !== 'all' && (done || j.status !== tab)) return false
+    if (tab === 'all' && done) return false
+    if (q && !`${j.booking_id} ${b?.customer_name || ''} ${b?.phone || ''} ${d?.code || ''} ${d?.name || ''}`.toLowerCase().includes(q.toLowerCase())) return false
+    if (due && b?.start_date !== due) return false
+    if (category !== 'all' && (d?.category || '').toLowerCase() !== category) return false
+    if (status !== 'all' && j.status !== status) return false
+    return true
+  }).sort((a, b) => {
+    const p = (s: string) => STAGES.indexOf(s as Stage)
+    return p(a.status) - p(b.status) || (a.expected_return || '9999').localeCompare(b.expected_return || '9999')
+  }), [jobs, bookings, tab, q, due, category, status, ctx.dmap])
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize)), rows = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const categories = [...new Set(jobs.map(j => (ctx.dmap[j.dress_id]?.category || '').trim()).filter(Boolean))].sort()
+
+  async function add() {
+    const opts = eligible.map((b: any) => `${b.id} · ${b.customer_name} · ${b.dress_code}`)
+    if (!opts.length) return ctx.say('No eligible bookings are available.')
+    const v = await ctx.ask('Add alteration', [{ name: 'booking', label: 'Booking', options: opts, required: true }, { name: 'requirements', label: 'Alteration requirements', required: true }, { name: 'notes', label: 'Additional notes' }], { ok: 'Add to queue', note: 'All work is temporary and reversible. The dress stays at the store until dispatched.' })
+    if (!v) return
+    const b = eligible.find((x: any) => `${x.id} · ${x.customer_name} · ${x.dress_code}` === v.booking)
+    if (!b) return
+    const { error } = await ctx.sb.from('alteration_jobs').insert({ booking_id: b.id, dress_id: b.dress_id, requirements: v.requirements.trim(), notes: v.notes.trim() || null })
+    ctx.say(error ? error.message : 'Alteration added to Pending Dispatch.'); ctx.load()
+  }
+  async function dispatch(j: any) {
+    const sent = today, v = await ctx.ask('Send to Tailoring Unit', [{ name: 'sent', label: 'Date sent', type: 'date', value: sent, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(sent, 3), required: true }, { name: 'notes', label: 'Dispatch notes' }], { ok: 'Confirm dispatch', note: 'Normal turnaround is 2–3 days. The expected return date can be adjusted.' })
+    if (!v) return
+    if (v.expected < v.sent) return ctx.say('Expected return cannot be before dispatch.')
+    const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'at_unit', sent_on: v.sent, expected_return: v.expected, notes: v.notes.trim() || j.notes, updated_at: new Date().toISOString() }).eq('id', j.id)
+    ctx.say(error ? 'Could not update the alteration.' : 'Dress marked At Tailoring Unit.'); ctx.load()
+  }
+  async function receive(j: any) {
+    const v = await ctx.ask('Receive at Store', [{ name: 'received', label: 'Date received back at the store', type: 'date', value: today, required: true }, { name: 'note', label: 'Return notes' }], { ok: 'Send to quality check' })
+    if (!v) return
+    const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'quality_check', received_at: new Date(`${v.received}T12:00:00+05:30`).toISOString(), notes: [j.notes, v.note.trim()].filter(Boolean).join(' · ') || null, updated_at: new Date().toISOString() }).eq('id', j.id)
+    ctx.say(error ? 'Could not record receipt.' : 'Dress received at store; quality check is required.'); ctx.load()
+  }
+  async function approve(j: any, qc: Record<string, boolean>, note: string) {
+    const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'ready', checked_at: new Date().toISOString(), qc, qc_notes: note.trim() || null, updated_at: new Date().toISOString() }).eq('id', j.id)
+    if (error) return ctx.say('Could not approve. Has migration v12 been run? ' + error.message)
+    await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id); await ctx.sb.rpc('set_prep_status', { p_id: j.booking_id, p_status: 'ready' })
+    ctx.say('Quality check approved. Dress marked ready.'); ctx.load(); setOpenId(null)
+  }
+  const chooseTab = (next: Queue) => { setTab(next); setPage(1) }
+  const action = (j: any) => j.status === 'pending_dispatch' ? <button className="btn sm" onClick={() => dispatch(j)}>Send to Tailoring</button> : j.status === 'at_unit' ? <button className="btn sm" onClick={() => receive(j)}>Receive at Store</button> : j.status === 'quality_check' ? <button className="btn sm" onClick={() => setOpenId(j.id)}>Review</button> : <span className="alt-ready-mark">✓</span>
+  const tabs: { id: Queue; label: string; n: number }[] = [
+    { id: 'all', label: 'Alteration Queue', n: jobs.filter(j => j.status !== 'cancelled').length - completed.length },
+    { id: 'at_unit', label: LABEL.at_unit, n: count('at_unit') }, { id: 'quality_check', label: LABEL.quality_check, n: count('quality_check') },
+    { id: 'ready', label: LABEL.ready, n: count('ready') }, { id: 'completed', label: 'Completed', n: completed.length },
+  ]
+
+  return <div className="alt-page alt-reference">
+    <div className="alt-reference-head"><div className="alt-title-icon">✂</div><div><h1>Alterations</h1><p>Manage dress alterations, tailoring dispatch and return status.</p></div><button className="btn alt-add" onClick={add}>＋ Add Alteration</button></div>
+    <div className="alt-overview-cards">{STAGES.map((s, i) => <button key={s} className={`alt-overview-card tone-${i}`} onClick={() => chooseTab(s)}><span className="alt-overview-icon">{ICON[s]}</span><span className="alt-overview-copy"><b>{LABEL[s]}</b><strong>{count(s)}</strong><small>{s === 'pending_dispatch' ? 'Alterations recorded, ready to send' : s === 'at_unit' ? 'With tailoring unit' : s === 'quality_check' ? 'Received from tailoring, awaiting verification' : 'Alteration complete, ready for delivery'}</small></span></button>)}</div>
+    <nav className="alt-queue-tabs" aria-label="Alteration queues">{tabs.map(t => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => chooseTab(t.id)}>{t.label}<span>{t.n}</span></button>)}</nav>
+    <div className="alt-toolbar"><label className="alt-search"><span>⌕</span><input value={q} onChange={e => { setQ(e.target.value); setPage(1) }} placeholder="Search by booking, customer, or dress..." /></label><label className="alt-filter"><span>▦</span><select aria-label="Delivery date filter" value={due} onChange={e => { setDue(e.target.value); setPage(1) }}><option value="">All Delivery Dates</option><option value={today}>Due Today</option><option value={addD(today, 1)}>Due Tomorrow</option></select></label><label className="alt-filter"><span>♧</span><select aria-label="Dress category filter" value={category} onChange={e => { setCategory(e.target.value); setPage(1) }}><option value="all">All Categories</option>{categories.map(c => <option key={c} value={c.toLowerCase()}>{c}</option>)}</select></label><label className="alt-filter"><span>⚑</span><select aria-label="Status filter" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="all">All Statuses</option>{STAGES.map(s => <option key={s} value={s}>{LABEL[s]}</option>)}</select></label></div>
+    <section className="alt-queue-panel"><div className="alt-queue-heading"><h2>{tab === 'all' ? 'Alteration Queue' : tab === 'completed' ? 'Completed Alterations' : LABEL[tab as Stage]} <span>({filtered.length})</span></h2><small>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</small></div>
+      <div className="scroll alt-table-scroll"><table className="bt alt-table"><thead><tr><th>Booking</th><th>Customer</th><th>Dress</th><th>Alterations Required</th><th>Delivery Date</th><th>Tailoring Details</th><th>Status</th><th>Action</th><th aria-label="More actions" /></tr></thead><tbody>
+        {rows.map(j => { const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, left = b ? Math.round((+new Date(b.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={late ? 'late' : ''} onClick={() => setOpenId(j.id)}>
+          <td><button className="alt-booking-link" onClick={e => { e.stopPropagation(); if (b) ctx.openBooking(b.id) }}>{j.booking_id}</button></td>
+          <td><div className="alt-customer"><b>{b?.customer_name || '—'}</b><small>{b?.phone || ''}</small></div></td>
+          <td><div className="alt-dress-cell">{ctx.thumb(d, 48, 62)}<span><b>{d?.name || '—'}</b><small>SKU: {d?.code || '—'}</small></span></div></td>
+          <td className="alt-requirements">{summarise(j)}</td><td><b>{b ? dmy(b.start_date) : '—'}</b>{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}</td>
+          <td className="alt-tailoring-cell">{j.sent_on ? <><span>Sent {dmy(j.sent_on)}</span><span>Expected {j.expected_return ? dmy(j.expected_return) : '—'}</span></> : <span className="mut">Not sent yet</span>}</td>
+          <td><span className={`alt-status status-${j.status}`}>{late ? 'Overdue' : done ? 'Completed' : LABEL[j.status as Stage] || j.status}</span></td><td onClick={e => e.stopPropagation()}>{action(j)}</td><td><button className="alt-more" aria-label="Open alteration details" onClick={e => { e.stopPropagation(); setOpenId(j.id) }}>⋮</button></td>
+        </tr> })}
+        {!rows.length && <tr><td colSpan={9} className="alt-empty">No alterations match this view.</td></tr>}
+      </tbody></table></div>
+      <footer className="alt-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</span><div><button disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">‹</button>{Array.from({ length: pageCount }, (_, i) => i + 1).map(p => <button key={p} className={p === page ? 'on' : ''} onClick={() => setPage(p)}>{p}</button>)}<button disabled={page >= pageCount} onClick={() => setPage(page + 1)} aria-label="Next page">›</button></div></footer>
+    </section>
+    <p className="alt-foot">All Swaasa alteration work is temporary and reversible. No tailor assignment is required; dresses are sent to the tailoring unit.</p>
+    {openId && jobs.find(j => j.id === openId) && <AlterationDrawer key={openId} ctx={ctx} job={jobs.find(j => j.id === openId)} onClose={() => setOpenId(null)} onDispatch={dispatch} onReceive={receive} onApprove={approve} />}
   </div>
 }
