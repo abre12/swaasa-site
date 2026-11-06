@@ -32,7 +32,6 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
   const monthB = B.filter(b => live(b) && inMonth(b))
   const sum = (l: any[], g: (b: any) => number) => l.reduce((t, b) => t + g(b), 0)
   const cnt = (k: string) => B.filter(inScope(k)).length
-  const monthLabel = !month ? 'All Months' : month === today.slice(0, 7) ? 'This Month' : new Date(month + '-01T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
   const rank = (b: any) => lateDel(b) ? 0 : undelivered(b) ? (b.start_date === today ? 1 : b.start_date === tomorrow ? 2 : 3) : b.status === 'out' ? (lateRet(b) ? 5 : 4) : 6
   const near = (d: string) => d >= today ? [0, d] : [1, d]
   const byNear = (k: 'start_date' | 'end_date') => (a: any, b: any) => { const x = near(a[k]), y = near(b[k]); return (x[0] as number) - (y[0] as number) || (x[0] === 0 ? (x[1] as string).localeCompare(y[1] as string) : (y[1] as string).localeCompare(x[1] as string)) }
@@ -47,8 +46,6 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
     return l.slice().sort(s)
   }, [B, q, f, cur, sort, month, today])
   const T = { adv: sum(rows, b => adv[b.id] || 0), dep: sum(rows, b => Math.max(0, b.deposit_held)), rent: sum(rows, b => b.rent), cus: sum(rows, b => b.custom_charge || 0), dmg: sum(rows, b => b.damage_charge || 0), late: sum(rows, b => b.late_fee || 0), tot: sum(rows, total), rec: sum(rows, b => b.paid), pend: sum(rows, owe) }
-  const M = { rent: sum(monthB, b => b.rent), cus: sum(monthB, b => b.custom_charge || 0), dmg: sum(monthB, b => b.damage_charge || 0), late: sum(monthB, b => b.late_fee || 0), tot: sum(monthB, total) }
-  const other = Math.max(0, M.tot - M.rent - M.cus - M.dmg - M.late)
   const days = (a: string, b: string) => nDays(a, b) - 1
   const dateBadge = (b: any): [string, string, string] => {
     if (b.status === 'cancelled') return ['Cancelled', 'var(--mut)', 'ban']; if (b.status === 'returned') return ['Returned', 'var(--mut)', 'check']
@@ -80,17 +77,14 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       <KC ic="calcheck" c="var(--wine)" v={monthB.length} l="Total Bookings" on={() => setFlt('all')} />
       <KC ic="truck" c="var(--blue)" v={cnt('upcoming')} l="Upcoming Deliveries" on={() => setFlt('upcoming')} />
       <KC ic="ret" c="var(--purple)" v={cnt('returns')} l="Returns Due" on={() => setFlt('returns')} />
-      <KC ic="wallet" c="var(--green)" v={inr(sum(monthB, b => b.paid))} l="Total Received" on={() => setFlt('received')} />
-      <KC ic="hourglass" c="var(--amber)" v={inr(sum(monthB, owe))} l="Total Pending" on={() => setFlt('owing')} />
-      <KC ic="coins" c="var(--purple)" v={inr(sum(B.filter(live), b => Math.max(0, b.deposit_held)))} l="Deposit Held" on={() => setFlt('depheld')} />
+      {ctx.owner && <KC ic="wallet" c="var(--green)" v={inr(sum(monthB, b => b.paid))} l="Total Received" on={() => setFlt('received')} />}
+      {ctx.owner && <KC ic="hourglass" c="var(--amber)" v={inr(sum(monthB, owe))} l="Total Pending" on={() => setFlt('owing')} />}
+      {ctx.owner && <KC ic="coins" c="var(--purple)" v={inr(sum(B.filter(live), b => Math.max(0, b.deposit_held)))} l="Deposit Held" on={() => setFlt('depheld')} />}
       <KC ic="warn" c="var(--red)" v={B.filter(lateRet).length} l="Overdue Returns" on={() => setFlt('overdue')} /></div>
-    <div className="chg"><h3><Ic n="receipt" s={26} />{monthLabel} – Charge Summary</h3>
-      <div className="chg-v">{([['Rent Charges', M.rent], ['Customization', M.cus], ['Damage', M.dmg], ['Late Return', M.late], ...(other ? [['Other charges', other]] : [])] as [string, number][]).map(([l, v]) => <div className="m" key={l}><b>{inr(v)}</b><span>{l}</span></div>)}</div>
-      <div className="m tot"><span>Total Booking Value</span><b>{inr(M.tot)}</b></div></div>
     <div className="bk-tabs" role="tablist">{TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={cur === k && !EXTRA[flt]} className={cur === k && !EXTRA[flt] ? 'on' : ''} onClick={() => setFlt(k)}>{l}<span className={'n' + (k === 'overdue' && cnt(k) ? ' red' : '')}>{cnt(k)}</span></button>)}</div>
     <div className="bk-bar">
       {EXTRA[flt] && <span className="bdg" style={tint('var(--wine)')}>Showing: {EXTRA[flt]} <button onClick={() => setFlt('all')} aria-label="Clear" style={{ background: 'none', border: 0, cursor: 'pointer', color: 'inherit', padding: 0 }}>✕</button></span>}
-      <span style={{ flex: 1 }} /><MonthPick value={month} onChange={setMonth} max="2100-12" title="Controls the summary, charge summary, table and totals. Active, overdue and upcoming tabs always show everything current." clearable />
+      <span style={{ flex: 1 }} /><MonthPick value={month} onChange={setMonth} max="2100-12" title="Controls the booking cards, table and totals. Active, overdue and upcoming tabs always show everything current." clearable />
       <select value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort"><option value="del">Sort: Delivery Date – Nearest First</option><option value="ret">Sort: Return Date – Nearest First</option><option value="new">Sort: Booking Date – Newest First</option><option value="pend">Sort: Pending Amount – Highest First</option></select>
       <button className="btn alt sm" onClick={() => setShowF(!showF)} style={{ padding: '9px 14px' }}><Ic n="filter" s={15} /> Filters{nF ? ` (${nF})` : ''}</button></div>
     {showF && <div className="bk-filt">
@@ -116,7 +110,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
           <td style={{ whiteSpace: 'nowrap' }}><span className="bdg" style={tint(sc)}><Ic n={si} s={14} />{sl}</span>{b.status === 'out' && <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 3 }}>Hand back {inr(ctx.refundDue(b))}</div>}</td>
           <td style={{ whiteSpace: 'nowrap' }}>{next(b)} {dots(b)}</td></tr> })}
       {!rows.length && <tr><td colSpan={14} className="mut" style={{ padding: 22 }}>No bookings match.{(q || nF) ? ' Try clearing the search or filters.' : ''}</td></tr>}</tbody>
-      {!!rows.length && <tfoot><tr><td colSpan={4}>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</td>
+      {ctx.owner && !!rows.length && <tfoot><tr><td colSpan={4}>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</td>
         <td className="c g-blue">{inr(T.adv)}</td><td className="c g-blue">{inr(T.dep)}</td><td className="c g-pink">{inr(T.rent)}</td><td className="c g-pink">{inr(T.cus)}</td><td className="c g-pink">{inr(T.dmg)}</td><td className="c g-pink">{inr(T.late)}</td>
         <td className="c g-pink2">{inr(T.tot)}</td><td className="c g-green">{money(T.rec, 'var(--green)')}</td><td className="c g-amber">{money(T.pend, 'var(--red)')}</td><td colSpan={2}></td></tr></tfoot>}</table></div></div>
     <div className="bk-cards">{rows.map(b => { const [sl, sc, si] = badge(b), o = owe(b), ex = [['Rent', b.rent], ['Customization', b.custom_charge || 0], ['Damage', b.damage_charge || 0], ['Late', b.late_fee || 0]].filter(x => hasApplicableFinancialValue(x[1]))
@@ -126,7 +120,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
         <div className="mny"><div><small>Total</small><b>{inr(total(b))}</b></div><div><small>Received</small><b style={{ color: 'var(--green)' }}>{inr(b.paid)}</b></div><div><small>Pending</small><b style={{ color: o > 0 ? 'var(--red)' : 'var(--mut)' }}>{inr(o)}</b></div></div>
         {(ex.length > 0 || b.deposit_held > 0) && <div className="mut" style={{ fontSize: 11.5, marginTop: 6 }}>{ex.map(x => `${x[0]} ${inr(x[1] as number)}`).join(' · ')}{b.deposit_held > 0 && b.status !== 'returned' ? `${ex.length ? ' · ' : ''}Deposit held ${inr(b.deposit_held)}` : ''}</div>}</div> })}
       {!rows.length && <p className="mut">No bookings match.</p>}
-      {!!rows.length && <div className="bk-m tot"><b>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</b><div className="mny"><div><small>Value</small><b>{inr(T.tot)}</b></div><div><small>Received</small><b style={{ color: 'var(--green)' }}>{inr(T.rec)}</b></div><div><small>Pending</small><b style={{ color: 'var(--red)' }}>{inr(T.pend)}</b></div></div></div>}</div>
+      {ctx.owner && !!rows.length && <div className="bk-m tot"><b>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</b><div className="mny"><div><small>Value</small><b>{inr(T.tot)}</b></div><div><small>Received</small><b style={{ color: 'var(--green)' }}>{inr(T.rec)}</b></div><div><small>Pending</small><b style={{ color: 'var(--red)' }}>{inr(T.pend)}</b></div></div></div>}</div>
     {menu && <div className="bkm-pop" onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: Math.min(menu.y, innerHeight - 340), right: Math.max(8, innerWidth - menu.x) }}>{ctx.sel(menu.b)}{handled(menu.b).length > 0 && <small>{handled(menu.b).map(([l, n]) => <div key={l}>{l}: {n}</div>)}</small>}</div>}
   </div>)
 }
