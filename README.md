@@ -221,3 +221,23 @@ Three tabs: **Transactions** (money received and refunds, by category), **Cash C
 - Expense categories: Store Rent, Utilities, Salaries, Staff Bonus & Incentives, Staff Refreshments (Petty Cash), Dry Cleaning, Store Maintenance, Delivery / Transport, Business Overheads, Other Expenses (remarks required). Expenses may optionally link to a booking.
 - A cash expense or cash refund lowers the expected cash automatically; nothing is entered twice.
 - Run `supabase/migration-v9.sql` before deploying. It relabels old expense categories (nothing is deleted).
+
+## Version 11: Swaasa Admin Design System and operations updates (needs migration 10)
+
+### Upgrade order
+1. Supabase > SQL Editor > run `supabase/migration-v10.sql` after migrations v2 through v9. It adds return inspections, cleaning queue stages, alteration tracking, owner-only customer profiles and role-aware notifications/approvals. Existing cleaning records and booking alteration notes are carried forward.
+2. Deploy this project to Vercel from the connected GitHub repository.
+3. Confirm the existing Supabase URL and anon key remain configured in Vercel Environment Variables, then redeploy if Vercel did not deploy automatically.
+
+### Included changes
+- **Admin Design System v1.0:** responsive cream and burgundy admin styling, grouped navigation, refined cards, tables and form controls. Existing dashboard metrics and icons remain in place.
+- **Transactions:** transaction-wise or exact Booking ID grouping, expandable original records, quick date filters and custom inclusive date ranges. Export follows the selected view and range.
+- **Payment summaries:** booking details show applicable charges only, with separate totals, amount received, balance due and security deposit details.
+- **Return inspection and dress care:** record condition, notes and optional photos when a customer returns a dress. Cleaning-needed dresses wait in **To Be Sent**; only confirmed dispatch marks them with the cleaner. A returned dress remains unavailable until final inspection is approved.
+- **Alterations:** pending dispatch, at tailoring unit, quality check and ready stages, with a 2–3 day expected turnaround and delivery date visibility.
+- **Calendar:** month, week and day views, with filters for bookings, deliveries, returns, alterations and cleaning.
+- **Owner approvals and notifications:** owner decisions for shortfall, discount, refund and cancellation requests; staff cannot edit recorded payment transactions.
+- **Customers:** owner-only customer database, search, repeat/outstanding filters, profile drawer, booking history and internal notes.
+- **Dress Performance:** primary and supporting KPI groupings, category revenue comparison and top dress ranking; existing revenue calculations are preserved.
+
+Do not deploy the app before applying `migration-v10.sql`; the new admin panels read these added Supabase tables and policies.

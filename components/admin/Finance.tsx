@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { addD, inr, istTime, todayIST } from '@/lib/util'
 import { downloadBlob, makeWorkbook, Cell } from '@/lib/xlsx'
 import { Ic } from './icons'
@@ -33,6 +33,15 @@ export function payCat(r: any): string {
 }
 const when = (ts: string) => new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).replace(/ (am|pm)/, (_, x) => ' ' + x.toUpperCase())
 const monthEnd = (m: string) => { const d = new Date(m + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 7) }
+const addDate = (s: string, n: number) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+const dateRange = (quick: string, month: string, from: string, to: string, today: string): [string, string] => {
+  if (quick === 'custom') return [from || today, to || from || today]
+  if (quick === 'today') return [today, today]
+  if (quick === 'yesterday') { const y = addDate(today, -1); return [y, y] }
+  if (quick === 'week') { const d = new Date(today + 'T00:00:00Z'), offset = (d.getUTCDay() + 6) % 7, s = addDate(today, -offset); return [s, addDate(s, 6)] }
+  if (quick === 'last') { const prev = new Date(month + '-01T00:00:00Z'); prev.setUTCMonth(prev.getUTCMonth() - 1); const m = prev.toISOString().slice(0, 7); const e = new Date(m + '-01T00:00:00Z'); e.setUTCMonth(e.getUTCMonth() + 1); e.setUTCDate(0); return [m + '-01', e.toISOString().slice(0, 10)] }
+  return [month + '-01', addDate(monthEnd(month) + '-01', -1)]
+}
 const money = (n: number, sign = false) => (sign && n > 0 ? '+' : n < 0 ? '−' : '') + inr(Math.abs(n))
 
 // Add expense: also used by the Dashboard's quick button.
@@ -53,6 +62,8 @@ type TabKey = 'tx' | 'cash' | 'exp'
 export default function Finance({ ctx }: { ctx: any }) {
   const owner = ctx.owner, today = todayIST()
   const [tab, setTab] = useState<TabKey>('tx'), [month, setMonth] = useState(today.slice(0, 7)), [date, setDate] = useState(today)
+  const [txView, setTxView] = useState<'transaction' | 'booking'>('transaction'), [txQuick, setTxQuick] = useState('month'), [txFrom, setTxFrom] = useState(''), [txTo, setTxTo] = useState(''), [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [txStart, txEnd] = dateRange(txQuick, month, txFrom, txTo, today)
   const [pays, setPays] = useState<any[]>([]), [todayPays, setTodayPays] = useState<any[]>([]), [exps, setExps] = useState<any[]>([]), [book, setBook] = useState<any>(null)
   const [err, setErr] = useState(''), [loading, setLoading] = useState(true), [showF, setShowF] = useState(false), [fl, setFl] = useState({ mode: '', cat: '', dir: '', q: '' }), [cnt, setCnt] = useState(''), [cnote, setCnote] = useState('')
   const set = (k: string, v: string) => setFl({ ...fl, [k]: v }), nF = Object.values(fl).filter(Boolean).length
@@ -63,7 +74,7 @@ export default function Finance({ ctx }: { ctx: any }) {
     const sel = 'id,booking_id,amount,kind,purpose,mode,created_at,created_by,remarks,bookings(id,customer_name)'
     const rng = (a: string, b: string) => [new Date(`${a}T00:00:00+05:30`).toISOString(), new Date(`${b}T00:00:00+05:30`).toISOString()]
     if (tab === 'tx') {
-      const [f, t] = rng(month + '-01', monthEnd(month) + '-01'), [tf, tt] = rng(today, addD(today, 1))
+      const [f, t] = rng(txStart, addD(txEnd, 1)), [tf, tt] = rng(today, addD(today, 1))
       const [p, tp] = await Promise.all([ctx.sb.from('payments').select(sel).gte('created_at', f).lt('created_at', t).order('created_at', { ascending: false }), ctx.sb.from('payments').select(sel).gte('created_at', tf).lt('created_at', tt)])
       if (off) return; if (p.error || tp.error) setErr('Could not load the transactions. Please refresh.'); setPays(p.data || []); setTodayPays(tp.data || [])
     } else if (tab === 'exp') {
@@ -76,7 +87,7 @@ export default function Finance({ ctx }: { ctx: any }) {
       if (cb.error) setErr(cb.error.message.includes('FORBIDDEN') ? 'Only the owner can open dates before this month.' : 'Could not load the cash book. Please refresh.'); else if (p.error || x.error) setErr('Could not load this date. Please refresh.')
       setPays(p.data || []); setExps(x.data || []); setBook(cb.data?.[0] || null)
     }
-    setLoading(false) })(); return () => { off = true } }, [tab, month, date, ctx.tick, ctx.sb])
+    setLoading(false) })(); return () => { off = true } }, [tab, month, date, txStart, txEnd, ctx.tick, ctx.sb])
   useEffect(() => { setCnt(book?.counted != null ? String(book.counted) : ''); setCnote(book?.note || '') }, [book])
 
   const B: any[] = ctx.B, owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid)
@@ -97,6 +108,7 @@ export default function Finance({ ctx }: { ctx: any }) {
     if (kind === 'deposit_refund' && a > b.deposit_held) return ctx.say(`Only ${inr(Math.max(0, b.deposit_held))} of deposit is held for this booking.`)
     if (kind === 'rent_refund' && a > b.paid) return ctx.say(`Only ${inr(Math.max(0, b.paid))} has been received for this booking.`)
     if (v.t === 'Other refund' && v.r.trim().length < 3) return ctx.say('Please say why the refund is being made.')
+    if(!owner){const {error}=await ctx.sb.rpc('request_action_approval',{p_booking:b.id,p_action:'refund',p_details:{amount:a,kind,purpose,mode:v.m,remarks:v.r.trim()||null,reason:v.r.trim()||v.t}});ctx.say(error?error.message.includes('PENDING_EXISTS')?'A refund request is already waiting for the owner.':'Could not request the refund.':'Refund request sent to the owner.');ctx.load();return}
     const { error } = await ctx.sb.from('payments').insert({ booking_id: b.id, amount: a, kind, purpose, mode: v.m, remarks: v.r.trim() || null }); ctx.say(error ? error.message : `${inr(a)} refunded`); ctx.load()
   }
   async function setupOpening() {
@@ -125,14 +137,26 @@ export default function Finance({ ctx }: { ctx: any }) {
   // ---------------- Tab 1: Transactions ----------------
   const txRows = useMemo(() => pays.map(r => { const refund = r.kind.endsWith('refund'), cat = payCat(r); return { id: r.id, at: r.created_at, booking: r.booking_id, who: r.bookings?.customer_name || '', cat, amount: refund ? -r.amount : r.amount, mode: r.mode, by: r.created_by, rem: r.remarks || '', kind: r.kind } })
     .filter(t => (!fl.mode || modeKey(t.mode) === fl.mode) && (!fl.cat || t.cat === fl.cat) && (!fl.dir || (fl.dir === 'in' ? t.amount > 0 : t.amount < 0)) && (!fl.q || (t.who + t.booking + t.rem).toLowerCase().includes(fl.q.toLowerCase()))), [pays, fl])
+  const groupedTx = useMemo(() => {
+    const groups: Record<string, any> = {}
+    for (const t of txRows) { const g = (groups[t.booking] ||= { booking: t.booking, who: t.who, latest: t.at, items: [], cats: {}, modes: new Set<string>(), remarks: new Set<string>(), staff: new Set<string>() }); g.items.push(t); if (t.at > g.latest) g.latest = t.at; g.cats[t.cat] = (g.cats[t.cat] || 0) + t.amount; if (t.mode) g.modes.add(modeKey(t.mode)); if (t.rem) g.remarks.add(t.rem); if (t.by) g.staff.add(by(t.by)) }
+    return Object.values(groups).sort((a: any, b: any) => b.latest.localeCompare(a.latest)).map((g: any) => ({ ...g, items: g.items.sort((a: any, b: any) => a.at.localeCompare(b.at)), modes: [...g.modes], remarks: [...g.remarks], staff: [...g.staff] }))
+  }, [txRows])
   const received = pays.filter(r => ['rent', 'deposit'].includes(r.kind)), collected = received.reduce((s, r) => s + r.amount, 0)
   const cashToday = todayPays.filter(r => ['rent', 'deposit'].includes(r.kind) && modeKey(r.mode) === 'cash').reduce((s, r) => s + r.amount, 0)
   const pending = B.filter(b => b.status !== 'cancelled').reduce((s, b) => s + owe(b), 0), depHeld = B.reduce((s, b) => s + Math.max(0, b.deposit_held), 0), refPending = B.filter(b => b.status === 'out').reduce((s, b) => s + ctx.refundRef(b), 0)
   const catsSeen = [...new Set(pays.map(payCat))].sort()
   async function exportTx() {
-    const head = ['Date and time', 'Booking ID', 'Customer', 'Category', 'Payment mode', 'Amount', 'Remarks', 'Entered by'].map(t => ({ t, s: 'head' as const }))
-    const rows: Cell[][] = txRows.map(t => [when(t.at), t.booking, t.who, t.cat, MODE_UI[modeKey(t.mode)][0], { n: t.amount, s: t.amount < 0 ? 'moneyRed' : 'money' }, t.rem, by(t.by)])
-    downloadBlob(await makeWorkbook([{ name: 'Transactions', widths: [20, 14, 24, 26, 22, 14, 36, 16], rows: [[{ t: 'Swaasa Wedding Rentals: transactions ' + month, s: 'title' }], [], head, ...rows] }]), `swaasa-transactions-${month}.xlsx`)
+    if (txView === 'booking') {
+      const cats = ['Advance Received','Rental Charges','Customisation Charges','Security Deposit Received','Security Deposit Refund','Late Return Charges','Damage Charges','Other Charges']
+      const head = ['Booking ID','Customer','Latest Transaction',...cats,'Payment Mode','Remarks','Entered By'].map(t => ({ t, s: 'head' as const }))
+      const rows: Cell[][] = groupedTx.map((g: any) => [g.booking,g.who,when(g.latest),...cats.map(c => g.cats[c] ? { n:g.cats[c], s:g.cats[c]<0?'moneyRed':'money' } as Cell : '—'),g.modes.length === 1 ? MODE_UI[g.modes[0]][0] : g.modes.length ? 'Multiple Modes' : '—',g.remarks.length === 1 ? g.remarks[0] : g.remarks.length ? 'Multiple' : '—',g.staff.length === 1 ? g.staff[0] : g.staff.length ? 'Multiple' : '—'])
+      downloadBlob(await makeWorkbook([{ name:'Grouped by Booking', widths:[16,24,20,18,18,20,22,22,18,16,18,28,18], rows:[[ {t:`Swaasa Wedding Rentals: grouped transactions ${txStart} to ${txEnd}`,s:'title'}],[],head,...rows] }]),`swaasa-booking-transactions-${txStart}-${txEnd}.xlsx`)
+    } else {
+      const head = ['Date and time', 'Booking ID', 'Customer', 'Category', 'Payment mode', 'Amount', 'Remarks', 'Entered by'].map(t => ({ t, s: 'head' as const }))
+      const rows: Cell[][] = txRows.map(t => [when(t.at), t.booking, t.who, t.cat, MODE_UI[modeKey(t.mode)][0], { n: t.amount, s: t.amount < 0 ? 'moneyRed' : 'money' }, t.rem, by(t.by)])
+      downloadBlob(await makeWorkbook([{ name: 'Transactions', widths: [20, 14, 24, 26, 22, 14, 36, 16], rows: [[{ t: `Swaasa Wedding Rentals: transactions ${txStart} to ${txEnd}`, s: 'title' }], [], head, ...rows] }]), `swaasa-transactions-${txStart}-${txEnd}.xlsx`)
+    }
   }
 
   // ---------------- Tab 2: Cash Counter ----------------
@@ -178,20 +202,25 @@ export default function Finance({ ctx }: { ctx: any }) {
 
     {tab === 'tx' && <>
       <div className="k6" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))' }}>
-        <Card ic="wallet" c="var(--green)" v={inr(collected)} l="Total Collected This Month" sub={month === today.slice(0, 7) ? undefined : month} />
+        <Card ic="wallet" c="var(--green)" v={inr(collected)} l="Total Collected In Range" sub={`${txStart} – ${txEnd}`} />
         <Card ic="hourglass" c="var(--amber)" v={inr(pending)} l="Pending Payments" sub="all open bookings" />
         <Card ic="coins" c="var(--purple)" v={inr(depHeld)} l="Deposits Held (Refundable)" />
         <Card ic="ret" c="var(--red)" v={inr(refPending)} l="Refunds Pending" sub="deposits due back on return" />
         <Card ic="cash" c="var(--blue)" v={inr(cashToday)} l="Cash Collected Today" /></div>
       <div className="bk-card-t" style={{ padding: 14 }}>
-        <div className="bk-bar" style={{ margin: '0 0 12px' }}><h2 style={{ fontSize: 26, marginRight: 'auto' }}>Transactions</h2><MonthP /><button className="btn alt sm" onClick={exportTx} style={{ padding: '9px 14px' }}>Export</button><FBtn /></div>
+        <div className="bk-bar" style={{ margin: '0 0 12px' }}><h2 style={{ fontSize: 26, marginRight: 'auto' }}>Transactions</h2>
+          <div className="tx-view" role="group" aria-label="Transaction view"><button className={txView === 'transaction' ? 'on' : ''} onClick={() => setTxView('transaction')}>Transaction-wise</button><button className={txView === 'booking' ? 'on' : ''} onClick={() => setTxView('booking')}>Group by Booking ID</button></div>
+          <select aria-label="Date range" value={txQuick} onChange={e => { setTxQuick(e.target.value); if(e.target.value==='month') setMonth(today.slice(0,7)) }} style={{ width: 'auto' }}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This Week</option><option value="month">This Month</option><option value="last">Last Month</option><option value="custom">Custom Range</option></select>
+          {txQuick === 'month' && <MonthP />}{txQuick === 'custom' && <span className="tx-range"><label>From <input type="date" value={txFrom} onChange={e => setTxFrom(e.target.value)} /></label><label>To <input type="date" value={txTo} onChange={e => setTxTo(e.target.value)} /></label></span>}
+          <button className="btn alt sm" onClick={exportTx} style={{ padding: '9px 14px' }}>Export</button><FBtn /></div>
         {showF && <div className="bk-filt"><Sel k="mode" label="Payment mode" opts={modeOpts} /><Sel k="cat" label="Category" opts={[['', 'All categories'], ...catsSeen.map(c => [c, c] as [string, string])]} /><Sel k="dir" label="Money" opts={[['', 'Received and refunded'], ['in', 'Received only'], ['out', 'Refunds only']]} />
           <label>Search<input value={fl.q} onChange={e => set('q', e.target.value)} placeholder="Customer or booking" /></label><div style={{ alignSelf: 'end' }}><button className="btn alt sm" onClick={() => setFl({ mode: '', cat: '', dir: '', q: '' })}>Clear</button></div></div>}
-        <div className="scroll"><table className="bt stack tx"><thead><tr><th>Date &amp; Time</th><th>Booking ID</th><th>Customer</th><th>Category (Transaction Type)</th><th>Payment Mode</th><th style={{ textAlign: 'right' }}>Amount</th><th>Entered By</th></tr></thead><tbody>
-          {loading && !pays.length && <tr><td colSpan={7} className="mut" style={{ padding: 20 }}>Loading…</td></tr>}
-          {txRows.map(t => <tr key={t.id}><td style={{ whiteSpace: 'nowrap' }}>{when(t.at)}</td><td>{bkLink(t.booking)}</td><td>{t.who}</td><td style={{ whiteSpace: 'normal' }}><Pill cat={t.cat} />{t.rem && <div className="mut" style={{ fontSize: 11.5, marginTop: 3, maxWidth: 260 }}>{t.rem}</div>}</td><td><ModeCell m={t.mode} /></td>
-            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><b style={{ color: t.amount < 0 ? 'var(--red)' : 'var(--green)', opacity: t.kind === 'charge' ? .75 : 1 }}>{money(t.amount, true)}</b></td><td>{by(t.by)}</td></tr>)}
-          {empty(txRows.length, 'No transactions match.', 7)}</tbody></table></div></div></>}
+        <div className="scroll"><table className="bt stack tx"><thead>{txView === 'transaction' ? <tr><th>Date &amp; Time</th><th>Booking ID</th><th>Customer</th><th>Category (Transaction Type)</th><th>Payment Mode</th><th style={{ textAlign: 'right' }}>Amount</th><th>Entered By</th></tr> : <tr><th></th><th>Booking ID</th><th>Customer</th><th>Date / Latest Transaction</th>{['Advance Received','Rental Charges','Customisation Charges','Security Deposit Received','Security Deposit Refund','Late Return Charges','Damage Charges','Other Charges'].map(c=><th key={c}>{c}</th>)}<th>Payment Mode</th><th>Remarks</th><th>Entered By</th></tr>}</thead><tbody>
+          {loading && !pays.length && <tr><td colSpan={txView === 'transaction' ? 7 : 15} className="mut" style={{ padding: 20 }}>Loading…</td></tr>}
+          {txView === 'transaction' ? <>{txRows.map(t => <tr key={t.id}><td style={{ whiteSpace: 'nowrap' }}>{when(t.at)}</td><td>{bkLink(t.booking)}</td><td>{t.who}</td><td style={{ whiteSpace: 'normal' }}><Pill cat={t.cat} />{t.rem && <div className="mut" style={{ fontSize: 11.5, marginTop: 3, maxWidth: 260 }}>{t.rem}</div>}</td><td><ModeCell m={t.mode} /></td>
+            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><b style={{ color: t.amount < 0 ? 'var(--red)' : 'var(--green)', opacity: t.kind === 'charge' ? .75 : 1 }}>{money(t.amount, true)}</b></td><td>{by(t.by)}</td></tr>)}</> : <>{groupedTx.map((g: any) => <Fragment key={g.booking}><tr><td><button className="tx-expand" aria-label={expanded[g.booking] ? 'Collapse transactions' : 'Expand transactions'} onClick={() => setExpanded({ ...expanded, [g.booking]: !expanded[g.booking] })}>{expanded[g.booking] ? '−' : '+'}</button></td><td>{bkLink(g.booking)}</td><td>{g.who}</td><td>{when(g.latest)}</td>{['Advance Received','Rental Charges','Customisation Charges','Security Deposit Received','Security Deposit Refund','Late Return Charges','Damage Charges','Other Charges'].map(c=>{const n=g.cats[c]||0;return <td key={c} style={{textAlign:'right',color:n<0?'var(--red)':undefined}}>{n?money(n):'—'}</td>})}<td>{g.modes.length===1?<ModeCell m={g.items.find((x:any)=>modeKey(x.mode)===g.modes[0])?.mode}/>:g.modes.length?'Multiple Modes':'—'}</td><td>{g.remarks.length===1?g.remarks[0]:g.remarks.length?'Multiple':'—'}</td><td>{g.staff.length===1?g.staff[0]:g.staff.length?'Multiple':'—'}</td></tr>
+              {expanded[g.booking] && <tr><td colSpan={15} className="tx-detail"><b>Transactions for {g.booking}</b><div className="scroll"><table><thead><tr><th>Date &amp; Time</th><th>Category / Transaction Type</th><th>Payment Mode</th><th>Amount</th><th>Remarks</th><th>Entered By</th></tr></thead><tbody>{g.items.map((t:any)=><tr key={t.id}><td>{when(t.at)}</td><td><Pill cat={t.cat}/></td><td><ModeCell m={t.mode}/></td><td style={{color:t.amount<0?'var(--red)':'var(--green)'}}>{money(t.amount,true)}</td><td>{t.rem||'—'}</td><td>{by(t.by)}</td></tr>)}</tbody></table></div></td></tr>}</Fragment>)}</>}
+          {empty(txView === 'transaction' ? txRows.length : groupedTx.length, 'No transactions match.', txView === 'transaction' ? 7 : 15)}</tbody></table></div></div></>}
 
     {tab === 'cash' && <>
       <div className="bk-card-t" style={{ padding: '14px 16px', marginBottom: 14 }}>
