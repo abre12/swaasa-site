@@ -278,7 +278,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
-    <main className={'adm-main'+(['performance','reports'].includes(tab)?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!['performance','reports'].includes(tab) && !(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+    <main className={'adm-main'+(['performance','reports'].includes(tab)?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!['performance','reports','customers'].includes(tab) && !(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
