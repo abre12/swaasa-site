@@ -39,6 +39,7 @@ const P: Record<string, React.ReactNode> = {
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5M16 4.5a3.5 3.5 0 010 7M18 14.5c2.5.6 4 2.3 4 5.5" /></>,
   gift: <path d="M3 9h18v4H3zM5 13v8h14v-8M12 9v12M12 9c-2 0-4-1-4-3s3-2.5 4 0c1-2.5 4-2 4 0s-2 3-4 3z" />,
   cup: <path d="M4 8h13v6a5 5 0 01-5 5H9a5 5 0 01-5-5zM17 10h2a2 2 0 010 4h-2M7 3v2M11 3v2" />,
+  crown: <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5zM6 19h12" />,
   wrench: <path d="M15 5a4 4 0 00-3.7 5.5L4 18l2 2 7.5-7.3A4 4 0 0019 9l-2.5 2.5-2-.5-.5-2z" />,
   box: <path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10" />,
   dots2: <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />,

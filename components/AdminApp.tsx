@@ -269,14 +269,16 @@ export default function AdminApp({ role, name }: { role: string; name: string })
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[]][] = [['',['dashboard','bookings','calendar']],['Operations',['alterations','drycleaning']],['',['dresses','cash']],['Owner’s Corner',['customers','approvals','reports','settings']]]
+  const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','dresses','prep'],''],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
-  const navButtons=(keys:string[],close=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(tab===k?' on':'')} onClick={()=>{if(close)setDrawer(false);if(k==='workflow'){setTab('dashboard');setTimeout(()=>document.getElementById('workflow')?.scrollIntoView({behavior:'smooth',block:'center'}),60)}else go(k)}}><Ic n={i} s={20}/>{k==='approvals'&&pendingAppr>0?`Approvals (${pendingAppr})`:l}</button>)
+  const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'sent').length }
+  const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+(tab===k?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{k==='approvals'&&pendingAppr>0?`Approvals (${pendingAppr})`:l}</span>{navCount[k]>0&&<span className="nv-n">{navCount[k]}</span>}</button>)
+  const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
   return (<div className="adm">
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" /><Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
-      {navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={keys.join()}>{label&&<div className="adm-nav-label">{label}</div>}{navButtons(keys)}</section>)}
+      {navTree()}
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
@@ -312,7 +314,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     </main>
     {ops && <nav className="adm-bot" aria-label="Main">{BOT.map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => goNav(k)}><Ic n={i} s={22} /><span>{k === 'cash' ? 'Payments' : l}</span></button>)}<button className={drawer ? 'on' : ''} onClick={() => setDrawer(true)}><Ic n="menu" s={22} /><span>More</span></button></nav>}
     {drawer && <div className="adm-sheet" onClick={() => setDrawer(false)}><div className="in" onClick={e => e.stopPropagation()}><div className="hd"><img src="/logo-mark.png" alt="" /><div><b>Swaasa</b><span>Wedding Rentals</span></div><button onClick={() => setDrawer(false)} aria-label="Close menu">✕</button></div>
-      {navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={keys.join()}>{label&&<div className="adm-nav-label">{label}</div>}{navButtons(keys,true)}</section>)}
+      {navTree(true)}
       <div className="me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
