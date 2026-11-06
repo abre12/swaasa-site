@@ -26,7 +26,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const paymentLabel = !finance.showTotal || (finance.paid <= 0 && finance.due > 0)
     ? 'Payment Pending'
     : finance.due > 0 ? `${inr(finance.due)} Due` : 'Fully Paid'
-  const bookingDate = b.created_at ? dmy(istDate(b.created_at)) : null
+  const bookingDate = b.booking_date ? dmy(b.booking_date) : b.created_at ? dmy(istDate(b.created_at)) : null
 
   useEffect(() => {
     if (limited) return
@@ -96,6 +96,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
           <div><Ic n="user" s={28} /><span>Customer</span><b>{b.customer_name || '—'}</b></div>
           <div><Ic n="truck" s={28} /><span>Delivery Date</span><b>{dmy(b.start_date)}</b></div>
           <div><Ic n="calcheck" s={28} /><span>Return Date</span><b>{dmy(b.end_date)}</b></div>
+          {b.event_date && <div><Ic n="calendar" s={28} /><span>{b.event_type || 'Event'} Date</span><b>{dmy(b.event_date)}</b></div>}
           {!limited && <div className={'bd-glance-payment' + (finance.due > 0 ? ' due' : '')}>
             <Ic n="coins" s={29} /><span>Payment Status</span><b>{paymentLabel}</b>
           </div>}
@@ -107,6 +108,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             <div className="bd-period">
               <div><Ic n="calendar" s={19} /><span>Rental Period</span><b>{dmy(b.start_date)} – {dmy(b.end_date)}</b><em>{nDays(b.start_date, b.end_date)} Days</em></div>
               {bookingDate && <div><Ic n="calcheck" s={19} /><span>Booking Date</span><b>{bookingDate}</b></div>}
+              {b.event_type && <div><Ic n="calendar" s={19} /><span>Event Type</span><b>{b.event_type}</b></div>}
             </div>
 
             <div className="bd-prep-row">
