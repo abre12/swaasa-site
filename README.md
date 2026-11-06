@@ -241,3 +241,10 @@ Three tabs: **Transactions** (money received and refunds, by category), **Cash C
 - **Dress Performance:** primary and supporting KPI groupings, category revenue comparison and top dress ranking; existing revenue calculations are preserved.
 
 Do not deploy the app before applying `migration-v10.sql`; the new admin panels read these added Supabase tables and policies.
+
+## Unified Booking Details popup (no database change)
+
+- Booking links throughout the admin dashboard open the same responsive details popup.
+- The popup groups booking identity, customer and rental dates, preparation and alteration information, handler history, payment summary and deposit status.
+- Payment values continue to come from the shared existing payment-summary logic. Booking workflows, permissions, database structure and action handlers are unchanged.
+- Existing booking actions are shown in the bottom action bar, with the current next workflow action emphasized.

@@ -72,7 +72,7 @@ export default function DryCleaning({ctx}:{ctx:any}){
     ctx.load()
   }
   const count=CR.filter((r:any)=>r.status==='complete').length, expenses=CR.filter((r:any)=>r.status==='complete').reduce((s:number,r:any)=>s+(r.final_charge||r.estimated_charge||0),0)
-  const cell=(r:any)=>{const d=ctx.dmap[r.dress_id];return <div className="dr">{ctx.thumb(d,40,52)}<div><b>{d?.code||'—'}</b><span>{d?.name||'Dress'}</span></div></div>}
+  const cell=(r:any)=>{const d=ctx.dmap[r.dress_id];return <div className="dr">{ctx.thumb(d,40,52)}<div><b>{d?.code||'—'}</b><span>{d?.name||'Dress'}</span>{r.booking_id&&<button type="button" className="textlink dry-booking-link" onClick={()=>ctx.openBooking(r.booking_id)}>Booking {r.booking_id}</button>}</div></div>}
   const pill=(s:string)=> <span className="bdg" style={{'--c':s==='sent'?'var(--purple)':s==='returned_pending_check'?'var(--amber)':'var(--blue)'} as any}>{s==='sent'?'With Cleaner':s==='returned_pending_check'?'Returned · Inspect':'To Be Sent'}</span>
   const tabs:[typeof tab,string,number][]=[['to_send','To Be Sent',queue.length],['sent','Sent to Cleaner',sent.length],['returned','Returned from Cleaner',returned.length],['history','History',history.length]]
   const summary=[['To Be Sent',queue.length,'clock','var(--amber)'],['With Cleaner',sent.length,'sparkle','var(--purple)'],['Returned',returned.length,'check','var(--green)'],['Cleaning Expenses',inr(expenses),'coins','var(--wine)']]

@@ -1,64 +1,163 @@
 'use client'
 import { useEffect, useState } from 'react'
 import PaymentSummary from './PaymentSummary'
-import { dmy, inr, istTime, PREP, todayIST } from '@/lib/util'
+import { buildPaymentSummary } from '@/lib/payments'
+import { dmy, inr, istDate, istTime, nDays, PREP, todayIST } from '@/lib/util'
+import { Ic } from './icons'
+
 const STATUS: Record<string, string> = { pending: 'Awaiting confirmation', confirmed: 'Confirmed', out: 'Delivered (with customer)', returned: 'Returned', cancelled: 'Cancelled' }
-// Full booking details. `limited` (preparation staff) hides phone numbers, money and history.
+
+// Unified booking details. Preparation staff retain the existing restricted view.
 export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b: any; limited: boolean; onClose: () => void }) {
-  const [edit, setEdit] = useState(false); const [txt, setTxt] = useState<string>(b.alteration_notes || '')
-  const [inspection,setInspection]=useState<any>(null)
-  const [pays,setPays]=useState<any[]|null>(null)
-  useEffect(()=>{if(limited)return;ctx.sb.from('payments').select('kind,amount').eq('booking_id',b.id).then(({data,error}:any)=>setPays(error?null:(data||[])))},[ctx.sb,b.id,b.paid,b.deposit_held,limited,ctx.tick])
-  useEffect(()=>{ctx.sb.from('return_inspections').select('*').eq('booking_id',b.id).order('inspected_at',{ascending:false}).limit(1).maybeSingle().then(({data}:any)=>setInspection(data||null))},[ctx.sb,b.id])
-  const [saved, setSaved] = useState<any>(null); const [prep, setPrep] = useState<string>(b.prep_status)
-  const dress = ctx.dmap[b.dress_id], img = dress?.images?.[0] || b.image
-  const notes = saved ? saved.notes : b.alteration_notes, by = saved ? saved.by : b.alteration_updated_by, at = saved ? saved.at : b.alteration_updated_at
+  const [edit, setEdit] = useState(false)
+  const [txt, setTxt] = useState<string>(b.alteration_notes || '')
+  const [inspection, setInspection] = useState<any>(null)
+  const [pays, setPays] = useState<any[] | null>(null)
+  const [prep, setPrep] = useState<string>(b.prep_status)
+  const [saved, setSaved] = useState<any>(null)
+  const dress = ctx.dmap[b.dress_id]
+  const img = dress?.images?.[0] || b.image
+  const notes = saved ? saved.notes : b.alteration_notes
+  const by = saved ? saved.by : b.alteration_updated_by
+  const at = saved ? saved.at : b.alteration_updated_at
   const overdue = b.status === 'out' && b.end_date < todayIST()
+  const visualState = overdue ? 'overdue' : ctx.state(b)
+  const finance = buildPaymentSummary(b)
+  const paymentLabel = !finance.showTotal || (finance.paid <= 0 && finance.due > 0)
+    ? 'Payment Pending'
+    : finance.due > 0 ? `${inr(finance.due)} Due` : 'Fully Paid'
+  const bookingDate = b.created_at ? dmy(istDate(b.created_at)) : null
+
+  useEffect(() => {
+    if (limited) return
+    ctx.sb.from('payments').select('kind,amount').eq('booking_id', b.id)
+      .then(({ data, error }: any) => setPays(error ? null : (data || [])))
+  }, [ctx.sb, b.id, b.paid, b.deposit_held, limited, ctx.tick])
+
+  useEffect(() => {
+    ctx.sb.from('return_inspections').select('*').eq('booking_id', b.id)
+      .order('inspected_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }: any) => setInspection(data || null))
+  }, [ctx.sb, b.id])
+
   async function saveNotes() {
     const { error } = await ctx.sb.rpc('set_alteration_notes', { p_id: b.id, p_notes: txt })
     if (error) return ctx.say('Could not save the alteration notes.')
-    setSaved({ notes: txt.trim() || null, by: ctx.name, at: new Date().toISOString() }); setEdit(false); ctx.say('Alteration notes saved'); ctx.load()
+    setSaved({ notes: txt.trim() || null, by: ctx.name, at: new Date().toISOString() })
+    setEdit(false); ctx.say('Alteration notes saved'); ctx.load()
   }
+
   async function setPrepStatus(v: string) {
     const { error } = await ctx.sb.rpc('set_prep_status', { p_id: b.id, p_status: v })
     if (error) return ctx.say('Could not update the preparation status.')
     setPrep(v); ctx.say('Preparation: ' + PREP[v]); ctx.load()
   }
-  const row = (l: string, v: any) => <div className="row"><span className="mut">{l}</span><span style={{ textAlign: 'right' }}>{v}</span></div>
-  const due = b.rent + b.charges - b.paid
-  return (<div onClick={onClose} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 65, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 16 }}>
-    <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 640, width: '100%', margin: 0 }}>
-      <div className="row"><h3 style={{ margin: 0 }}>Booking {b.id}</h3><button className="btn alt sm" onClick={onClose}>Close</button></div>
-      <div style={{ display: 'flex', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
-        {img ? <a href={img} target="_blank" rel="noopener noreferrer" title="Open full size"><img src={img} alt={b.dress_name} style={{ width: 130, height: 174, objectFit: 'cover', border: '1px solid var(--line)' }} /></a> : <div style={{ width: 130, height: 174, background: 'var(--blush)' }} />}
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <b style={{ fontSize: 18 }}>{b.dress_code} · {b.dress_name}</b>
-          <div style={{ marginTop: 6 }}><span className="tag" style={{ background: overdue ? 'var(--bad)' : undefined, color: overdue ? '#fff' : undefined }}>{overdue ? 'OVERDUE RETURN' : STATUS[b.status] || b.status}</span></div>
-          <div style={{ marginTop: 8 }}>{row('Customer', b.customer_name)}{!limited && row('Phone', <a href={'tel:' + b.phone}>{b.phone}</a>)}
-            {row('Delivery date', dmy(b.start_date))}{row('Return date', dmy(b.end_date))}
-            {b.created_at && row('Booked on', dmy(b.created_at.slice(0, 10) === b.created_at ? b.created_at : new Date(b.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })))}
-            {b.returned_at && row('Returned on', dmy(new Date(b.returned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })))}</div>
+
+  const who = (id?: string | null, ts?: string | null) => id
+    ? `${ctx.staffName(id)}${ts ? ' · ' + dmy(istDate(ts)) : ''}`
+    : '—'
+  const handled = [
+    ['Booking taken by', b.taken_by ? who(b.taken_by, b.created_at) : b.log?.[0]?.m === 'Requested online' ? 'Online (customer)' : '—'],
+    ['Prepared by', who(b.prepared_by, b.prepared_at)],
+    ['Delivered by', who(b.delivered_by, b.picked_up_at)],
+    ['Return processed by', who(b.returned_by, b.returned_at)],
+  ] as [string, string][]
+
+  return <div className="bd-backdrop" onClick={onClose}>
+    <section className="bd-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="bd-title">
+      <header className="bd-header">
+        <div className="bd-header-title"><Ic n="calcheck" s={28} />
+          <h2 id="bd-title">Booking {b.id}</h2>
+          <span className="bd-status" style={{ '--status-color': ctx.COL?.[visualState] || 'var(--wine)' } as any}>
+            <i />{overdue ? 'Overdue' : STATUS[b.status] || b.status}
+          </span>
         </div>
+        <button className="bd-close" type="button" onClick={onClose} aria-label="Close booking details">×</button>
+      </header>
+
+      <div className="bd-scroll">
+        <section className="bd-identity" aria-label="Booking identity">
+          {img ? <a className="bd-dress-image" href={img} target="_blank" rel="noopener noreferrer" title="Open dress image">
+            <img src={img} alt={b.dress_name || 'Dress'} />
+          </a> : <div className="bd-dress-image bd-image-empty"><Ic n="dress" s={34} /></div>}
+          <div className="bd-dress-info">
+            <span className="bd-code">{b.dress_code || dress?.code || 'Dress'}</span>
+            <h3>{b.dress_name || dress?.name || 'Dress details'}</h3>
+            <span className="bd-category">{dress?.category || b.dress_category || 'Rental item'}</span>
+          </div>
+          <div className={'bd-identity-meta' + (limited ? ' limited' : '')}>
+            <div><Ic n="user" s={21} /><span>Customer</span><b>{b.customer_name || '—'}</b></div>
+            {!limited && <div><Ic n="phone" s={21} /><span>Phone</span><b>{b.phone ? <a href={'tel:' + b.phone}>{b.phone}</a> : '—'}</b></div>}
+            <div><Ic n="calendar" s={21} /><span>Booked On</span><b>{bookingDate || '—'}</b></div>
+          </div>
+        </section>
+
+        <section className={'bd-glance' + (limited ? ' bd-glance-limited' : '')} aria-label="Booking at a glance">
+          <div><Ic n="user" s={28} /><span>Customer</span><b>{b.customer_name || '—'}</b></div>
+          <div><Ic n="truck" s={28} /><span>Delivery Date</span><b>{dmy(b.start_date)}</b></div>
+          <div><Ic n="calcheck" s={28} /><span>Return Date</span><b>{dmy(b.end_date)}</b></div>
+          {!limited && <div className={'bd-glance-payment' + (finance.due > 0 ? ' due' : '')}>
+            <Ic n="coins" s={29} /><span>Payment Status</span><b>{paymentLabel}</b>
+          </div>}
+        </section>
+
+        <div className="bd-columns">
+          <section className="bd-card bd-operations">
+            <h3 className="bd-section-title"><Ic n="receipt" s={23} />Booking &amp; Operations</h3>
+            <div className="bd-period">
+              <div><Ic n="calendar" s={19} /><span>Rental Period</span><b>{dmy(b.start_date)} – {dmy(b.end_date)}</b><em>{nDays(b.start_date, b.end_date)} Days</em></div>
+              {bookingDate && <div><Ic n="calcheck" s={19} /><span>Booking Date</span><b>{bookingDate}</b></div>}
+            </div>
+
+            <div className="bd-prep-row">
+              <Ic n="tag" s={20} /><b>Preparation Status</b>
+              {b.status === 'confirmed'
+                ? <select aria-label="Preparation status" value={prep} onChange={e => setPrepStatus(e.target.value)}>{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{PREP[k]}</option>)}</select>
+                : <span className="bd-prep-value">{PREP[prep] || prep || '—'}</span>}
+            </div>
+
+            <div className="bd-notes">
+              <div className="bd-subhead"><h4><Ic n="scissors" s={19} />Alteration Notes</h4>
+                {b.status !== 'cancelled' && !edit && <button className="btn alt sm" type="button" onClick={() => { setTxt(notes || ''); setEdit(true) }}><Ic n="pencil" s={15} />{notes ? 'Edit' : 'Add notes'}</button>}
+              </div>
+              {edit ? <><textarea rows={3} value={txt} onChange={e => setTxt(e.target.value)} placeholder="e.g. Shorten sleeves, tighten waist, blouse measurements…" />
+                <div className="bd-edit-actions"><button className="btn sm" type="button" onClick={saveNotes}>Save notes</button><button className="btn alt sm" type="button" onClick={() => setEdit(false)}>Cancel</button></div></>
+                : <div className={notes ? 'bd-note-text' : 'bd-note-empty'}>{notes || 'No alteration notes added.'}</div>}
+              {at && <small className="bd-updated">Updated {dmy(istDate(at))} {istTime(at)}{by ? ` · ${by}` : ''}</small>}
+            </div>
+
+            {!limited && <div className="bd-handled">
+              <h4><Ic n="users" s={20} />Handled By</h4>
+              <div>{handled.map(([label, value]) => <div className="bd-handled-row" key={label}><span>{label}</span><b className={value === '—' ? 'empty' : ''}>{value}</b></div>)}</div>
+            </div>}
+          </section>
+
+          {!limited && <section className="bd-financial" aria-label="Financial information">
+            <PaymentSummary b={b} payments={pays} />
+          </section>}
+        </div>
+
+        {!limited && <div className="bd-extras">
+          {(() => { const ap = (ctx.APPR || []).filter((a: any) => a.booking_id === b.id); if (!ap.length) return null
+            return <section className="bd-card bd-extra-card"><h3><Ic n="bell" s={19} />Shortfall Approvals</h3>{ap.map((a: any) => <div key={a.id} className="bd-approval-row"><b className={'bd-approval-status ' + a.status}>{a.status.toUpperCase()}</b><span>Short by {inr(a.shortfall)} · asked by {ctx.staffName(a.requested_by) || 'staff'}{a.reason ? ` · “${a.reason}”` : ''}{a.decided_at ? ` · decided by ${ctx.staffName(a.decided_by) || 'owner'}${a.decision_note ? ` (${a.decision_note})` : ''}` : ''}</span></div>)}</section>
+          })()}
+          {(b.return_notes || inspection) && <section className="bd-card bd-extra-card"><h3><Ic n="ret" s={19} />Return Condition</h3>
+            {b.return_notes && <p className="bd-return-note">{b.return_notes}</p>}
+            {inspection && <><div className="bd-inspection-condition"><span>Inspection</span><b>{({ good: 'Good', minor_marks: 'Minor Marks', needs_cleaning: 'Needs Cleaning', damage_repair: 'Damage / Repair Required' } as any)[inspection.condition] || inspection.condition}</b></div>
+              {inspection.notes && <p className="bd-return-note">{inspection.notes}</p>}
+              {inspection.photos?.length > 0 && <div className="inspection-photos">{inspection.photos.map((src: string, i: number) => <a key={i} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`Return condition ${i + 1}`} loading="lazy" /></a>)}</div>}
+              <small className="mut">Inspected {istTime(inspection.inspected_at)}</small></>}
+          </section>}
+          {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
+            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
+        </div>}
       </div>
-      {b.status === 'confirmed' ? <div style={{ marginTop: 12 }}><label style={{ fontSize: 13 }}>Preparation status<select value={prep} onChange={e => setPrepStatus(e.target.value)} style={{ display: 'block' }}>{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{PREP[k]}</option>)}</select></label></div>
-        : <div style={{ marginTop: 12 }} className="mut">Preparation: {PREP[prep] || prep}</div>}
-      <div className="box" style={{ background: notes ? 'var(--blush)' : undefined }}>
-        <div className="row"><b>✂ Alteration notes</b>{b.status !== 'cancelled' && !edit && <button className="btn alt sm" onClick={() => { setTxt(notes || ''); setEdit(true) }}>{notes ? 'Edit' : 'Add notes'}</button>}</div>
-        {edit ? <><textarea rows={5} value={txt} onChange={e => setTxt(e.target.value)} placeholder="e.g. Shorten sleeves, tighten waist, blouse measurements…" style={{ width: '100%', border: '1px solid var(--line)', padding: 8 }} />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><button className="btn sm" onClick={saveNotes}>Save notes</button><button className="btn alt sm" onClick={() => setEdit(false)}>Cancel</button></div></>
-          : notes ? <div style={{ whiteSpace: 'pre-wrap', fontSize: 15, marginTop: 6 }}>{notes}</div> : <div className="mut" style={{ marginTop: 6 }}>No alteration notes</div>}
-        {at && <div className="mut" style={{ fontSize: 12, marginTop: 6 }}>Last updated {dmy(new Date(at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))} {istTime(at)}{by ? ` by ${by}` : ''}</div>}
-      </div>
-      {!limited && (() => { const who = (id?: string | null, ts?: string | null) => id ? `${ctx.staffName(id)}${ts ? ' · ' + dmy(new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })) : ''}` : '–'
-        return <div className="box"><b>Handled by</b>{row('Booking taken by', b.taken_by ? who(b.taken_by, b.created_at) : b.log?.[0]?.m === 'Requested online' ? 'Online (customer)' : '–')}{row('Prepared by', who(b.prepared_by, b.prepared_at))}{row('Delivered by', who(b.delivered_by, b.picked_up_at))}{row('Return processed by', who(b.returned_by, b.returned_at))}</div> })()}
-      {!limited && (() => { const ap = (ctx.APPR || []).filter((a: any) => a.booking_id === b.id); if (!ap.length) return null
-        return <div className="box"><b>Shortfall approvals</b>{ap.map((a: any) => <div key={a.id} style={{ fontSize: 13, marginTop: 4 }}><b style={{ color: a.status === 'approved' ? 'var(--ok)' : a.status === 'rejected' ? 'var(--bad)' : '#c58a2b' }}>{a.status.toUpperCase()}</b> · short by {inr(a.shortfall)} · asked by {ctx.staffName(a.requested_by) || 'staff'}{a.reason ? ` · “${a.reason}”` : ''}{a.decided_at ? ` · decided by ${ctx.staffName(a.decided_by) || 'owner'}${a.decision_note ? ` (${a.decision_note})` : ''}` : ''}</div>)}</div> })()}
-      {b.return_notes && <div className="box"><b>Return condition / damage notes</b><div style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{b.return_notes}</div></div>}
-      {inspection&&<div className="box"><b>Dress Condition Inspection</b><div className="row"><span className="mut">Condition</span><b>{({good:'Good',minor_marks:'Minor Marks',needs_cleaning:'Needs Cleaning',damage_repair:'Damage / Repair Required'} as any)[inspection.condition]||inspection.condition}</b></div>{inspection.notes&&<div style={{whiteSpace:'pre-wrap',marginTop:6}}>{inspection.notes}</div>}{inspection.photos?.length>0&&<div className="inspection-photos">{inspection.photos.map((src:string,i:number)=><a key={i} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`Return condition ${i+1}`} loading="lazy"/></a>)}</div>}<small className="mut">Inspected {istTime(inspection.inspected_at)}</small></div>}
-      {!limited && <>
-        <PaymentSummary b={b} payments={pays} />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>{ctx.sel(b)}</div>
-        {!!b.log?.length && <details style={{ marginTop: 12 }}><summary className="mut" style={{ cursor: 'pointer' }}>History</summary>
-          {b.log.slice().reverse().map((l: any, i: number) => <div key={i} className="mut" style={{ fontSize: 12, padding: '2px 0' }}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}</>}
-    </div></div>)
+
+      <footer className="bd-actionbar">
+        {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.sel(b)}</div>
+          : <span className="mut">Booking operations are managed by sales staff.</span>}
+        <button type="button" className="bd-footer-close" onClick={onClose}>Close</button>
+      </footer>
+    </section>
+  </div>
 }

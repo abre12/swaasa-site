@@ -44,7 +44,7 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
   const prog = (label: string, val: string | null, extra?: React.ReactNode) => <div className="ad-pr"><Ic n="calendar" s={16} /><span>{label}</span><b>{val ? dmy(val) : '—'}</b>{extra}</div>
 
   return <div className="ad-back" onClick={onClose}><aside className="ad" onClick={e => e.stopPropagation()} role="dialog" aria-label="Alteration details">
-    <div className="ad-h"><Ic n="scissors" s={26} /><div><h2>Alteration Details</h2><span className="ad-chip">Booking #{job.booking_id}</span></div><button className="ad-x" onClick={onClose} aria-label="Close">✕</button></div>
+    <div className="ad-h"><Ic n="scissors" s={26} /><div><h2>Alteration Details</h2><button type="button" className="ad-chip ad-booking-link" onClick={() => ctx.openBooking(job.booking_id)}>Booking #{job.booking_id}</button></div><button className="ad-x" onClick={onClose} aria-label="Close">✕</button></div>
     <div className="ad-body">
       <div className="ad-dress">{ctx.thumb(d, 96, 128)}<div><b>{d?.name || '—'}</b><span className="ad-chip">SKU: {d?.code}</span>
         {b && <><p><Ic n="user" s={14} />{b.customer_name}</p><p><Ic n="flag" s={14} />{b.phone}</p><p><Ic n="truck" s={14} />Delivery: {dmy(b.start_date)} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left < 0 ? Math.abs(left) + ' days ago' : left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p><p><Ic n="ret" s={14} />Return: {dmy(b.end_date)}</p></>}</div></div>

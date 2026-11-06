@@ -19,7 +19,7 @@ export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; o
   const depositPaid = sum('deposit')
   const toRefund = Math.max(0, b.deposit_held - owing)   // deposit held, less any rent or charges still unpaid
   const line = (l: string, v: any, bold = false, c?: string) => <div className="row" style={{ color: c }}><span className={bold ? undefined : 'mut'}>{l}</span>{bold ? <b>{v}</b> : <span>{v}</span>}</div>
-  return (<div onClick={onClose} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 70, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 16 }}>
+  return (<div onClick={onClose} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 85, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 16 }}>
     <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 560, width: '100%', margin: 0 }}>
       <div className="row"><h3 style={{ margin: 0 }}>Payment record · {b.id}</h3><button className="btn alt sm" onClick={onClose}>Close</button></div>
       <p className="mut" style={{ margin: '4px 0 10px', fontSize: 13 }}>{b.dress_code} · {b.customer_name} · {dmy(b.start_date)} to {dmy(b.end_date)}</p>
