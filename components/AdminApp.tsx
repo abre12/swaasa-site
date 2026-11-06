@@ -65,7 +65,8 @@ export default function AdminApp({ role, name }: { role: string; name: string })
   const say = (m: string) => { setNote(m); setTimeout(() => setNote(''), 3500) }
   // In-page dialogs. (Browser prompt()/confirm() freeze the whole page while open, which Chrome reports as slow interactions.)
   type Fld = { name: string; label: string; type?: string; value?: any; options?: string[]; required?: boolean; accept?: string; multiple?: boolean }
-  const ask = (title: string, fields: Fld[], o: { note?: string; ok?: string } = {}) => new Promise<Record<string, string> | null>(res => setDlg({ title, fields, note: o.note, ok: o.ok || 'Save', res }))
+  type DialogValues = Record<string, string> & { photos?: File[] }
+  const ask = (title: string, fields: Fld[], o: { note?: string; ok?: string } = {}) => new Promise<DialogValues | null>(res => setDlg({ title, fields, note: o.note, ok: o.ok || 'Save', res }))
   const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   async function patch(b: any, p: any, msg: string): Promise<boolean> {
     const { error } = await sb.from('bookings').update({ ...p, log: [...(b.log || []), { t: new Date().toISOString(), m: msg, by: name }] }).eq('id', b.id)
