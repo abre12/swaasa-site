@@ -29,11 +29,11 @@ const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', ret
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
   ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['cash', 'Transactions & Cash Counter', 'wallet', ['owner', 'manager']],
-  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
+  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['performance','Dress Performance','chart',['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
-export default function AdminApp({ role, name }: { role: string; name: string }) {
+export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
-  const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(ops ? 'dashboard' : 'prep'); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
+  const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(initialTab && (role === 'owner' || initialTab !== 'performance') ? initialTab : (ops ? 'dashboard' : 'prep')); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
   const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [CR, setCR] = useState<any[]>([]); const [AJ, setAJ] = useState<any[]>([]); const [NOTIFS, setNOTIFS] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [calView,setCalView]=useState<'month'|'week'|'day'>('month'),[calFocus,setCalFocus]=useState(today()),[calFilters,setCalFilters]=useState({bookings:true,deliveries:true,returns:true,alterations:true,cleaning:true})
@@ -269,7 +269,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','dresses','prep'],''],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown']]
+  const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','prep'],''],['Dresses',['dresses','performance'],'dress'],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
   const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'sent').length }
   const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+(tab===k?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{k==='approvals'&&pendingAppr>0?`Approvals (${pendingAppr})`:l}</span>{navCount[k]>0&&<span className="nv-n">{navCount[k]}</span>}</button>)
