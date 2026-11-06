@@ -241,10 +241,17 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => discount(b)}>{owner?'Discount':'Request discount'}</button>}
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
     {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
+  // Secondary actions for the booking details footer: the contextual primary action lives in the modal header.
+  const selSecondary = (b: any) => <>{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
+    {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
+    {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => discount(b)}>{owner?'Discount':'Request discount'}</button>}
+    {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
+  const [wfFocus, setWfFocus] = useState<any>(null)
+  const focusWorkflow = (kind: 'alteration' | 'cleaning', id: string) => { setWfFocus({ kind, id }); setOpenB(null); go(kind === 'alteration' ? 'alterations' : 'drycleaning') }
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())

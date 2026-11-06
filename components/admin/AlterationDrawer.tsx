@@ -17,7 +17,7 @@ const STEPS: [string, string][] = [['pending_dispatch', 'Pending Dispatch'], ['a
 /** One-line summary of what is being altered: the checklist if filled in, else the booking's free-text notes. */
 export const summarise = (j: any) => (j.checklist || []).length ? (j.checklist as any[]).map(c => LBL[c.k] || c.k).join(', ') : j.requirements
 
-export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onReceive, onApprove }: { ctx: any; job: any; onClose: () => void; onDispatch: (j: any) => void; onReceive: (j: any) => void; onApprove: (j: any, qc: Record<string, boolean>, notes: string) => Promise<void> }) {
+export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onReceive, onApprove, onSendBack }: { ctx: any; job: any; onClose: () => void; onDispatch: (j: any) => void; onReceive: (j: any) => void; onApprove: (j: any, qc: Record<string, boolean>, notes: string) => Promise<void>; onSendBack: (j: any) => Promise<void> | void }) {
   const today = todayIST(), b = ctx.B.find((x: any) => x.id === job.booking_id), d = ctx.dmap[job.dress_id]
   const locked = job.status === 'ready' || job.status === 'cancelled'
   const [list, setList] = useState<Record<string, string>>(() => Object.fromEntries((job.checklist || []).map((c: any) => [c.k, c.note || ''])))
@@ -79,8 +79,8 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
       {(job.status === 'quality_check' || job.status === 'ready') && <><h3>Quality Check at Store</h3>
         <div className="ad-qc">{QC.map(([k, l]) => <label key={k}><input type="checkbox" disabled={job.status === 'ready'} checked={!!qc[k]} onChange={e => setQc({ ...qc, [k]: e.target.checked })} />{l}</label>)}
           <textarea disabled={job.status === 'ready'} value={qn} onChange={e => setQn(e.target.value)} placeholder="Quality check notes (optional)" rows={2} />
-          {job.status === 'quality_check' && <button className="btn" disabled={!qcAll || busy} onClick={async () => { setBusy(true); await onApprove(job, qc, qn); setBusy(false) }}>Approve &amp; Mark Ready</button>}
-          {job.status === 'quality_check' && !qcAll && <small className="mut">Tick all four checks to approve.</small>}
+          {job.status === 'quality_check' && <div style={{ display: 'grid', gap: 8 }}><button className="btn" disabled={!qcAll || busy} onClick={async () => { setBusy(true); await onApprove(job, qc, qn); setBusy(false) }}>Approve &amp; Mark Ready</button><button className="btn alt" disabled={busy} onClick={() => onSendBack(job)}>Send back to Tailor</button></div>}
+          {job.status === 'quality_check' && !qcAll && <small className="mut">Tick all four checks to approve, or send the dress back to the tailor if the work is not up to the mark.</small>}
           {job.status === 'ready' && job.checked_at && <small className="mut">Approved {dmy(job.checked_at.slice(0, 10))}</small>}</div></>}
       <h3>Status</h3><div className="ad-track">{STEPS.map(([k, l], i) => <div key={k} className={'st' + (i < stepIx || job.status === 'ready' ? ' done' : i === stepIx ? ' cur' : '')}><i>{i < stepIx || job.status === 'ready' ? '✓' : ''}</i><span>{l}</span></div>)}</div>
       </>}

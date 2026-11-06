@@ -1,9 +1,19 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PaymentSummary from './PaymentSummary'
 import { buildPaymentSummary } from '@/lib/payments'
 import { dmy, inr, istDate, istTime, nDays, PREP, todayIST } from '@/lib/util'
 import { Ic } from './icons'
+import { dispatchAlteration } from './Alterations'
+import { dispatchToCleaner } from './DryCleaning'
+import { summarise } from './AlterationDrawer'
+import { PaymentTable, usePaymentRows } from './PaymentRecord'
+import { ALT_STAGE, pickPrimary } from '@/lib/bookingAction'
+
+function PaymentRecordInline({ ctx, b }: { ctx: any; b: any }) {
+  const { rows, err } = usePaymentRows(ctx, b)
+  return <PaymentTable ctx={ctx} b={b} rows={rows} err={err} />
+}
 
 const STATUS: Record<string, string> = { pending: 'Awaiting confirmation', confirmed: 'Confirmed', out: 'Delivered (with customer)', returned: 'Returned', cancelled: 'Cancelled' }
 
@@ -15,6 +25,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const [pays, setPays] = useState<any[] | null>(null)
   const [prep, setPrep] = useState<string>(b.prep_status)
   const [saved, setSaved] = useState<any>(null)
+  const [histOpen, setHistOpen] = useState(false), [payOpen, setPayOpen] = useState(false), [acting, setActing] = useState(false)
   const dress = ctx.dmap[b.dress_id]
   const img = dress?.images?.[0] || b.image
   const notes = saved ? saved.notes : b.alteration_notes
@@ -26,7 +37,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const paymentLabel = !finance.showTotal || (finance.paid <= 0 && finance.due > 0)
     ? 'Payment Pending'
     : finance.due > 0 ? `${inr(finance.due)} Due` : 'Fully Paid'
-  const bookingDate = b.booking_date ? dmy(b.booking_date) : b.created_at ? dmy(istDate(b.created_at)) : null
+  const bookingDate = b.created_at ? dmy(istDate(b.created_at)) : null
 
   useEffect(() => {
     if (limited) return
@@ -39,6 +50,24 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       .order('inspected_at', { ascending: false }).limit(1).maybeSingle()
       .then(({ data }: any) => setInspection(data || null))
   }, [ctx.sb, b.id])
+
+  // Status-aware primary action: lifecycle first, then the active Alterations / Dry Cleaning stage for confirmed bookings.
+  const primary = useMemo(() => limited ? null : pickPrimary(ctx, b), [limited, ctx.AJ, ctx.CR, ctx.B, b.id, b.status, b.dress_id, b.start_date]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function runPrimary() {
+    if (!primary || acting) return
+    setActing(true)
+    try {
+      if (primary.kind === 'confirm') await ctx.patch(b, { status: 'confirmed' }, 'Confirmed')
+      else if (primary.kind === 'deliver') await ctx.pickup(b)
+      else if (primary.kind === 'return') await ctx.ret(b)
+      else if (primary.kind === 'alt_dispatch') await dispatchAlteration(ctx, primary.job)
+      else if (primary.kind === 'alt_open') ctx.focusWorkflow('alteration', primary.job.id)
+      else if (primary.kind === 'clean_dispatch') await dispatchToCleaner(ctx, [primary.req])
+      else if (primary.kind === 'clean_open') ctx.focusWorkflow('cleaning', primary.req.id)
+    } finally { setActing(false) }
+  }
+  const wf = [primary?.current, primary?.secondary, primary?.view].filter(Boolean) as any[]
+  const altHistory = (ctx.AJ || []).filter((a: any) => a.dress_id === b.dress_id).slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
 
   async function saveNotes() {
     const { error } = await ctx.sb.rpc('set_alteration_notes', { p_id: b.id, p_notes: txt })
@@ -72,7 +101,14 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             <i />{overdue ? 'Overdue' : STATUS[b.status] || b.status}
           </span>
         </div>
-        <button className="bd-close" type="button" onClick={onClose} aria-label="Close booking details">×</button>
+        <div className="bd-header-end">
+          {primary && primary.kind !== 'none' && <button type="button" className="bd-primary" onClick={runPrimary} disabled={acting} aria-label={primary.label}><Ic n={primary.icon} s={18} /><span>{primary.label}</span></button>}
+          {primary && primary.kind === 'none' && <>
+            <span className={'bd-state ' + (primary.state || '')}><Ic n={primary.icon} s={15} />{primary.label}</span>
+            {primary.view && <button type="button" className="bd-primary" onClick={() => ctx.focusWorkflow(primary.view!.module, primary.view!.id)}><Ic n="search" s={18} /><span>{primary.view.repair ? 'View repair' : primary.view.module === 'cleaning' ? 'View cleaning' : 'View alteration'}</span></button>}
+          </>}
+          <button className="bd-close" type="button" onClick={onClose} aria-label="Close booking details">×</button>
+        </div>
       </header>
 
       <div className="bd-scroll">
@@ -96,7 +132,6 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
           <div><Ic n="user" s={28} /><span>Customer</span><b>{b.customer_name || '—'}</b></div>
           <div><Ic n="truck" s={28} /><span>Delivery Date</span><b>{dmy(b.start_date)}</b></div>
           <div><Ic n="calcheck" s={28} /><span>Return Date</span><b>{dmy(b.end_date)}</b></div>
-          {b.event_date && <div><Ic n="calendar" s={28} /><span>{b.event_type || 'Event'} Date</span><b>{dmy(b.event_date)}</b></div>}
           {!limited && <div className={'bd-glance-payment' + (finance.due > 0 ? ' due' : '')}>
             <Ic n="coins" s={29} /><span>Payment Status</span><b>{paymentLabel}</b>
           </div>}
@@ -108,8 +143,9 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             <div className="bd-period">
               <div><Ic n="calendar" s={19} /><span>Rental Period</span><b>{dmy(b.start_date)} – {dmy(b.end_date)}</b><em>{nDays(b.start_date, b.end_date)} Days</em></div>
               {bookingDate && <div><Ic n="calcheck" s={19} /><span>Booking Date</span><b>{bookingDate}</b></div>}
-              {b.event_type && <div><Ic n="calendar" s={19} /><span>Event Type</span><b>{b.event_type}</b></div>}
             </div>
+
+            {wf.length > 0 && <div className="bd-wf"><b>Current workflow</b><div>{wf.map((w, i) => <button key={w.id} type="button" className={'bd-wf-chip' + (i > 0 ? ' sec' : '')} onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">{w.label}</button>)}</div></div>}
 
             <div className="bd-prep-row">
               <Ic n="tag" s={20} /><b>Preparation Status</b>
@@ -120,8 +156,15 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
 
             <div className="bd-notes">
               <div className="bd-subhead"><h4><Ic n="scissors" s={19} />Alteration Notes</h4>
-                {b.status !== 'cancelled' && !edit && <button className="btn alt sm" type="button" onClick={() => { setTxt(notes || ''); setEdit(true) }}><Ic n="pencil" s={15} />{notes ? 'Edit' : 'Add notes'}</button>}
+                <span className="bd-subhead-actions"><button className="btn alt sm bd-hist-btn" type="button" aria-expanded={histOpen} aria-controls="bd-alt-history" onClick={() => setHistOpen(o => !o)}><Ic n="menu" s={15} />View all requests{altHistory.length ? ` (${altHistory.length})` : ''}</button>
+                {b.status !== 'cancelled' && !edit && <button className="btn alt sm" type="button" onClick={() => { setTxt(notes || ''); setEdit(true) }}><Ic n="pencil" s={15} />{notes ? 'Edit' : 'Add notes'}</button>}</span>
               </div>
+              {histOpen && <div id="bd-alt-history" className="bd-alt-history" role="region" aria-label="All alteration requests for this dress">
+                {altHistory.length === 0 ? <p className="bd-note-empty">No alteration requests for this dress yet.</p> : altHistory.map((a: any) => <article key={a.id} className={'bd-alt-item' + (a.status === 'cancelled' ? ' cancelled' : '')}>
+                  <div className="bd-alt-top"><span className={'bd-alt-stage st-' + a.status}>{ALT_STAGE[a.status] || a.status}</span>{a.source === 'damage' && <span className="bd-alt-damage">Damage / Repair</span>}<time>{a.created_at ? dmy(istDate(a.created_at)) : '—'}</time></div>
+                  <div className="bd-alt-body"><span>{a.booking_id ? <>Booking <b>{a.booking_id}</b>{a.booking_id === b.id ? ' (this booking)' : ''}</> : 'No booking linked'}</span><p>{summarise(a) || '—'}</p></div>
+                </article>)}
+              </div>}
               {edit ? <><textarea rows={3} value={txt} onChange={e => setTxt(e.target.value)} placeholder="e.g. Shorten sleeves, tighten waist, blouse measurements…" />
                 <div className="bd-edit-actions"><button className="btn sm" type="button" onClick={saveNotes}>Save notes</button><button className="btn alt sm" type="button" onClick={() => setEdit(false)}>Cancel</button></div></>
                 : <div className={notes ? 'bd-note-text' : 'bd-note-empty'}>{notes || 'No alteration notes added.'}</div>}
@@ -136,6 +179,10 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
 
           {!limited && <section className="bd-financial" aria-label="Financial information">
             <PaymentSummary b={b} payments={pays} />
+            <details className="bd-card bd-history bd-payrec" onToggle={e => setPayOpen((e.currentTarget as HTMLDetailsElement).open)}>
+              <summary>Payment Record<small>Booking {b.id}</small></summary>
+              {payOpen && <><PaymentRecordInline ctx={ctx} b={b} /><p className="bd-payrec-note">Payment transactions for this booking. Refunds and charges appear in the same list.</p></>}
+            </details>
           </section>}
         </div>
 
@@ -156,7 +203,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       </div>
 
       <footer className="bd-actionbar">
-        {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.sel(b)}</div>
+        {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.selSecondary(b)}</div>
           : <span className="mut">Booking operations are managed by sales staff.</span>}
         <button type="button" className="bd-footer-close" onClick={onClose}>Close</button>
       </footer>

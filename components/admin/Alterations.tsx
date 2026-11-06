@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
 
@@ -9,6 +9,16 @@ const STAGES: Stage[] = ['pending_dispatch', 'at_unit', 'quality_check', 'ready'
 const LABEL: Record<Stage, string> = { pending_dispatch: 'Pending Dispatch', at_unit: 'At Tailoring Unit', quality_check: 'Quality Check at Store', ready: 'Ready' }
 const ICON: Record<Stage, string> = { pending_dispatch: '◇', at_unit: '♧', quality_check: '⌕', ready: '✓' }
 const isCompleted = (j: any, bookings: any[]) => j.status === 'ready' && bookings.find((b: any) => b.id === j.booking_id)?.status === 'returned'
+
+// Shared with the booking details modal so there is one dispatch workflow.
+export async function dispatchAlteration(ctx: any, j: any): Promise<boolean> {
+  const sent = todayIST(), v = await ctx.ask('Send to Tailoring Unit', [{ name: 'sent', label: 'Date sent', type: 'date', value: sent, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(sent, 3), required: true }, { name: 'notes', label: 'Dispatch notes' }], { ok: 'Confirm dispatch', note: 'Normal turnaround is 2–3 days. The expected return date can be adjusted.' })
+  if (!v) return false
+  if (v.expected < v.sent) { ctx.say('Expected return cannot be before dispatch.'); return false }
+  const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'at_unit', sent_on: v.sent, expected_return: v.expected, notes: v.notes.trim() || j.notes, updated_at: new Date().toISOString() }).eq('id', j.id)
+  ctx.say(error ? 'Could not update the alteration.' : 'Dress marked At Tailoring Unit.'); ctx.load()
+  return !error
+}
 
 export default function Alterations({ ctx }: { ctx: any }) {
   const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1)
@@ -46,13 +56,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
     const { error } = await ctx.sb.from('alteration_jobs').insert({ booking_id: b.id, dress_id: b.dress_id, requirements: v.requirements.trim(), notes: v.notes.trim() || null })
     ctx.say(error ? error.message : 'Alteration added to Pending Dispatch.'); ctx.load()
   }
-  async function dispatch(j: any) {
-    const sent = today, v = await ctx.ask('Send to Tailoring Unit', [{ name: 'sent', label: 'Date sent', type: 'date', value: sent, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(sent, 3), required: true }, { name: 'notes', label: 'Dispatch notes' }], { ok: 'Confirm dispatch', note: 'Normal turnaround is 2–3 days. The expected return date can be adjusted.' })
-    if (!v) return
-    if (v.expected < v.sent) return ctx.say('Expected return cannot be before dispatch.')
-    const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'at_unit', sent_on: v.sent, expected_return: v.expected, notes: v.notes.trim() || j.notes, updated_at: new Date().toISOString() }).eq('id', j.id)
-    ctx.say(error ? 'Could not update the alteration.' : 'Dress marked At Tailoring Unit.'); ctx.load()
-  }
+  const dispatch = (j: any) => dispatchAlteration(ctx, j)
   async function receive(j: any) {
     const v = await ctx.ask('Receive at Store', [{ name: 'received', label: 'Date received back at the store', type: 'date', value: today, required: true }, { name: 'note', label: 'Return notes' }], { ok: 'Send to quality check' })
     if (!v) return
@@ -65,7 +69,19 @@ export default function Alterations({ ctx }: { ctx: any }) {
     await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id); if (!isDmg(j)) await ctx.sb.rpc('set_prep_status', { p_id: j.booking_id, p_status: 'ready' })
     ctx.say('Quality check approved. Dress marked ready.'); ctx.load(); setOpenId(null)
   }
+  // Quality check failed: the same job goes back to At Tailoring Unit (no new status). The reason is kept in the job notes.
+  async function sendBack(j: any) {
+    const v = await ctx.ask('Send back to Tailoring Unit', [{ name: 'sent', label: 'Date sent back', type: 'date', value: today, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(today, 2), required: true }, { name: 'reason', label: 'What needs to be corrected', required: true }], { ok: 'Send back to tailor', note: 'The alteration is not up to the mark. The dress goes back to At Tailoring Unit and returns to Quality Check when received.' })
+    if (!v) return
+    if (v.expected < v.sent) return ctx.say('Expected return cannot be before the date sent back.')
+    const reason = String(v.reason || '').trim(); if (!reason) return ctx.say('Say what needs to be corrected.')
+    const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'at_unit', sent_on: v.sent, expected_return: v.expected, received_at: null, checked_at: null, notes: [j.notes, `Sent back ${dmy(v.sent)} after quality check: ${reason}`].filter(Boolean).join(' · '), updated_at: new Date().toISOString() }).eq('id', j.id)
+    if (error) return ctx.say('Could not send the dress back: ' + error.message)
+    ctx.say('Dress sent back to the tailoring unit.'); ctx.load(); setOpenId(null)
+  }
   const chooseTab = (next: Queue) => { setTab(next); setPage(1) }
+  // Opened from a booking: show the requested alteration record in its own queue.
+  useEffect(() => { const f = ctx.focus; if (f?.kind !== 'alteration') return; const j = jobs.find((x: any) => x.id === f.id); if (j) { chooseTab(j.source === 'damage' ? 'damaged' : j.status === 'ready' ? 'ready' : 'all'); setOpenId(j.id) } ctx.clearFocus?.() }, [ctx.focus]) // eslint-disable-line react-hooks/exhaustive-deps
   const action = (j: any) => j.status === 'pending_dispatch' ? <button className="btn sm" onClick={() => dispatch(j)}>Send to Tailoring</button> : j.status === 'at_unit' ? <button className="btn sm" onClick={() => receive(j)}>Receive at Store</button> : j.status === 'quality_check' ? <button className="btn sm" onClick={() => setOpenId(j.id)}>Review</button> : <span className="alt-ready-mark">✓</span>
   const tabs: { id: Queue; label: string; n: number }[] = [
     { id: 'all', label: 'Alteration Queue', n: jobs.filter(j => j.status !== 'cancelled' && !isDmg(j) && !isCompleted(j, bookings)).length },
@@ -94,6 +110,6 @@ export default function Alterations({ ctx }: { ctx: any }) {
       <footer className="alt-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</span><div><button disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">‹</button>{Array.from({ length: pageCount }, (_, i) => i + 1).map(p => <button key={p} className={p === page ? 'on' : ''} onClick={() => setPage(p)}>{p}</button>)}<button disabled={page >= pageCount} onClick={() => setPage(page + 1)} aria-label="Next page">›</button></div></footer>
     </section>
     <p className="alt-foot">All Swaasa alteration work is temporary and reversible. No tailor assignment is required; dresses are sent to the tailoring unit.</p>
-    {openId && jobs.find(j => j.id === openId) && <AlterationDrawer key={openId} ctx={ctx} job={jobs.find(j => j.id === openId)} onClose={() => setOpenId(null)} onDispatch={dispatch} onReceive={receive} onApprove={approve} />}
+    {openId && jobs.find(j => j.id === openId) && <AlterationDrawer key={openId} ctx={ctx} job={jobs.find(j => j.id === openId)} onClose={() => setOpenId(null)} onDispatch={dispatch} onReceive={receive} onApprove={approve} onSendBack={sendBack} />}
   </div>
 }
