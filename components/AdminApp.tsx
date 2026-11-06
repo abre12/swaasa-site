@@ -8,7 +8,6 @@ import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
 import Dashboard from './admin/Dashboard'
 import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
-import RevenueReport from './admin/RevenueReport'
 import StaffAdmin from './admin/StaffAdmin'
 import Finance from './admin/Finance'
 import Performance from './admin/Performance'
@@ -21,7 +20,6 @@ import Notifications from './admin/Notifications'
 import Customers from './admin/Customers'
 import Approvals from './admin/Approvals'
 import Calendar from './admin/Calendar'
-import { Chart } from './admin/Dashboard'
 import { Ic } from './admin/icons'
 const today = todayIST
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
@@ -258,8 +256,6 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const changeCalendarMonth=(s:string)=>{setRef(s);setCalFocus(s+'-01')}
   const dateTitle=calView==='month'?new Date(ref+'-01T00:00:00Z').toLocaleDateString('en-IN',{month:'long',year:'numeric',timeZone:'UTC'}):calView==='week'?`${dmy(weekStart(calFocus))} – ${dmy(addD(weekStart(calFocus),6))}`:dmy(calFocus)
   const dayItems=(d:string)=>items.filter(i=>d>=i.s&&d<=i.e&&calFilters[i.type as keyof typeof calFilters])
-  async function csv() { const q = (v: any) => '"' + String(v ?? '').replace(/"/g, '""') + '"'; const rows = [['ID', 'Dress', 'Customer', 'Phone', 'Delivery', 'Return', 'Rent', 'Received', 'Status'], ...B.map(b => [b.id, b.dress_code, b.customer_name, b.phone, b.start_date, b.end_date, b.rent, b.paid, b.status])]
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(',')).join('\n')])); a.download = 'bookings.csv'; a.click() }
   const ob = openB && (ops ? B.find(x => x.id === openB.id) : openB.row)
   const mStart = today().slice(0, 7) + '-01', nEnd = (() => { const d = new Date(mStart + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 2); d.setUTCDate(0); return d.toISOString().slice(0, 10) })()
   const custB = owner ? B : B.filter(b => b.status !== 'cancelled' && b.start_date <= nEnd && b.end_date >= mStart)   // manager: this month and next month only
@@ -275,14 +271,14 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+((tab===k||(k==='reports'&&tab==='performance'))?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>)
   const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)||(keys.includes('reports')&&tab==='performance')?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
-  return (<div className={'adm'+(tab==='performance'?' adm-performance':'')}>
+  return (<div className={'adm'+(['performance','reports'].includes(tab)?' adm-performance':'')}>
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" /><Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
       {navTree()}
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
-    <main className={'adm-main'+(tab==='performance'?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{tab !== 'performance' && !(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+    <main className={'adm-main'+(['performance','reports'].includes(tab)?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!['performance','reports'].includes(tab) && !(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
@@ -297,12 +293,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       form={showForm && owner ? <DressForm key={ed?.id || 'new'} ctx={ctx} ed={ed} onClose={() => { setShowForm(false); setEd(null) }} /> : null}
       extra={owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) ? <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div> : null} />}
     {tab === 'customers' && owner && <Customers ctx={ctx}/>}
-    {tab === 'reports' && owner && <div style={{ display: 'grid', gap: 16 }}>
-      <RevenueReport ctx={ctx} />
-      <div><button className="btn alt" onClick={csv}>Export all bookings (CSV)</button> <span className="mut" style={{ fontSize: 13 }}>Cancellation rate {B.length ? Math.round(100 * B.filter((b: any) => b.status === 'cancelled').length / B.length) : 0}%</span></div>
-      <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>
-      {owner && <div className="box" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><b>Dress Performance</b><div className="mut" style={{ fontSize: 13 }}>Revenue, utilization and dress inventory analytics.</div></div><button className="btn alt" onClick={() => go('performance')}>View Dress Performance</button></div>}
-    </div>}
+    {tab === 'reports' && owner && <Performance ctx={ctx} />}
     {tab === 'settings' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <StaffAdmin ctx={ctx} />
       {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), tryon_daily_limit: +(f.get('t') as string) }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
