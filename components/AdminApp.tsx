@@ -27,8 +27,8 @@ const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue'
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
-  ['workflow', 'Workflow', 'prog', ['owner', 'manager']], ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['dresses', 'Dresses', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['cash', 'Payments', 'wallet', ['owner', 'manager']],
-  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
+  ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['cash', 'Transactions & Cash Counter', 'wallet', ['owner', 'manager']],
+  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
 export default function AdminApp({ role, name }: { role: string; name: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
@@ -268,13 +268,14 @@ export default function AdminApp({ role, name }: { role: string; name: string })
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[]][] = [['Home',['dashboard']],['Bookings',['bookings','calendar']],['Operations',['workflow','alterations','drycleaning']],['Inventory',['dresses']],['Finance',['cash']],['Owner’s Corner',['customers','approvals','reports','settings']]]
-  const navButtons=(keys:string[],close=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(tab===k?' on':'')} onClick={()=>{if(close)setDrawer(false);if(k==='workflow'){setTab('dashboard');setTimeout(()=>document.getElementById('workflow')?.scrollIntoView({behavior:'smooth',block:'center'}),60)}else go(k)}}><Ic n={i} s={20}/>{l}</button>)
+  const navGroups: [string,string[]][] = [['',['dashboard','bookings','calendar']],['Operations',['alterations','drycleaning']],['',['dresses','cash']],['Owner’s Corner',['customers','approvals','reports','settings']]]
+  const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
+  const navButtons=(keys:string[],close=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(tab===k?' on':'')} onClick={()=>{if(close)setDrawer(false);if(k==='workflow'){setTab('dashboard');setTimeout(()=>document.getElementById('workflow')?.scrollIntoView({behavior:'smooth',block:'center'}),60)}else go(k)}}><Ic n={i} s={20}/>{k==='approvals'&&pendingAppr>0?`Approvals (${pendingAppr})`:l}</button>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
   return (<div className="adm">
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" /><Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
-      {navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={label}><div className="adm-nav-label">{label}</div>{navButtons(keys)}</section>)}
+      {navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={keys.join()}>{label&&<div className="adm-nav-label">{label}</div>}{navButtons(keys)}</section>)}
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
@@ -313,7 +314,7 @@ export default function AdminApp({ role, name }: { role: string; name: string })
     </main>
     {ops && <nav className="adm-bot" aria-label="Main">{BOT.map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => goNav(k)}><Ic n={i} s={22} /><span>{k === 'cash' ? 'Payments' : l}</span></button>)}<button className={drawer ? 'on' : ''} onClick={() => setDrawer(true)}><Ic n="menu" s={22} /><span>More</span></button></nav>}
     {drawer && <div className="adm-sheet" onClick={() => setDrawer(false)}><div className="in" onClick={e => e.stopPropagation()}><div className="hd"><img src="/logo-mark.png" alt="" /><div><b>Swaasa</b><span>Wedding Rentals</span></div><button onClick={() => setDrawer(false)} aria-label="Close menu">✕</button></div>
-      {navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={label}><div className="adm-nav-label">{label}</div>{navButtons(keys,true)}</section>)}
+      {navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={keys.join()}>{label&&<div className="adm-nav-label">{label}</div>}{navButtons(keys,true)}</section>)}
       <div className="me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
