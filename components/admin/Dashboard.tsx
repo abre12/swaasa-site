@@ -5,6 +5,7 @@ import { Ic } from './icons'
 import MonthPick from './MonthPick'
 import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
+import BookingsByStaff from './BookingsByStaff'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 export function Chart({ B }: { B: any[] }) {
@@ -97,7 +98,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const altSel = (r: any, c: string, ic: string) => <span className="bdg" style={tint(c)}><Ic n={ic} s={15} /><select className="bare" value={r.prep_status} onChange={e => setPrep(r, e.target.value)} aria-label="Alteration status">{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{ALT[k][0]}</option>)}</select></span>
   return (<div>
     <div className="pg-head"><div><h1>Dashboard</h1><p className="sub">Daily operations, deliveries, alterations and business overview</p></div>
-      <div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls the monthly cards only" compact /></div></div>
+      <div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></div>
     <div className="k6">
       <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />
       <KC ic="truck" c="var(--blue)" v={delToday.length} l="Today's Deliveries" on={() => setPop('del')} />
@@ -137,6 +138,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
       <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
     {wfOpen && <div className="wf-after">{wfList}</div>}
+    <BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} />
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>
