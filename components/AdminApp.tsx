@@ -20,6 +20,7 @@ import Notifications from './admin/Notifications'
 import Customers from './admin/Customers'
 import Approvals from './admin/Approvals'
 import Calendar from './admin/Calendar'
+import ReturnWizard from './admin/ReturnWizard'
 import { Ic } from './admin/icons'
 const today = todayIST
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
@@ -66,6 +67,8 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   type Fld = { name: string; label: string; type?: string; value?: any; options?: string[]; required?: boolean; accept?: string; multiple?: boolean }
   type DialogValues = Record<string, string> & { photos?: File[] }
   const ask = (title: string, fields: Fld[], o: { note?: string; ok?: string } = {}) => new Promise<DialogValues | null>(res => setDlg({ title, fields, note: o.note, ok: o.ok || 'Save', res }))
+  const [rw, setRw] = useState<any>(null)
+  const returnWizard = (b: any, o: { owing: number; late: number; lateFee: number }) => new Promise<Record<string, any> | null>(res => setRw({ b, ...o, res }))
   const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   async function patch(b: any, p: any, msg: string): Promise<boolean> {
     const { error } = await sb.from('bookings').update({ ...p, log: [...(b.log || []), { t: new Date().toISOString(), m: msg, by: name }] }).eq('id', b.id)
@@ -134,11 +137,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const needRent = Math.max(0, b.rent + (b.custom_charge || 0) - b.paid)
     if (needRent > 0) { if (!(await collectOrApprove(b, needRent))) { load(); return }; const r = await sb.from('booking_view').select('*').eq('id', b.id).single(); if (r.data) b = r.data }
     const late = b.end_date < today() ? Math.max(0, nDays(b.end_date, today()) - 1) : 0, lateFee = late * (+dmap[b.dress_id]?.extra_day_fee || 0), owing = Math.max(0, b.rent + b.charges - b.paid)
-    const v = await ask('Return inspection', [{ name: 'condition', label: 'Overall dress condition *', options: ['Good','Minor Marks','Needs Cleaning','Damage / Repair Required'], required: true },
-      { name: 'clean', label: 'Next action for cleaning', options: ['Mark as Ready / Available','Add to Dry Cleaning List'], value: 'Mark as Ready / Available', required: true },
-      { name: 'n', label: 'Condition notes', value: '' }, { name: 'photos', label: 'Optional condition photos', type: 'file', accept: 'image/*', multiple: true },
-      { name: 'lf', label: 'Late-return fee (₹)', type: 'number', value: '0' }, { name: 'dc', label: 'Damage / repair charge (₹)', type: 'number', value: '0' }, { name: 'rm', label: 'Deposit hand-back mode', options: PAY_MODES, value: 'Cash' }],
-      { ok: 'Save inspection & return', note: `Choose the condition before completing the return. Adding to the cleaning list keeps the dress at the shop; it is not marked out until staff confirm dispatch. Deposit held ${inr(b.deposit_held)}${owing ? `. Unpaid rent ${inr(owing)}` : ''}.` }); if (!v) return
+    const v = await returnWizard(b, { owing, late, lateFee }); if (!v) return
     const condition = ({ 'Good':'good','Minor Marks':'minor_marks','Needs Cleaning':'needs_cleaning','Damage / Repair Required':'damage_repair' } as any)[v.condition], cleanRequired = v.clean === 'Add to Dry Cleaning List'
     if ((condition === 'good' || condition === 'damage_repair') && cleanRequired) return say(condition === 'good' ? 'Good condition does not need a cleaning queue entry.' : 'Route damage or repair issues to maintenance; do not add them to dry cleaning.')
     if (condition === 'needs_cleaning' && !cleanRequired) return say('This inspection requires a cleaning queue entry.')
@@ -159,8 +158,17 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     for (const [i, file] of photoFiles.entries()) { if (!(file instanceof File) || !file.size) continue; const path = `${b.id}/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`; const up = await sb.storage.from('return-inspection-photos').upload(path,file,{upsert:false,contentType:file.type}); if(!up.error) photoUrls.push(sb.storage.from('return-inspection-photos').getPublicUrl(path).data.publicUrl) }
     const ins = await sb.from('return_inspections').insert({ booking_id:b.id,dress_id:b.dress_id,condition,notes:n||null,photos:photoUrls,cleaning_required:cleanRequired }).select('id').single()
     if (ins.error) { say('Return saved, but condition inspection could not be stored. Run Supabase migration-v10.sql and record the inspection.'); load(); return }
-    if (cleanRequired) { const req = await sb.from('dry_clean_requests').insert({ dress_id:b.dress_id,booking_id:b.id,inspection_id:ins.data.id,condition,condition_notes:n||null,status:'to_be_sent' }); if(req.error) say('Return saved and inspection recorded, but the dress could not be added to the cleaning queue: '+req.error.message) }
-    if (condition === 'damage_repair') { await sb.from('admin_notifications').insert({target_role:'owner',kind:'maintenance',title:'Maintenance review needed',body:`${b.dress_code} returned with damage or repair required. ${n||''}`.trim(),booking_id:b.id}); await sb.from('dresses').update({condition:n||'Damage / repair required'}).eq('id',b.dress_id) }
+    if (cleanRequired) { const act = CR.find((r: any) => r.dress_id === b.dress_id && ['to_be_sent', 'sent', 'returned_pending_check'].includes(r.status)); if (act) say(`This dress is already in the cleaning workflow (${act.status === 'to_be_sent' ? 'To Be Sent' : act.status === 'sent' ? 'Sent to Cleaner' : 'Returned from Cleaner'}); no second record was created.`)
+      else { const req = await sb.from('dry_clean_requests').insert({ dress_id:b.dress_id,booking_id:b.id,inspection_id:ins.data.id,condition,condition_notes:n||null,status:'to_be_sent' }); if(req.error) say('Return saved and inspection recorded, but the dress could not be added to the cleaning queue: '+req.error.message) } }
+    if (condition === 'damage_repair') {
+      let route = v.route || 'Send to Maintenance'
+      if (route === 'Send for Alteration') {
+        const nb = B.filter((x: any) => x.dress_id === b.dress_id && x.id !== b.id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today()).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0]
+        const j = nb ? await sb.from('alteration_jobs').insert({ booking_id: nb.id, dress_id: b.dress_id, requirements: n || 'Repair after return', status: 'pending_dispatch' }) : null
+        if (!nb || j?.error) { say(!nb ? 'No upcoming booking to attach an alteration to, so the dress was sent to maintenance instead.' : 'Could not create the alteration job, so the dress was sent to maintenance instead.'); route = 'Send to Maintenance' }
+      }
+      await sb.from('dresses').update({ status: route === 'Mark as Unavailable Pending Review' ? 'unavailable' : 'maintenance', condition: n || 'Damage / repair required' }).eq('id', b.dress_id)
+      await sb.from('admin_notifications').insert({target_role:'owner',kind:'maintenance',title:'Maintenance review needed',body:`${b.dress_code} returned with damage or repair required. ${n||''}`.trim(),booking_id:b.id}) }
     if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.rm })
     if (kept > 0) await sb.from('payments').insert(applied.map(a => ({ booking_id: b.id, amount: a.amt, kind: 'charge', purpose: 'deposit_applied', mode: 'From Security Deposit', remarks: a.why })))
     if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
@@ -310,6 +318,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
     {payB && B.find(x => x.id === payB) && <PaymentRecord key={payB} ctx={ctx} b={B.find(x => x.id === payB)} onClose={() => setPayB(null)} />}
+    {rw && <ReturnWizard key={rw.b.id} ctx={ctx} b={rw.b} owing={rw.owing} late={rw.late} lateFee={rw.lateFee} onClose={v => { const r = rw.res; setRw(null); r(v) }} />}
     {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 95, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
       <form className="box" style={{ background: 'var(--bg)', maxWidth: 440, width: '100%' }} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget), v: Record<string, any> = {}; dlg.fields.forEach((x: Fld) => { v[x.name] = x.type === 'file' ? f.getAll(x.name).filter((z: any) => z instanceof File && z.size) : String(f.get(x.name) ?? '') }); const r = dlg.res; setDlg(null); r(v) }}>
         <h3>{dlg.title}</h3>{dlg.note && <p className="mut">{dlg.note}</p>}
