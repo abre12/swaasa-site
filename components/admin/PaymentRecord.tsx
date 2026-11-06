@@ -7,6 +7,7 @@ const LABEL: Record<string, string> = { rent: 'Rent payment', deposit: 'Refundab
 // Every payment on one booking: what is owed, what has been paid, and what is still to be handed back.
 const TEAL = '#0e8f8f'
 const PUR: Record<string, [string, string]> = { advance: ['Advance', TEAL], customization: ['Customization payment', '#8a4fbf'], damage: ['Damage charges', ''], cleaning: ['Cleaning charges', ''], other_charge: ['Other charges', ''], advance_refund: ['Advance refund', 'var(--bad)'] }
+import PaymentSummary from './PaymentSummary'
 export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; onClose: () => void }) {
   const [rows, setRows] = useState<any[] | null>(null); const [err, setErr] = useState('')
   useEffect(() => {
@@ -22,19 +23,7 @@ export default function PaymentRecord({ ctx, b, onClose }: { ctx: any; b: any; o
     <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 560, width: '100%', margin: 0 }}>
       <div className="row"><h3 style={{ margin: 0 }}>Payment record · {b.id}</h3><button className="btn alt sm" onClick={onClose}>Close</button></div>
       <p className="mut" style={{ margin: '4px 0 10px', fontSize: 13 }}>{b.dress_code} · {b.customer_name} · {dmy(b.start_date)} to {dmy(b.end_date)}</p>
-      <div className="box" style={{ margin: 0 }}>
-        {line('Rent Amount:', inr(b.rent), true)}
-        {b.discount > 0 && line('Original price, less discount ' + inr(b.discount), inr(b.rent + b.discount))}
-        {custom > 0 && line('Customization charge:', inr(custom), true, CUS)}
-        {otherCh > 0 && line('Late fee / damage charges:', inr(otherCh))}
-        {(custom > 0 || otherCh > 0) && line('Total to collect:', inr(rentAmount), true)}
-        {line('Deposit Paid:', inr(depositPaid), true, DEP)}
-        {line('Refundable deposit for this booking', inr(b.deposit))}
-        {line(custom > 0 ? 'Paid so far (rent and customization):' : 'Rent Paid:', inr(b.paid), true)}
-        {line(owing > 0 ? 'Balance due' : 'Balance', inr(owing))}
-        {line('Balance to be Refunded:', inr(toRefund), true, toRefund > 0 ? DEP : undefined)}
-        <p className="mut" style={{ fontSize: 12, margin: '6px 0 0' }}>Balance to be refunded is the deposit still held, less any rent or charges not yet paid. It is handed back when the dress is returned.</p>
-      </div>
+      <PaymentSummary b={b} payments={rows} />
       <b style={{ display: 'block', margin: '14px 0 6px' }}>Payments</b>
       {err && <p className="bad">{err}</p>}
       <div className="scroll"><table><thead><tr><th>Date</th><th>Type</th><th>Mode</th><th>Amount</th><th>Entered by</th></tr></thead><tbody>

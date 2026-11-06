@@ -1,4 +1,5 @@
 'use client'
+import { hasApplicableFinancialValue } from '@/lib/payments'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, inr, istDate, mainCatOf, MAIN_CATS, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
@@ -118,7 +119,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       {!!rows.length && <tfoot><tr><td colSpan={4}>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</td>
         <td className="c g-blue">{inr(T.adv)}</td><td className="c g-blue">{inr(T.dep)}</td><td className="c g-pink">{inr(T.rent)}</td><td className="c g-pink">{inr(T.cus)}</td><td className="c g-pink">{inr(T.dmg)}</td><td className="c g-pink">{inr(T.late)}</td>
         <td className="c g-pink2">{inr(T.tot)}</td><td className="c g-green">{money(T.rec, 'var(--green)')}</td><td className="c g-amber">{money(T.pend, 'var(--red)')}</td><td colSpan={2}></td></tr></tfoot>}</table></div></div>
-    <div className="bk-cards">{rows.map(b => { const [sl, sc, si] = badge(b), o = owe(b), ex = [['Rent', b.rent], ['Customization', b.custom_charge || 0], ['Damage', b.damage_charge || 0], ['Late', b.late_fee || 0]].filter(x => (x[1] as number) > 0)
+    <div className="bk-cards">{rows.map(b => { const [sl, sc, si] = badge(b), o = owe(b), ex = [['Rent', b.rent], ['Customization', b.custom_charge || 0], ['Damage', b.damage_charge || 0], ['Late', b.late_fee || 0]].filter(x => hasApplicableFinancialValue(x[1]))
       return <div key={b.id} className={'bk-m ' + cls(b)}><div className="top">{idCell(b)}<span className="bdg" style={tint(sc)}><Ic n={si} s={14} />{sl}</span></div>
         <div style={{ margin: '8px 0' }}>{dateCell(b)}</div>{dressCell(b)}
         <div className="ft" style={{ marginTop: 8 }}><span><b>{b.customer_name}</b><br /><a href={'tel:' + b.phone} style={{ fontSize: 12 }}>{b.phone}</a></span><span>{next(b)} {dots(b)}</span></div>

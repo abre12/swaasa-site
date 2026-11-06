@@ -1,11 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
+import PaymentSummary from './PaymentSummary'
 import { dmy, inr, istTime, PREP, todayIST } from '@/lib/util'
 const STATUS: Record<string, string> = { pending: 'Awaiting confirmation', confirmed: 'Confirmed', out: 'Delivered (with customer)', returned: 'Returned', cancelled: 'Cancelled' }
 // Full booking details. `limited` (preparation staff) hides phone numbers, money and history.
 export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b: any; limited: boolean; onClose: () => void }) {
   const [edit, setEdit] = useState(false); const [txt, setTxt] = useState<string>(b.alteration_notes || '')
   const [inspection,setInspection]=useState<any>(null)
+  const [pays,setPays]=useState<any[]|null>(null)
+  useEffect(()=>{if(limited)return;ctx.sb.from('payments').select('kind,amount').eq('booking_id',b.id).then(({data,error}:any)=>setPays(error?null:(data||[])))},[ctx.sb,b.id,b.paid,b.deposit_held,limited,ctx.tick])
   useEffect(()=>{ctx.sb.from('return_inspections').select('*').eq('booking_id',b.id).order('inspected_at',{ascending:false}).limit(1).maybeSingle().then(({data}:any)=>setInspection(data||null))},[ctx.sb,b.id])
   const [saved, setSaved] = useState<any>(null); const [prep, setPrep] = useState<string>(b.prep_status)
   const dress = ctx.dmap[b.dress_id], img = dress?.images?.[0] || b.image
@@ -53,14 +56,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       {b.return_notes && <div className="box"><b>Return condition / damage notes</b><div style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{b.return_notes}</div></div>}
       {inspection&&<div className="box"><b>Dress Condition Inspection</b><div className="row"><span className="mut">Condition</span><b>{({good:'Good',minor_marks:'Minor Marks',needs_cleaning:'Needs Cleaning',damage_repair:'Damage / Repair Required'} as any)[inspection.condition]||inspection.condition}</b></div>{inspection.notes&&<div style={{whiteSpace:'pre-wrap',marginTop:6}}>{inspection.notes}</div>}{inspection.photos?.length>0&&<div className="inspection-photos">{inspection.photos.map((src:string,i:number)=><a key={i} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`Return condition ${i+1}`} loading="lazy"/></a>)}</div>}<small className="mut">Inspected {istTime(inspection.inspected_at)}</small></div>}
       {!limited && <>
-        <div className="box"><b>Payment Summary</b>
-          {b.discount > 0 && row('Original Rental Price', inr(b.rent + b.discount))}{row('Rental Charges', inr(b.rent))}{b.discount > 0 && row('Discount', '− ' + inr(b.discount))}
-          {b.custom_charge > 0 && row('Customisation Charges', inr(b.custom_charge))}
-          {b.late_fee > 0 && row('Late Return Charges', inr(b.late_fee))}{b.damage_charge > 0 && row('Damage / Repair Charges', inr(b.damage_charge))}
-          {b.charges - b.late_fee - b.damage_charge - b.custom_charge > 0 && row('Other Charges', inr(b.charges - b.late_fee - b.damage_charge - b.custom_charge))}
-          <div className="row" style={{ borderTop: '1px solid var(--line)', marginTop: 6, paddingTop: 8 }}><b>Total Amount</b><b>{inr(b.rent + b.charges)}</b></div>
-          {row('Amount Received', inr(b.paid))}{due > 0 && <div className="row"><b>Balance Due</b><b style={{ color: 'var(--amber)' }}>{inr(due)}</b></div>}{due < 0 && row('Overpaid', inr(-due))}
-          {(b.deposit > 0 || b.deposit_held > 0) && <div style={{ borderTop: '1px solid var(--line)', marginTop: 9, paddingTop: 8 }}><b>Security Deposit</b>{row('Amount held', `${inr(b.deposit_held)} of ${inr(b.deposit)}`)}<span className="mut" style={{ fontSize: 12 }}>{b.deposit_held > 0 ? 'Refundable · currently held' : 'Refunded or applied'}</span></div>}</div>
+        <PaymentSummary b={b} payments={pays} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>{ctx.sel(b)}</div>
         {!!b.log?.length && <details style={{ marginTop: 12 }}><summary className="mut" style={{ cursor: 'pointer' }}>History</summary>
           {b.log.slice().reverse().map((l: any, i: number) => <div key={i} className="mut" style={{ fontSize: 12, padding: '2px 0' }}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}</>}

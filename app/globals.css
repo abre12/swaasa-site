@@ -420,3 +420,13 @@ html:has(.adm){background:var(--bg)}
 .adm-sheet .adm-nav-parent{background:#ffffff1f;color:#fff;margin-top:6px}.adm-sheet .adm-nav-parent.on{background:#fff;color:#780b2c}
 .adm-sheet button.nv.sub{margin-left:14px;width:calc(100% - 14px)}.adm-sheet .nv-l{flex:1}
 .adm-sheet .nv-n{background:#ffffff33;color:#fff}.adm-sheet button.on .nv-n{background:#780b2c;color:#fff}
+
+/* ===== Shared payment summary ===== */
+.ps{display:grid;gap:0}.ps-h{margin-bottom:6px}
+.ps-r{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:14px}.ps-r span:first-child{color:var(--mut)}.ps-r span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.ps-r.disc span:last-child{color:var(--bad)}
+.ps-total{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;margin:6px -4px 4px;border-radius:10px;background:color-mix(in srgb,var(--wine) 9%,var(--card));color:var(--wine);font-size:16px}
+.ps-r.due{margin-top:2px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb,var(--amber) 16%,var(--card))}.ps-r.due b{color:#8a5a00}
+.ps-dep{display:flex;gap:12px;align-items:flex-start;background:color-mix(in srgb,var(--amber) 11%,var(--card));border-color:color-mix(in srgb,var(--amber) 30%,var(--line))}.ps-dep>svg{color:var(--amber);margin-top:2px}
+.ps-dep>div{display:grid;gap:2px}.ps-dep b{color:var(--wine)}.ps-amt{font-size:18px;font-weight:700}.ps-amt span{font-size:13px;font-weight:400;color:var(--mut)}
+.ps-st{font-size:12.5px;font-weight:600}.ps-st.ok{color:var(--ok)}.ps-st.warn{color:#8a5a00}.ps-st.neutral{color:var(--mut)}.ps-dep small{color:var(--mut);font-size:12px}
