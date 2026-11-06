@@ -28,8 +28,8 @@ const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue'
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
-  ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['cash', 'Transactions & Cash Counter', 'wallet', ['owner', 'manager']],
-  ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']], ['performance','Dress Performance','chart',['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
+  ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']],
+  ['cash', 'Transactions & Cash Counter', 'wallet', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
 export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
@@ -269,20 +269,20 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','prep'],''],['Dresses',['dresses','performance'],'dress'],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown']]
+  const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown'],['',['prep'],'']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
-  const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'sent').length }
-  const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+(tab===k?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{k==='approvals'&&pendingAppr>0?`Approvals (${pendingAppr})`:l}</span>{navCount[k]>0&&<span className="nv-n">{navCount[k]}</span>}</button>)
-  const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
+  const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'sent').length, approvals: pendingAppr }
+  const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+((tab===k||(k==='reports'&&tab==='performance'))?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>)
+  const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)||(keys.includes('reports')&&tab==='performance')?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
-  return (<div className="adm">
+  return (<div className={'adm'+(tab==='performance'?' adm-performance':'')}>
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" /><Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
       {navTree()}
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
-    <main className="adm-main"><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+    <main className={'adm-main'+(tab==='performance'?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{tab !== 'performance' && !(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
@@ -301,7 +301,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <RevenueReport ctx={ctx} />
       <div><button className="btn alt" onClick={csv}>Export all bookings (CSV)</button> <span className="mut" style={{ fontSize: 13 }}>Cancellation rate {B.length ? Math.round(100 * B.filter((b: any) => b.status === 'cancelled').length / B.length) : 0}%</span></div>
       <div className="box" style={{ margin: 0 }}><Chart B={B} /></div>
-      {owner && <div><button className="btn alt" onClick={() => go('performance')}>Open Dress Performance</button></div>}
+      {owner && <div className="box" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><b>Dress Performance</b><div className="mut" style={{ fontSize: 13 }}>Revenue, utilization and dress inventory analytics.</div></div><button className="btn alt" onClick={() => go('performance')}>View Dress Performance</button></div>}
     </div>}
     {tab === 'settings' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <StaffAdmin ctx={ctx} />
