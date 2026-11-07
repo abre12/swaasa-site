@@ -143,7 +143,7 @@ body:has(.adm) header.top,body:has(.adm) footer{display:none}
 /* ---- v10: dress inventory ---- */
 .inv-sel{display:flex;gap:8px;flex-wrap:wrap}.inv-sel select{min-width:150px}.inv-fbtn{display:none!important}
 @media(max-width:760px){.inv-sel{display:none}.inv-fbtn{display:inline-flex!important}}
-.bdg.lg{font-size:13.5px;padding:7px 14px}
+.bdg.bdg-lg{font-size:13.5px;padding:7px 14px}
 .bt.inv td{padding:10px}.bt.inv td:nth-child(2){font-size:14.5px}
 .mi{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;font-size:14px;color:var(--ink);background:none;border:0;border-radius:8px;padding:9px 12px;cursor:pointer;text-decoration:none}.mi:hover{background:color-mix(in srgb,var(--wine) 8%,transparent)}.mi svg{color:var(--wine)}
 .inv-modal{position:fixed;inset:0;z-index:60;background:#0006;display:grid;place-items:center;padding:16px}.inv-dlg{background:var(--card);border-radius:14px;padding:18px;width:min(720px,100%);max-height:90vh;overflow:auto}
@@ -614,20 +614,21 @@ html:has(.adm){background:var(--bg)}
 @media(max-width:860px){.bf-steps{order:3;flex-basis:100%;justify-content:flex-start}.bf-modes{grid-template-columns:1fr}.bf-alt{grid-template-columns:1fr}.bk-act .btn{flex:1 1 auto}}
 
 /* ---- One page header for every admin module (PageHead) ---- */
-.adm .ph{display:flex;align-items:center;gap:14px;min-width:0;margin:0 0 16px;padding-right:54px}
-.adm .ph-ic{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:14px;background:#faedf0;color:var(--wine)}
-.adm .ph-t{min-width:0;flex:1}
-.adm .ph-t h1{margin:0;color:var(--wine);font:700 30px/1.15 "Playfair Display",Georgia,serif}
-.adm .ph-t p{margin:4px 0 0;color:var(--mut);font-size:14px;opacity:1}
-.adm .ph-act{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0}
+.adm .pghd{display:flex;align-items:center;gap:14px;min-width:0;margin:0 0 16px;padding-right:54px}
+.adm .pghd-ic{display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:14px;background:#faedf0;color:var(--wine)}
+.adm .pghd-t{min-width:0;flex:1}
+.adm .pghd-t h1{margin:0;color:var(--wine);font:700 30px/1.15 "Playfair Display",Georgia,serif}
+.adm .pghd-t p{margin:4px 0 0;color:var(--mut);font-size:14px;opacity:1}
+.adm .pghd-act{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0}
 .adm .cx-head-tools{justify-content:flex-end}
+@media(min-width:861px){.adm .pghd-act .bk-head-tools{flex-wrap:nowrap}.adm .pghd-act .bk-head-tools .bk-search{min-width:300px}}
 @media(max-width:860px){
-  .adm .ph{flex-wrap:wrap;padding-right:0;margin-bottom:10px;gap:8px}
-  .adm .ph-ic,.adm .ph-t h1{display:none}
-  .adm .ph-t{flex:1 1 100%}
-  .adm .ph-t p{margin:0;font-size:12.5px}
-  .adm .ph-act{width:100%;justify-content:stretch}
-  .adm .ph-act>.btn,.adm .ph-act>.pg-tools,.adm .ph-act>.dp-actions{flex:1 1 auto}
+  .adm .pghd{flex-wrap:wrap;padding-right:0;margin-bottom:10px;gap:8px}
+  .adm .pghd-ic,.adm .pghd-t h1{display:none}
+  .adm .pghd-t{flex:1 1 100%}
+  .adm .pghd-t p{margin:0;font-size:12.5px}
+  .adm .pghd-act{width:100%;justify-content:stretch}
+  .adm .pghd-act>.btn,.adm .pghd-act>.pg-tools,.adm .pghd-act>.dp-actions{flex:1 1 auto}
 }
 
 /* ---- Cancel booking popup ---- */

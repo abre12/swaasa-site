@@ -284,3 +284,14 @@ The dress's present status now follows the order the work actually happens, and 
 5. **Ready** – alterations complete.
 
 The booking popup also shows a one-line "what to do next" under the status. Measurements Pending goes away once measurements are saved (or marked as taken) in the alteration. Files: `lib/bookingAction.ts`, `components/admin/BookingModal.tsx`, `Alterations.tsx`, `AlterationDrawer.tsx`, `app/globals.css`.
+
+---
+
+## Fix: Dress Inventory page showing a large blank oval (no database change)
+
+- **Cause:** two different styles used the class name `lg`. The login page uses `.lg` as its full-screen layout (fixed, covers the whole window), and the Inventory status badge also carried `lg` for its larger size. When the current stylesheet was deployed, every status badge in the Inventory list became a full-screen rounded panel and covered the page and sidebar.
+- **Fix:** the badge now uses its own class `bdg-lg` (`components/admin/Inventory.tsx` and the `.bdg.bdg-lg` rule in `app/globals.css`). The login page is untouched.
+- **Also fixed:** the new shared page header used a class name `ph` that the Payments & Cash Counter sub-headings already used. The header classes are now `pghd`, `pghd-ic`, `pghd-t` and `pghd-act`, so the Payments page headings keep their original look.
+- Bookings header: search box and **Take Booking** now sit on one row on desktop.
+- Checked after the fix: no stray full-screen elements on Inventory, Alterations, Approvals, Bookings, Calendar, Customers, Dry Cleaning or Dress Performance.
+- Files: `components/admin/Inventory.tsx`, `components/admin/PageHead.tsx`, `app/globals.css`.
