@@ -12,7 +12,7 @@ export const GROUPS: { title: string; items: [string, string][] }[] = [
 const LBL: Record<string, string> = Object.fromEntries(GROUPS.flatMap(g => g.items))
 const MEAS: [string, string][] = [['bust', 'Bust'], ['waist', 'Waist'], ['hip', 'Hip'], ['length', 'Length'], ['other', 'Other']]
 const QC: [string, string][] = [['done', 'All requested alterations completed'], ['meets', 'Alteration meets the recorded requirements'], ['nodamage', 'No damage caused to the dress'], ['presentable', 'Dress is presentable and ready']]
-const STEPS: [string, string][] = [['pending_dispatch', 'Pending Dispatch'], ['at_unit', 'At Tailoring Unit'], ['quality_check', 'Quality Check at Store'], ['ready', 'Ready']]
+const STEPS: [string, string][] = [['pending_dispatch', 'Pending Dispatch to Tailor'], ['at_unit', 'At Tailoring Unit'], ['quality_check', 'Quality Check at Store'], ['ready', 'Ready']]
 
 /** One-line summary of what is being altered: the checklist if filled in, else the booking's free-text notes. */
 export const summarise = (j: any) => (j.checklist || []).length ? (j.checklist as any[]).map(c => LBL[c.k] || c.k).join(', ') : j.requirements

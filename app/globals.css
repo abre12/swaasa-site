@@ -645,3 +645,8 @@ html:has(.adm){background:var(--bg)}
 .cxl-err{margin:0;color:var(--red);font-weight:600;font-size:13px}
 .bd-cancel-link{margin-right:auto;border:0;background:none;color:var(--red,#b4493f);font:600 13px Inter,system-ui,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:8px 4px}
 .bd-cancel-link:hover{filter:brightness(.85)}
+
+/* ---- Preparation status (read from the Alterations module) ---- */
+.bd-prep-val{display:grid;gap:4px;justify-items:start;min-width:0}.bd-prep-val small{color:var(--mut);font-size:12px;line-height:1.35}
+.bd-wf-chip.bd-prep-warn{background:#fbe7b5;border-color:#e0b95a;color:#5b4100}
+.bd-wf-chip.bd-prep-done{background:#e4f1e6;border-color:#a9cfae;color:#2f6a3b}

@@ -270,3 +270,17 @@ Do not deploy the app before applying `migration-v10.sql`; the new admin panels 
   - **Staff:** the request goes to the owner (Approvals). The booking stays active and nothing is paid until the owner approves. Approvals now shows the rent refund, mode, deposit and reason.
   - **Owner:** applied straight away, in one step (previously the booking was cancelled first and the refund asked afterwards).
 - Files changed: `components/AdminApp.tsx`, `app/globals.css`, and in `components/admin/`: PageHead (new), CancelBooking (new), Alterations, Approvals, BookingModal, Bookings, Calendar, Customers, Dashboard, DryCleaning, Finance, Inventory, Performance.
+
+---
+
+## One clear alteration status (no database change; nothing to run in Supabase)
+
+The dress's present status now follows the order the work actually happens, and is the same in the booking popup (Preparation Status), the Alterations queue and the header button:
+
+1. **Measurements Pending** – measurements have not been taken yet (booking was made with "measurements to be taken later"). The header button reads **Add Measurements**.
+2. **Pending Dispatch to Tailor** – measurements are done; send the dress to the tailoring unit (was just "Pending Dispatch").
+3. **At Tailoring Unit** – with the tailor (shows the expected return date).
+4. **Quality Check at Store** – back from the tailor, check the work.
+5. **Ready** – alterations complete.
+
+The booking popup also shows a one-line "what to do next" under the status. Measurements Pending goes away once measurements are saved (or marked as taken) in the alteration. Files: `lib/bookingAction.ts`, `components/admin/BookingModal.tsx`, `Alterations.tsx`, `AlterationDrawer.tsx`, `app/globals.css`.

@@ -8,7 +8,7 @@ import { dispatchAlteration } from './Alterations'
 import { dispatchToCleaner } from './DryCleaning'
 import { summarise } from './AlterationDrawer'
 import { PaymentTable, usePaymentRows } from './PaymentRecord'
-import { ALT_STAGE, pickPrimary } from '@/lib/bookingAction'
+import { altStatus, pickPrimary } from '@/lib/bookingAction'
 
 function PaymentRecordInline({ ctx, b }: { ctx: any; b: any }) {
   const { rows, err } = usePaymentRows(ctx, b)
@@ -70,7 +70,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   // Preparation status is read from the Alterations module (this booking's own alteration job); it is never typed in.
   const bookingAlts = (ctx.AJ || []).filter((a: any) => a.booking_id === b.id && a.source !== 'damage' && a.status !== 'cancelled').slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
   const prepJob = bookingAlts.find((a: any) => a.status !== 'ready') || bookingAlts[0]
-  const prepLabel = prepJob ? ALT_STAGE[prepJob.status] || prepJob.status : 'No alterations'
+  const prepInfo = prepJob ? altStatus(prepJob) : { label: 'No alterations', hint: '', tone: 'off' as const }
   const altHistory = (ctx.AJ || []).filter((a: any) => a.dress_id === b.dress_id).slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
 
   async function saveNotes() {
@@ -147,9 +147,12 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
 
             <div className="bd-prep-row">
               <Ic n="tag" s={20} /><b>Preparation Status</b>
-              {prepJob
-                ? <button type="button" className="bd-wf-chip" style={{ justifySelf: 'start' }} onClick={() => ctx.focusWorkflow('alteration', prepJob.id)} title="Open this alteration">{prepLabel}</button>
-                : <span className="bd-prep-value">{prepLabel}</span>}
+              <div className="bd-prep-val">
+                {prepJob
+                  ? <button type="button" className={'bd-wf-chip bd-prep-' + prepInfo.tone} onClick={() => ctx.focusWorkflow('alteration', prepJob.id)} title="Open this alteration">{prepInfo.label}</button>
+                  : <span className="bd-prep-value">{prepInfo.label}</span>}
+                {prepInfo.hint && <small>{prepInfo.hint}</small>}
+              </div>
             </div>
 
             {wf.length > 0 && <div className="bd-wf"><b>Dry cleaning</b><div>{wf.map(w => <button key={w.id} type="button" className="bd-wf-chip" onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">In queue to be sent</button>)}</div></div>}
@@ -161,7 +164,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
               </div>
               {histOpen && <div id="bd-alt-history" className="bd-alt-history" role="region" aria-label="All alteration requests for this dress">
                 {altHistory.length === 0 ? <p className="bd-note-empty">No alteration requests for this dress yet.</p> : altHistory.map((a: any) => <article key={a.id} className={'bd-alt-item' + (a.status === 'cancelled' ? ' cancelled' : '')}>
-                  <div className="bd-alt-top"><span className={'bd-alt-stage st-' + a.status}>{ALT_STAGE[a.status] || a.status}</span>{a.source === 'damage' && <span className="bd-alt-damage">Damage / Repair</span>}<time>{a.created_at ? dmy(istDate(a.created_at)) : '—'}</time></div>
+                  <div className="bd-alt-top"><span className={'bd-alt-stage st-' + a.status}>{altStatus(a).label}</span>{a.source === 'damage' && <span className="bd-alt-damage">Damage / Repair</span>}<time>{a.created_at ? dmy(istDate(a.created_at)) : '—'}</time></div>
                   <div className="bd-alt-body"><span>{a.booking_id ? <>Booking <b>{a.booking_id}</b>{a.booking_id === b.id ? ' (this booking)' : ''}</> : 'No booking linked'}</span><p>{summarise(a) || '—'}</p></div>
                 </article>)}
               </div>}
