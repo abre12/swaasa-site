@@ -304,3 +304,33 @@ The booking popup also shows a one-line "what to do next" under the status. Meas
 - If the remark carries extra detail, only the detail is kept, e.g. "Damage / repair / cleaning charge: torn hem" shows "torn hem".
 - Other remarks (entered by staff) are unchanged. Stored data is not modified.
 - File: `components/admin/Finance.tsx`.
+
+---
+
+## Calendar header restored to the original layout (no database change)
+
+- On request, the Calendar page is back to its original header: title and description on the left, with the month picker, Today, Month/Week/Day, Filters and **Block a Dress** on the same row on the right. The shared icon header is not used on this page.
+- File: `components/admin/Calendar.tsx` (identical to the version before the design unification).
+
+---
+
+## Design unification across modules (no database change; nothing to run in Supabase)
+
+One set of sizes now applies to every admin module (the rules are the "DESIGN SYSTEM" block at the end of `app/globals.css`). Reference screens: Payments & Cash Counter, Dashboard and All Bookings.
+
+| Element | Size everywhere |
+|---|---|
+| Page title / description | 30px serif / 14px |
+| Panel title (e.g. Transactions, Alteration Queue) | 24px; smaller panels 17px |
+| Summary card | number 32px, label 15px, icon 32px, number first, then label, then note |
+| Table | header 12px, text 14px |
+| Tabs, controls, badges | 14px / 42px high / 12px |
+| Icons | 32 on cards, 18 in controls, 16 inside badges and pills |
+
+- **Calendar:** weekday names, day numbers, pills, legend, rule bar and summary cards were a size smaller; now match. Title 30px (was 32px). Phone sizes unchanged.
+- **Dry Cleaning:** summary and badge icons enlarged to the common sizes.
+- **Alterations:** text-symbol icons (◇ ♧ ⌕ ▦ ⚑) replaced by the app's icon set; summary cards use Inter and the common card layout; table text 11px to 14px; tabs, search and filters 12px to 14px; status labels no longer clipped.
+- **Customers:** symbol icons replaced by the icon set; the four summary cards now fill the row (they were squeezed into about two-thirds of the width); table and controls on the common sizes.
+- **Reports & Analytics:** the page no longer shrinks the sidebar (it was forced to 164px with 12px labels and a different page background). The sidebar is 248px on every page. Table, controls, charts' cards and buttons are on the common sizes. The date and filter row now sits under the page header.
+- **Dress Inventory:** summary cards show the number first, like the other pages.
+- Files: `app/globals.css`, `components/AdminApp.tsx`, and in `components/admin/`: Alterations, Customers, Performance, Inventory.

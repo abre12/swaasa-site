@@ -292,14 +292,14 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+((tab===k||(k==='reports'&&tab==='performance'))?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>)
   const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)||(keys.includes('reports')&&tab==='performance')?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
-  return (<div className={'adm'+(['performance','reports'].includes(tab)?' adm-performance':'')}>
+  return (<div className="adm">
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" /><Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
       {navTree()}
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
-    <main className={'adm-main'+(['performance','reports'].includes(tab)?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period and refundable deposit rules.' : 'Alterations to complete before delivery.'} />}
+    <main className="adm-main"><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period and refundable deposit rules.' : 'Alterations to complete before delivery.'} />}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}

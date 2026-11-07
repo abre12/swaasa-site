@@ -52,7 +52,7 @@ export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }:
   return (<div>
     <PageHead icon="dress" title="Dress Inventory" sub="Browse every dress, check where it is right now and update its status.">{owner && <button className="btn wine" onClick={onAdd}>＋ Add Dress</button>}</PageHead>
     {form}
-    <div className="k6">{CARDS.map(([k, l]) => { const c = k ? ST[k][1] : 'var(--wine)'; return <button key={k} className="kc" style={{ ...tint(c), outline: stf === k && k ? `2px solid ${c}` : undefined }} aria-pressed={stf === k && !!k} onClick={() => setStf(k && stf !== k ? k : '')}><Ic n={CARD_ICON[k]} s={30} /><div><span>{l}</span><b>{count(k)}</b></div></button> })}</div>
+    <div className="k6">{CARDS.map(([k, l]) => { const c = k ? ST[k][1] : 'var(--wine)'; return <button key={k} className="kc" style={{ ...tint(c), outline: stf === k && k ? `2px solid ${c}` : undefined }} aria-pressed={stf === k && !!k} onClick={() => setStf(k && stf !== k ? k : '')}><Ic n={CARD_ICON[k]} s={32} /><div><b>{count(k)}</b><span>{l}</span></div></button> })}</div>
     <div className="bk-bar">
       <label className="bk-search"><Ic n="search" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by code, name or colour..." aria-label="Search dresses" /></label>
       <span className={'inv-sel' + (showF ? ' open' : '')}><select value={cat} onChange={e => setCat(e.target.value)} aria-label="Category"><option value="">All Categories</option>{MAIN_CATS.map(m => <option key={m.key}>{m.label}</option>)}</select>

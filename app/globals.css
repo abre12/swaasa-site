@@ -651,3 +651,105 @@ html:has(.adm){background:var(--bg)}
 .bd-prep-val{display:grid;gap:4px;justify-items:start;min-width:0}.bd-prep-val small{color:var(--mut);font-size:12px;line-height:1.35}
 .bd-wf-chip.bd-prep-warn{background:#fbe7b5;border-color:#e0b95a;color:#5b4100}
 .bd-wf-chip.bd-prep-done{background:#e4f1e6;border-color:#a9cfae;color:#2f6a3b}
+
+/* ======================================================================
+   DESIGN SYSTEM: one set of sizes for every admin module.
+   Reference: Payments & Cash Counter, Dashboard and All Bookings.
+   Page title 30px serif | description 14px | panel title 24px | card number 32px,
+   card label 15px, card icon 32px | table header 12px, table text 14px |
+   controls 14px / 42px | tabs 14px | badges 12px | icons 32 (cards), 18 (controls), 16 (inside badges and pills)
+   ====================================================================== */
+.adm{--ds-card-r:16px;--ds-panel-r:14px;--ds-line:#eadfe2;--ds-ctl:42px}
+
+/* Page header (every module): same title, description and icon tile */
+.adm .pghd-t h1{font:700 30px/1.15 "Playfair Display",Georgia,serif}
+.adm .pghd-t p{font:400 14px/1.4 Inter,system-ui,sans-serif}
+
+/* Summary cards: one size, one number/label order (number, then label, then note) */
+.adm .kc>svg,.adm .kc .cust-icon>svg{width:32px;height:32px;flex:none}
+.adm .kc b{font-size:32px;line-height:1.1}
+.adm .kc>div>span,.adm .kc>div>span:not(.cust-icon){font-size:15px;font-weight:500}
+.adm .cx-sc,.adm .alt-overview-card,.adm .dp-card{box-sizing:border-box;min-height:92px;padding:16px 18px;border-radius:var(--ds-card-r)}
+.adm .cx-sc{column-gap:14px}.adm .cx-sc svg{width:32px;height:32px}
+.adm .cx-sc .n{font:700 32px/1.1 Inter,system-ui,sans-serif}.adm .cx-sc .l{font:500 15px/1.3 Inter,system-ui,sans-serif}
+.adm .alt-overview-card{align-items:center;gap:14px;font-family:Inter,system-ui,sans-serif;box-shadow:0 2px 8px #28101a0a}
+.adm .alt-overview-icon{width:32px;height:32px;border-radius:0;background:none;font-size:inherit;display:grid;place-items:center;flex:none}
+.adm .alt-overview-icon svg{width:32px;height:32px}
+.adm .alt-overview-card.tone-0 .alt-overview-icon{color:#b8742a}.adm .alt-overview-card.tone-1 .alt-overview-icon{color:#7b4ea3}.adm .alt-overview-card.tone-2 .alt-overview-icon{color:#3f7f52}.adm .alt-overview-card.tone-3 .alt-overview-icon{color:#2f6a3b}
+.adm .alt-overview-copy{display:grid;gap:2px;min-width:0}
+.adm .alt-overview-copy>strong{font:700 32px/1.1 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .alt-overview-copy>b{font:500 15px/1.3 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .alt-overview-copy>small{font:400 12px/1.35 Inter,system-ui,sans-serif;color:var(--mut)}
+.adm .dp-card{grid-template-columns:32px minmax(0,1fr);column-gap:14px;align-items:center;box-shadow:0 2px 8px #28101a0a}
+.adm .dp-card-icon,.adm .dp-mini-icon{width:32px;height:32px;border-radius:0;background:none;font-size:inherit;display:grid;place-items:center}
+.adm .dp-card-icon svg,.adm .dp-mini-icon svg{width:32px;height:32px}
+.adm .dp-card.tone-0 .dp-card-icon,.adm .dp-mini-icon.tone-0{color:#3f7f52}.adm .dp-card.tone-1 .dp-card-icon,.adm .dp-mini-icon.tone-1{color:#7b4ea3}.adm .dp-card.tone-2 .dp-card-icon,.adm .dp-mini-icon.tone-2{color:#c0392b}.adm .dp-card.tone-3 .dp-card-icon,.adm .dp-mini-icon.tone-3{color:#2f6fe4}
+.adm .dp-card>div>b{font:700 32px/1.1 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .dp-card>div>span{display:block;font:500 15px/1.3 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .dp-card>div>small{font:400 12px/1.35 Inter,system-ui,sans-serif;color:var(--mut)}
+.adm .cust-cards .cust-kpi{min-height:92px;padding:16px 18px;gap:14px;border-radius:var(--ds-card-r)}
+.adm .cust-kpi .cust-icon{width:32px;height:32px;border-radius:0;background:none;font-size:inherit;color:var(--c);display:grid;place-items:center;flex:none}
+.adm .cust-kpi b{font:700 32px/1.1 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .cust-kpi span:not(.cust-icon){font:500 15px/1.3 Inter,system-ui,sans-serif;color:var(--ink)}
+
+/* Panels */
+.adm .alt-queue-panel,.adm .cust-list-panel,.adm .cust-detail,.adm .dp-panel,.adm .dp-table-panel,.adm .dp-attention{border-radius:var(--ds-panel-r);border-color:var(--ds-line)}
+.adm .alt-queue-heading h2,.adm .dp-table-head>div h3{font:700 24px/1.2 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .alt-queue-heading h2 span{font:600 14px Inter,system-ui,sans-serif}
+.adm .alt-queue-heading small{font-size:12px}
+.adm .bk-bar h2{font-size:24px}
+.adm .dp-panel-head h3,.adm .dp-attention-head h3{font:700 17px/1.25 Inter,system-ui,sans-serif;color:var(--ink)}
+.adm .dp-alert-icon{display:inline-grid;place-items:center;width:auto;height:auto;border:0;border-radius:0}
+.adm .dp-alert-icon svg{width:22px;height:22px}
+
+/* Tables: header 12px, text 14px, same padding everywhere */
+.adm .alt-table thead th,.adm .cust-table th,.adm .dp-table th{padding:10px;background:color-mix(in srgb,var(--line) 30%,var(--card));color:var(--mut);font-size:12px;font-weight:600}
+.adm .alt-table tbody td,.adm .cust-table td,.adm .dp-table td{padding:12px 10px;font-size:14px}
+.adm .alt-table .alt-booking-link,.adm .alt-table .alt-customer b{font-size:14px}
+.adm .alt-table small,.adm .cust-table small,.adm .dp-table small{font-size:12px}
+
+/* Tabs */
+.adm .alt-queue-tabs button,.adm .cust-detail-tabs button{font:600 14px Inter,system-ui,sans-serif}
+.adm .alt-queue-tabs button{min-height:46px}
+.adm .dp-chart-modes button,.adm .tx-view button{font-size:12px}
+
+/* Controls: 14px text, one height */
+.adm .alt-search,.adm .alt-filter{height:var(--ds-ctl);border-color:var(--line);border-radius:10px}
+.adm .alt-search input,.adm .alt-filter select{font:400 14px Inter,system-ui,sans-serif}
+.adm .alt-search>span,.adm .alt-filter>span{display:grid;place-items:center;color:var(--wine);font-size:inherit}
+.adm .alt-search>span svg,.adm .alt-filter>span svg{width:18px;height:18px}
+.adm .cust-search,.adm .cust-toolbar select,.adm .cust-add{min-height:var(--ds-ctl);font-size:14px}
+.adm .cust-search input{font-size:14px}
+.adm .cust-add{font-weight:600}
+.adm .dp-actions select,.adm .dp-date,.adm .dp-actions .btn,.adm .dp-table-head>input,.adm .dp-table-head>select,.adm .dp-panel-head select{height:var(--ds-ctl);min-height:var(--ds-ctl);font-size:14px;font-weight:500}
+.adm .dp-actions .btn{font-weight:600}
+.adm .dp-date input{font-size:14px}
+
+/* Badges and small buttons */
+.adm .alt-status{font-size:12px;font-weight:600;padding:6px 10px}
+.adm .alt-table .btn{font-size:13px;font-weight:600;min-height:34px}
+.adm .bdg svg,.adm .cx-pill svg{width:16px;height:16px;flex:none}
+.adm .cx-pill{font:600 14px Inter,system-ui,sans-serif;height:26px}
+
+/* Customer detail summary icons */
+.adm .cust-summary-grid>div>span{display:grid;place-items:center;font-size:inherit}
+.adm .cust-summary-grid b{font-size:14px}.adm .cust-summary-grid small{font-size:12px}
+
+/* Calendar: text and icons were a size smaller than every other module (desktop only; phones keep their compact sizes) */
+@media(min-width:861px){
+  .adm .cx-wd{font-size:14px}
+  .adm .cx-dn{font-size:14px;font-weight:600}
+  .adm .cx-legend{font-size:14px}
+  .adm .cx-rule{font-size:14px}
+  .adm .cx-nav .cx-btn svg,.adm .cx-btn svg,.adm .cx-primary svg,.adm .cx-month svg{width:18px;height:18px}
+}
+.adm .k6:not([style]) .kc>svg,.adm .k6 .kc>svg{width:32px;height:32px;flex:none}
+@media(min-width:861px){.adm .cx-head h1{font:700 30px/1.15 "Playfair Display",Georgia,serif}}
+
+/* Customers summary cards: four across, filling the row like every other module */
+.adm .k6.cust-cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1120px){.adm .k6.cust-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.adm .cust-search>span{display:grid;place-items:center;color:var(--wine);font-size:inherit}
+/* Alterations: status labels and tailoring cell text */
+.adm .alt-status{max-width:none;white-space:normal;text-align:left;line-height:1.25}
+.adm .alt-tailoring-cell,.adm .alt-tailoring-cell *{font-size:13px}
