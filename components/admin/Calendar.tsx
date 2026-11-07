@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { addD, dmy, PREP, todayIST } from '@/lib/util'
 import { Ic } from './icons'
-import PageHead from './PageHead'
 
 type Kind = 'delivery' | 'alteration' | 'return' | 'cleaning' | 'other'
 type Tone = 'ok' | 'warn' | 'bad' | 'neutral'
@@ -136,8 +135,8 @@ export default function Calendar({ ctx, onBlock, onBlockInfo }: { ctx: any; onBl
   }
 
   return <div className="cx">
-    <PageHead icon="calendar" title="Calendar" sub="Manage deliveries, alterations and daily operations" />
-    <div className="cx-head cx-head-tools">
+    <div className="cx-head">
+      <div><h1>Calendar</h1><p>Manage deliveries, alterations and daily operations</p></div>
       <div className="cx-tools">
         <div className="cx-nav"><button onClick={() => move(-1)} aria-label="Previous">‹</button>
           {view === 'month' ? <label className="cx-month"><Ic n="calendar" s={16} /><span>{new Date(first + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</span><input type="month" aria-label="Choose month" value={ref} onChange={e => { if (e.target.value) { setRef(e.target.value); setSel(e.target.value === today.slice(0, 7) ? today : e.target.value + '-01') } }} /></label>
