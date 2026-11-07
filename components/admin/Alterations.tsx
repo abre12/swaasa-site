@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
+import PageHead from './PageHead'
 
 type Stage = 'pending_dispatch' | 'at_unit' | 'quality_check' | 'ready'
 type Queue = Stage | 'all' | 'completed' | 'damaged'
@@ -92,7 +93,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
   ]
 
   return <div className="alt-page alt-reference">
-    <div className="alt-reference-head"><div className="alt-title-icon">✂</div><div><h1>Alterations</h1><p>Manage dress alterations, tailoring dispatch and return status.</p></div><button className="btn alt-add" onClick={add}>＋ Add Alteration</button></div>
+    <PageHead icon="scissors" title="Alterations" sub="Manage dress alterations, tailoring dispatch and return status."><button className="btn wine" onClick={add}>＋ Add Alteration</button></PageHead>
     <div className="alt-overview-cards">{STAGES.map((s, i) => <button key={s} className={`alt-overview-card tone-${i}`} onClick={() => chooseTab(s)}><span className="alt-overview-icon">{ICON[s]}</span><span className="alt-overview-copy"><b>{LABEL[s]}</b><strong>{count(s)}</strong><small>{s === 'pending_dispatch' ? 'Alterations recorded, ready to send' : s === 'at_unit' ? 'With tailoring unit' : s === 'quality_check' ? 'Received from tailoring, awaiting verification' : 'Alteration complete, ready for delivery'}</small></span></button>)}</div>
     <nav className="alt-queue-tabs" aria-label="Alteration queues">{tabs.map(t => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => chooseTab(t.id)}>{t.label}<span>{t.n}</span></button>)}</nav>
     <div className="alt-toolbar"><label className="alt-search"><span>⌕</span><input value={q} onChange={e => { setQ(e.target.value); setPage(1) }} placeholder="Search by booking, customer, or dress..." /></label><label className="alt-filter"><span>▦</span><select aria-label="Delivery date filter" value={due} onChange={e => { setDue(e.target.value); setPage(1) }}><option value="">All Delivery Dates</option><option value={today}>Due Today</option><option value={addD(today, 1)}>Due Tomorrow</option></select></label><label className="alt-filter"><span>♧</span><select aria-label="Dress category filter" value={category} onChange={e => { setCategory(e.target.value); setPage(1) }}><option value="all">All Categories</option>{categories.map(c => <option key={c} value={c.toLowerCase()}>{c}</option>)}</select></label><label className="alt-filter"><span>⚑</span><select aria-label="Status filter" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="all">All Statuses</option>{STAGES.map(s => <option key={s} value={s}>{LABEL[s]}</option>)}</select></label></div>

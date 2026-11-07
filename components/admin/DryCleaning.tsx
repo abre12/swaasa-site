@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, inr, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
+import PageHead from './PageHead'
 
 const ERR = (m: string) => m.includes('CLEAN_CONFLICT') ? 'This dress is booked or with a customer during those dates.' : m.includes('ALREADY_CLEANING') ? 'This dress is already out for dry cleaning.' : m.includes('dry_clean_requests_one_active_per_dress') ? 'This dress already has an active cleaning record.' : m
 const retDate = (b: any) => b.returned_at ? new Date(b.returned_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : b.end_date
@@ -16,7 +17,7 @@ export async function sendForDryCleaning(ctx: any, pre?: any) {
     if (act) return `already ${STAGE[act.status]}`
     if (ctx.DC.some((r: any) => r.dress_id === d.id && !r.returned_on)) return 'already out for dry cleaning'
     if (ctx.B.some((b: any) => b.dress_id === d.id && b.status === 'out')) return 'out on rental'
-    if (d.status === 'maintenance') return 'in maintenance'
+    if (d.status === 'maintenance') return 'damaged'
     return ''
   }
   const list = ctx.D.filter((d: any) => !['archived', 'retired'].includes(d.status))
@@ -24,7 +25,7 @@ export async function sendForDryCleaning(ctx: any, pre?: any) {
   const v = await ctx.ask('Add dress to cleaning list', [
     { name: 'd', label: 'Dress (current status shown)', options: list.map(label), value: pre ? label(pre) : undefined, required: true },
     { name: 'condition', label: 'Condition', options: ['Minor Marks', 'Needs Cleaning'], required: true },
-    { name: 'notes', label: 'Cleaning reason / condition note *', required: true }], { ok: 'Add to To Be Sent', note: 'The dress remains at the shop until staff confirm Send to Cleaner. Dresses already in a cleaning workflow, out on rental or in maintenance cannot be added.' })
+    { name: 'notes', label: 'Cleaning reason / condition note *', required: true }], { ok: 'Add to To Be Sent', note: 'The dress remains at the shop until staff confirm Send to Cleaner. Dresses already in a cleaning workflow, out on rental or damaged cannot be added.' })
   if (!v) return
   const d = list.find((x: any) => label(x) === v.d); if (!d) return ctx.say('Choose a dress.')
   const blocked = stateOf(d); if (blocked) return ctx.say(`${d.code} cannot be added: it is ${blocked}.`)
@@ -130,7 +131,7 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
   const th = (cols: string[]) => <thead><tr>{cols.map(c => <th key={c}>{c}</th>)}</tr></thead>
 
   return <div className="dry-page">
-    <div className="pg-head"><div><h1>Dry Cleaning &amp; Dress Care</h1><p>Manage dresses that require dry cleaning, track dresses sent to cleaners, monitor return status, costs and turnaround time.</p></div><button className="btn" onClick={() => sendForDryCleaning(ctx)}>＋ Add to Cleaning List</button></div>
+    <PageHead icon="sparkle" title="Dry Cleaning &amp; Dress Care" sub="Manage dresses that require dry cleaning, track dresses sent to cleaners, monitor return status, costs and turnaround time."><button className="btn wine" onClick={() => sendForDryCleaning(ctx)}>＋ Add to Cleaning List</button></PageHead>
     <div className="k6 dry-cards" style={{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>{summary.map(([l, v, ic, c, sub]) => <div className="kc" key={l} style={{ '--c': c } as any}><Ic n={ic} s={28} /><div><b>{v}</b><span>{l}</span><small>{sub}</small></div></div>)}</div>
     <div className="bk-tabs">{tabs.map(([k, l, n]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}<span className="n">{n}</span></button>)}</div>
     <div className="bk-bar dry-tools"><div className="bk-search"><Ic n="search" s={18} /><input placeholder="Search dress code, name, cleaner or note" value={q} onChange={e => setQ(e.target.value)} /></div>

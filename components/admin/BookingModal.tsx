@@ -209,6 +209,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       <footer className="bd-actionbar">
         {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.selSecondary(b)}</div>
           : <span className="mut">Booking operations are managed by sales staff.</span>}
+        {!limited && ['pending', 'confirmed'].includes(b.status) && <button type="button" className="bd-cancel-link" onClick={() => ctx.cancelBooking(b)}>Cancel booking…</button>}
         <button type="button" className="bd-footer-close" onClick={onClose}>Close</button>
       </footer>
     </section>

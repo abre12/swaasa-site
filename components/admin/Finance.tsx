@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { addD, inr, istTime, todayIST } from '@/lib/util'
 import { downloadBlob, makeWorkbook, Cell } from '@/lib/xlsx'
 import { Ic } from './icons'
+import PageHead from './PageHead'
 import MonthPick from './MonthPick'
 
 // ---- How money is counted (also in the README) ------------------------------------------------------------------------------------------
@@ -195,8 +196,8 @@ export default function Finance({ ctx }: { ctx: any }) {
   const TABS: [TabKey, string, string][] = [['tx', 'Transactions', 'receipt'], ['cash', 'Cash Counter', 'cash'], ['exp', 'Expenses', 'coins']]
   const empty = (n: number, t: string, cols: number) => !loading && !n && <tr><td colSpan={cols} className="mut" style={{ padding: 20 }}>{t}</td></tr>
   return (<div>
-    <div className="pg-head fin-head"><h1>Payments &amp; Cash Counter</h1>
-      <div className="pg-tools"><button className="btn wine" onClick={recordPayment}>＋ <span className="lw">Record </span>Payment</button><button className="btn alt" onClick={recordRefund}>＋ <span className="lw">Record </span>Refund</button><button className="btn alt" onClick={() => addExpense(ctx)}>＋ <span className="lw">Add </span>Expense</button></div></div>
+    <PageHead icon="wallet" title="Payments &amp; Cash Counter" sub="Money received, refunds, expenses and the daily cash drawer.">
+      <div className="pg-tools"><button className="btn wine" onClick={recordPayment}>＋ <span className="lw">Record </span>Payment</button><button className="btn alt" onClick={recordRefund}>＋ <span className="lw">Record </span>Refund</button><button className="btn alt" onClick={() => addExpense(ctx)}>＋ <span className="lw">Add </span>Expense</button></div></PageHead>
     <div className="ft-tabs" role="tablist">{TABS.map(([k, l, i]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><Ic n={i} s={18} />{l}</button>)}</div>
     {err && <p className="bad"><b>{err}</b></p>}
 

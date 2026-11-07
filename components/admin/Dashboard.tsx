@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
 import { Ic } from './icons'
+import PageHead from './PageHead'
 import MonthPick from './MonthPick'
 import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
@@ -97,8 +98,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const pendOf = (b: any) => Math.max(0, b.rent + b.charges - b.paid) + Math.max(0, b.deposit - b.deposit_held)
   const altSel = (r: any, c: string, ic: string) => <span className="bdg" style={tint(c)}><Ic n={ic} s={15} /><select className="bare" value={r.prep_status} onChange={e => setPrep(r, e.target.value)} aria-label="Alteration status">{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{ALT[k][0]}</option>)}</select></span>
   return (<div>
-    <div className="pg-head"><div><h1>Dashboard</h1><p className="sub">Daily operations, deliveries, alterations and business overview</p></div>
-      <div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></div>
+    <PageHead icon="home" title="Dashboard" sub="Daily operations, deliveries, alterations and business overview"><div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></PageHead>
     <div className="k6">
       <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />
       <KC ic="truck" c="var(--blue)" v={delToday.length} l="Today's Deliveries" on={() => setPop('del')} />

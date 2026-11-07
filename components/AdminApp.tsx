@@ -20,6 +20,8 @@ import Notifications from './admin/Notifications'
 import Customers from './admin/Customers'
 import Approvals from './admin/Approvals'
 import Calendar from './admin/Calendar'
+import PageHead from './admin/PageHead'
+import CancelBooking from './admin/CancelBooking'
 import ReturnWizard from './admin/ReturnWizard'
 import { Ic } from './admin/icons'
 const today = todayIST
@@ -221,17 +223,24 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const a = Math.round(+v.a); if (!(a >= 0)) return say('Enter a valid amount.')
     const { error } = await sb.rpc('set_custom_charge', { p_id: b.id, p_amount: a }); say(error ? 'Could not change the charge.' : `Customization charge set to ${inr(a)}`); load()
   }
+  // Cancelling is meant for rare cases. One popup asks whether a refund is due, how much, the payment mode and the reason.
+  // Staff: the answers are sent to the owner for approval (the booking stays active until then). Owner: applied at once.
+  const [cx, setCx] = useState<any>(null)
+  const cancelDialog = (b: any) => new Promise<{ refund: number; mode: string; reason: string } | null>(res => setCx({ b, res }))
   async function cancelBooking(b: any) {
-    if (!(await askYes('Cancel this booking?', 'The dress becomes available again for those dates.', 'Yes, cancel'))) return
-    if(!owner){const v=await ask('Request cancellation',[{name:'refund',label:`Rent refund requested (₹). Received so far ${inr(b.paid)}.`,type:'number',value:'0',required:true},{name:'mode',label:'Refund mode',options:PAY_MODES,value:'Cash'},{name:'reason',label:'Reason for cancellation',required:true}],{ok:'Send to owner',note:'The booking will remain active until the owner approves this request. Any held deposit is refunded automatically when approved.'});if(!v)return;const amount=Math.round(+v.refund);if(amount<0||amount>b.paid)return say(`Enter an amount from 0 to ${inr(b.paid)}.`);const {error}=await sb.rpc('request_action_approval',{p_booking:b.id,p_action:'booking_cancellation',p_details:{refund_amount:amount,mode:v.mode,reason:v.reason.trim()}});say(error?error.message.includes('PENDING_EXISTS')?'A cancellation request is already waiting for the owner.':'Could not request cancellation.':'Cancellation request sent to the owner.');load();return}
-    if (!(await patch(b, { status: 'cancelled' }, 'Cancelled'))) return
-    if (b.paid > 0 || b.deposit_held > 0) {
-      const v = await ask('Refund to the customer', [{ name: 'a', label: `Rent paid to refund (₹). Received so far ${inr(b.paid)}. Enter 0 to keep it.`, type: 'number', value: '0' }, { name: 'm', label: 'Refund mode', options: PAY_MODES, value: 'Cash' }],
-        { ok: 'Record refund', note: b.deposit_held > 0 ? `The refundable deposit of ${inr(b.deposit_held)} is returned in full.` : undefined }); if (!v) return say('Cancelled. No refund was recorded.')
-      const a = Math.min(+(v.a || 0), b.paid), rows: any[] = []
-      if (a > 0) rows.push({ booking_id: b.id, amount: a, kind: 'rent_refund', purpose: 'advance_refund', mode: v.m }); if (b.deposit_held > 0) rows.push({ booking_id: b.id, amount: b.deposit_held, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.m })
-      if (rows.length) { const { error } = await sb.from('payments').insert(rows); say(error ? error.message : `Refund recorded: ${inr(rows.reduce((t, r) => t + r.amount, 0))}`); load() }
+    if (!['pending', 'confirmed'].includes(b.status)) return
+    const v = await cancelDialog(b); if (!v) return
+    if (!owner) {
+      const { error } = await sb.rpc('request_action_approval', { p_booking: b.id, p_action: 'booking_cancellation', p_details: { refund_amount: v.refund, mode: v.mode, reason: v.reason } })
+      say(error ? (error.message.includes('PENDING_EXISTS') ? 'A cancellation request is already waiting for the owner.' : 'Could not request the cancellation.') : 'Cancellation request sent to the owner for approval.'); load(); return
     }
+    const dep = Math.max(0, b.deposit_held || 0)
+    if (!(await patch(b, { status: 'cancelled' }, `Cancelled: ${v.reason}. ${v.refund > 0 ? `Rent refund ${inr(v.refund)} (${v.mode})` : 'No rent refund'}${dep > 0 ? `. Deposit ${inr(dep)} returned (${v.mode})` : ''}`))) return
+    const rows: any[] = []
+    if (v.refund > 0) rows.push({ booking_id: b.id, amount: v.refund, kind: 'rent_refund', purpose: 'advance_refund', mode: v.mode, remarks: 'Cancellation refund' })
+    if (dep > 0) rows.push({ booking_id: b.id, amount: dep, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.mode, remarks: 'Cancellation deposit refund' })
+    if (rows.length) { const { error } = await sb.from('payments').insert(rows); say(error ? error.message : `Booking cancelled. Refund recorded: ${inr(rows.reduce((t, r) => t + r.amount, 0))}`) } else say('Booking cancelled. No refund due.')
+    load()
   }
   const sel = (b: any) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Mark delivered</button>}
@@ -240,18 +249,18 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => discount(b)}>{owner?'Discount':'Request discount'}</button>}
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
-    {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
+    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button>}</>
   // Secondary actions for the booking details footer: the contextual primary action lives in the modal header.
   const selSecondary = (b: any) => <>{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => discount(b)}>{owner?'Discount':'Request discount'}</button>}
-    {['pending', 'confirmed'].includes(b.status) && <><button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button><button className="btn alt sm" onClick={() => cancelBooking(b)}>Cancel</button></>}</>
+    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button>}</>
   const [wfFocus, setWfFocus] = useState<any>(null)
   const focusWorkflow = (kind: 'alteration' | 'cleaning', id: string) => { setWfFocus({ kind, id }); setOpenB(null); go(kind === 'alteration' ? 'alterations' : 'drycleaning') }
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())
@@ -279,7 +288,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
   const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown'],['',['prep'],'']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
-  const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'sent').length, approvals: pendingAppr }
+  const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'returned_pending_check').length, approvals: pendingAppr }
   const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+((tab===k||(k==='reports'&&tab==='performance'))?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>)
   const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)||(keys.includes('reports')&&tab==='performance')?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
@@ -290,7 +299,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
-    <main className={'adm-main'+(['performance','reports'].includes(tab)?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{!['performance','reports','customers'].includes(tab) && !(['dashboard', 'bookings', 'cash', 'dresses', 'calendar'].includes(tab) && ops) && <h2 className="pg">{title}</h2>}
+    <main className={'adm-main'+(['performance','reports'].includes(tab)?' adm-perf-main':'')}><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period and refundable deposit rules.' : 'Alterations to complete before delivery.'} />}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
@@ -322,6 +331,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
     {payB && B.find(x => x.id === payB) && <PaymentRecord key={payB} ctx={ctx} b={B.find(x => x.id === payB)} onClose={() => setPayB(null)} />}
+    {cx && <CancelBooking key={cx.b.id} b={cx.b} owner={owner} onClose={v => { const r = cx.res; setCx(null); r(v) }} />}
     {rw && <ReturnWizard key={rw.b.id} ctx={ctx} b={rw.b} owing={rw.owing} late={rw.late} lateFee={rw.lateFee} onClose={v => { const r = rw.res; setRw(null); r(v) }} />}
     {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 95, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
       <form className="box" style={{ background: 'var(--bg)', maxWidth: 440, width: '100%' }} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget), v: Record<string, any> = {}; dlg.fields.forEach((x: Fld) => { v[x.name] = x.type === 'file' ? f.getAll(x.name).filter((z: any) => z instanceof File && z.size) : String(f.get(x.name) ?? '') }); const r = dlg.res; setDlg(null); r(v) }}>

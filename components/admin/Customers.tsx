@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import PageHead from './PageHead'
 import { dmy, inr } from '@/lib/util'
 
 const phoneKey = (s: string) => String(s || '').replace(/\D/g, '').slice(-10)
@@ -68,7 +69,7 @@ export default function Customers({ ctx }: { ctx: any }) {
   }
 
   return <div className="cust-page">
-    <header className="cust-head"><div><h1>Customers <span className="owner-badge">♛ Owner Only</span></h1><p>Customer database, booking history and value insights.</p></div></header>
+    <PageHead icon="user" title="Customers" sub="Customer database, booking history and value insights." badge={<span className="owner-badge">♛ Owner Only</span>} />
     <div className="k6 cust-cards">{[['Total Customers', rows.length, '♙', 'var(--wine)'], ['Repeat Customers', repeat, '↻', 'var(--purple)'], ['Customers with Outstanding', owing, '⚠', 'var(--amber)'], ['Total Outstanding', inr(totalOwing), '₹', 'var(--red)']].map(([label, value, icon, color]: any) => <article key={label} className="kc cust-kpi" style={{ '--c': color } as any}><span className="cust-icon">{icon}</span><div><b>{value}</b><span>{label}</span></div></article>)}</div>
     <div className="cust-toolbar"><label className="cust-search"><span aria-hidden="true">⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by name, phone or email..." aria-label="Search customers" /></label><select value={filter} onChange={e => setFilter(e.target.value)} aria-label="Filter customers"><option value="all">All Customers</option><option value="repeat">Repeat Customers</option><option value="outstanding">Customers with Outstanding</option><option value="one_time">One-Time Customers</option></select><button className="btn cust-add" onClick={add}>＋ Add Customer</button></div>
     <div className={'cust-layout' + (selectedRow ? ' selected' : '')}>

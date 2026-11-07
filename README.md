@@ -248,3 +248,25 @@ Do not deploy the app before applying `migration-v10.sql`; the new admin panels 
 - The popup groups booking identity, customer and rental dates, preparation and alteration information, handler history, payment summary and deposit status.
 - Payment values continue to come from the shared existing payment-summary logic. Booking workflows, permissions, database structure and action handlers are unchanged.
 - Existing booking actions are shown in the bottom action bar, with the current next workflow action emphasized.
+
+---
+
+## Booking details popup tidy-up (no database change; nothing to run in Supabase)
+
+- **Booking History** now sits directly under **Handled By** in the left column, followed by Return Condition. Payment Summary, Security Deposit, Payment Record and Shortfall Approvals stay in the right column. The two columns are independent stacks, so opening the Payment Record no longer leaves a blank gap on the left.
+- **Preparation Status** is no longer a dropdown. It is read automatically from this booking's alteration job in the Alterations module (Pending Dispatch, At Tailoring Unit, Quality Check at Store, Ready, or "No alterations"). Click it to open that alteration.
+- **Dry cleaning** is shown in the popup only while the dress is waiting in the queue to be sent ("In queue to be sent"). It is hidden once the dress is with the cleaner or back in the shop. The "Confirm Cleaned Item" button in the header is unchanged.
+- Files changed: `components/admin/BookingModal.tsx`, `app/globals.css`.
+
+---
+
+## Admin design unification, Dry Cleaning count, Damaged dresses, cancellation popup (no database change; nothing to run in Supabase)
+
+- **One page header everywhere** (`components/admin/PageHead.tsx`): icon tile, title, one-line description and the page's main buttons on the right. Used by Dashboard, All Bookings, Calendar, Dress Inventory, Alterations, Dry Cleaning, Payments & Cash Counter, Customers, Approvals, Dress Performance, Settings and Alterations to Complete. The old second heading (page title above the module's own title) is gone. On phones the top bar already shows the page name, so the header repeats only the description and buttons.
+- **Dry Cleaning count in the menu** = dresses in **To Be Sent** + dresses **Awaiting confirmation** (back from the cleaner, not yet confirmed). Dresses currently with the cleaner are not counted.
+- **Dress Inventory:** the Maintenance card, filter and status are now called **Damaged** (the stored value is still `maintenance`, so no database change). The three-dot menu has **Mark as Damaged** (asks what is damaged, optional; the same item becomes **Return to Available**) and **Send Dress for Dry Cleaning** (opens the cleaning list form with that dress selected). A dress marked Damaged cannot be booked or added to the cleaning list.
+- **Cancelling a booking is now a rare-case action.** The Cancel button is gone from the quick buttons and the Bookings row menu. It is a small red link, **Cancel booking…**, at the bottom of the booking popup (pending and confirmed bookings only).
+- **Cancel popup** (`components/admin/CancelBooking.tsx`) asks: refund any rent? (No refund / Yes, with the amount up to the rent received), the refund payment mode, and the reason. The refundable deposit is returned in full and uses the same mode.
+  - **Staff:** the request goes to the owner (Approvals). The booking stays active and nothing is paid until the owner approves. Approvals now shows the rent refund, mode, deposit and reason.
+  - **Owner:** applied straight away, in one step (previously the booking was cancelled first and the refund asked afterwards).
+- Files changed: `components/AdminApp.tsx`, `app/globals.css`, and in `components/admin/`: PageHead (new), CancelBooking (new), Alterations, Approvals, BookingModal, Bookings, Calendar, Customers, Dashboard, DryCleaning, Finance, Inventory, Performance.

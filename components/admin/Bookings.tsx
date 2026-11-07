@@ -3,6 +3,7 @@ import { hasApplicableFinancialValue } from '@/lib/payments'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, inr, istDate, mainCatOf, MAIN_CATS, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
+import PageHead from './PageHead'
 import MonthPick from './MonthPick'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
 const fmt = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
@@ -69,10 +70,10 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
   const set = (k: string, v: string) => setF({ ...f, [k]: v })
   const money = (n: number, c?: string) => <span style={{ color: c }}>{inr(n)}</span>
   return (<div>
-    <div className="pg-head bk-head"><div><h1>All Bookings</h1><p>Manage upcoming deliveries, returns, payments and booking activity</p></div>
-      <div className="pg-tools" style={{ flex: 1, justifyContent: 'flex-end' }}>
+    <PageHead icon="calcheck" title="All Bookings" sub="Manage upcoming deliveries, returns, payments and booking activity">
+      <div className="pg-tools bk-head-tools" style={{ justifyContent: 'flex-end' }}>
         <label className="bk-search"><Ic n="search" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by Booking ID, Customer, Phone or Dress..." aria-label="Search bookings" /></label>
-        <a className="btn wine" href="/#collection" style={{ textDecoration: 'none' }}>＋ Take Booking</a></div></div>
+        <a className="btn wine" href="/#collection" style={{ textDecoration: 'none' }}>＋ Take Booking</a></div></PageHead>
     <div className="k6 k7 hs">
       <KC ic="calcheck" c="var(--wine)" v={monthB.length} l="Total Bookings" on={() => setFlt('all')} />
       <KC ic="truck" c="var(--blue)" v={cnt('upcoming')} l="Upcoming Deliveries" on={() => setFlt('upcoming')} />
