@@ -143,6 +143,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             <div className="bd-period">
               <div><Ic n="calendar" s={19} /><span>Rental Period</span><b>{dmy(b.start_date)} – {dmy(b.end_date)}</b><em>{nDays(b.start_date, b.end_date)} Days</em></div>
               {bookingDate && <div><Ic n="calcheck" s={19} /><span>Booking Date</span><b>{bookingDate}</b></div>}
+              {b.event_date && <div><Ic n="gift" s={19} /><span>Event</span><b>{b.event_type ? `${b.event_type} · ` : ''}{dmy(b.event_date)}</b></div>}
             </div>
 
             {wf.length > 0 && <div className="bd-wf"><b>Current workflow</b><div>{wf.map((w, i) => <button key={w.id} type="button" className={'bd-wf-chip' + (i > 0 ? ' sec' : '')} onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">{w.label}</button>)}</div></div>}

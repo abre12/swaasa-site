@@ -12,6 +12,7 @@ const isCompleted = (j: any, bookings: any[]) => j.status === 'ready' && booking
 
 // Shared with the booking details modal so there is one dispatch workflow.
 export async function dispatchAlteration(ctx: any, j: any): Promise<boolean> {
+  if (j.measurements_pending && !(await ctx.askYes('Measurements still pending', 'No measurements have been recorded for this alteration yet. The tailor will need them. Send to the tailoring unit anyway?', 'Send anyway'))) return false
   const sent = todayIST(), v = await ctx.ask('Send to Tailoring Unit', [{ name: 'sent', label: 'Date sent', type: 'date', value: sent, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(sent, 3), required: true }, { name: 'notes', label: 'Dispatch notes' }], { ok: 'Confirm dispatch', note: 'Normal turnaround is 2–3 days. The expected return date can be adjusted.' })
   if (!v) return false
   if (v.expected < v.sent) { ctx.say('Expected return cannot be before dispatch.'); return false }
@@ -101,7 +102,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
           <td><button className="alt-booking-link" onClick={e => { e.stopPropagation(); if (b) ctx.openBooking(b.id) }}>{j.booking_id}</button></td>
           <td><div className="alt-customer"><b>{b?.customer_name || '—'}</b><small>{dmg ? 'Returned damaged' : b?.phone || ''}</small></div></td>
           <td><div className="alt-dress-cell">{ctx.thumb(d, 48, 62)}<span><b>{d?.name || '—'}</b><small>SKU: {d?.code || '—'}</small></span></div></td>
-          <td className="alt-requirements">{dmg && <span className="alt-dmg-tag">Damaged</span>}{summarise(j)}</td><td>{dmg && !nb ? <span className="mut">No upcoming booking</span> : <b>{nb ? dmy(nb.start_date) : '—'}</b>}{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}</td>
+          <td className="alt-requirements">{dmg && <span className="alt-dmg-tag">Damaged</span>}{j.measurements_pending && <span className="alt-dmg-tag" style={{ color: '#5b4100', background: '#fbe7b5' }}>Measurements pending</span>}{summarise(j)}</td><td>{dmg && !nb ? <span className="mut">No upcoming booking</span> : <b>{nb ? dmy(nb.start_date) : '—'}</b>}{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}</td>
           <td className="alt-tailoring-cell">{j.sent_on ? <><span>Sent {dmy(j.sent_on)}</span><span>Expected {j.expected_return ? dmy(j.expected_return) : '—'}</span></> : <span className="mut">Not sent yet</span>}</td>
           <td><span className={`alt-status status-${j.status}`}>{late ? 'Overdue' : done ? 'Completed' : LABEL[j.status as Stage] || j.status}</span></td><td onClick={e => e.stopPropagation()}>{action(j)}</td><td><button className="alt-more" aria-label="Open alteration details" onClick={e => { e.stopPropagation(); setOpenId(j.id) }}>⋮</button></td>
         </tr> })}

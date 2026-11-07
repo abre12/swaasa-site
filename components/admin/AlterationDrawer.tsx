@@ -42,7 +42,7 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
     setBusy(true)
     const checklist = Object.entries(list).map(([k, note]) => ({ k, note: note.trim() }))
     const m = Object.fromEntries(Object.entries(meas).filter(([, v]) => String(v).trim()))
-    const { error } = await ctx.sb.from('alteration_jobs').update({ checklist, measurements: m, updated_at: new Date().toISOString() }).eq('id', job.id)
+    const { error } = await ctx.sb.from('alteration_jobs').update({ checklist, measurements: m, ...(job.measurements_pending && Object.keys(m).length ? { measurements_pending: false } : {}), updated_at: new Date().toISOString() }).eq('id', job.id)
     setBusy(false); ctx.say(error ? 'Could not save. Has migration v12 been run? ' + error.message : 'Alteration details saved.'); if (!error) ctx.load()
   }
   const qcAll = QC.every(([k]) => qc[k])
@@ -53,11 +53,12 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
     <div className="ad-body">
       <div className="ad-dress">{ctx.thumb(d, 96, 128)}<div><b>{d?.name || '—'}</b><span className="ad-chip">SKU: {d?.code}</span>
         {b && dmg && <><p><Ic n="user" s={14} />Returned by {b.customer_name} ({b.id})</p><p><Ic n="truck" s={14} />Next booking: {nb ? dmy(nb.start_date) : 'none'} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p></>}
-        {b && !dmg && <><p><Ic n="user" s={14} />{b.customer_name}</p><p><Ic n="flag" s={14} />{b.phone}</p><p><Ic n="truck" s={14} />Delivery: {dmy(b.start_date)} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left < 0 ? Math.abs(left) + ' days ago' : left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p><p><Ic n="ret" s={14} />Return: {dmy(b.end_date)}</p></>}</div></div>
+        {b && !dmg && <><p><Ic n="user" s={14} />{b.customer_name}</p>{b.event_date && <p><Ic n="gift" s={14} />{b.event_type ? `${b.event_type}: ` : 'Event: '}{dmy(b.event_date)}</p>}<p><Ic n="flag" s={14} />{b.phone}</p><p><Ic n="truck" s={14} />Delivery: {dmy(b.start_date)} {left !== null && <em className={left <= 2 ? 'hot' : ''}>({left < 0 ? Math.abs(left) + ' days ago' : left === 0 ? 'today' : left === 1 ? 'tomorrow' : left + ' days'})</em>}</p><p><Ic n="ret" s={14} />Return: {dmy(b.end_date)}</p></>}</div></div>
 
       <nav className="ad-tabs" role="tablist" aria-label="Alteration details"><button className={detailTab === 'alterations' ? 'on' : ''} role="tab" aria-selected={detailTab === 'alterations'} onClick={() => setDetailTab('alterations')}>Alterations</button><button className={detailTab === 'history' ? 'on' : ''} role="tab" aria-selected={detailTab === 'history'} onClick={() => setDetailTab('history')}>Notes &amp; History</button></nav>
 
       {detailTab === 'alterations' && <>
+      {job.measurements_pending && !locked && <div className="ad-warn"><Ic n="warn" s={16} /><span><b>Measurements pending.</b> Record them below and save, or mark them as taken.</span><button className="btn alt sm" style={{ marginLeft: 'auto' }} onClick={async () => { const { error } = await ctx.sb.from('alteration_jobs').update({ measurements_pending: false, updated_at: new Date().toISOString() }).eq('id', job.id); ctx.say(error ? 'Could not update.' : 'Marked as measurements taken.'); ctx.load() }}>Mark as taken</button></div>}
       {late && <div className="ad-warn bad"><Ic n="warn" s={16} /><b>Overdue – Awaiting Return from Tailoring Unit</b></div>}
       {risk && <div className="ad-warn"><Ic n="warn" s={16} />Expected return is close to the scheduled delivery date.</div>}
 
