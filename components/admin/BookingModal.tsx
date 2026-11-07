@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PaymentSummary from './PaymentSummary'
 import { buildPaymentSummary } from '@/lib/payments'
-import { dmy, inr, istDate, istTime, nDays, PREP, todayIST } from '@/lib/util'
+import { dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
 import { dispatchAlteration } from './Alterations'
 import { dispatchToCleaner } from './DryCleaning'
@@ -23,7 +23,6 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const [txt, setTxt] = useState<string>(b.alteration_notes || '')
   const [inspection, setInspection] = useState<any>(null)
   const [pays, setPays] = useState<any[] | null>(null)
-  const [prep, setPrep] = useState<string>(b.prep_status)
   const [saved, setSaved] = useState<any>(null)
   const [histOpen, setHistOpen] = useState(false), [payOpen, setPayOpen] = useState(false), [acting, setActing] = useState(false)
   const dress = ctx.dmap[b.dress_id]
@@ -66,7 +65,12 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       else if (primary.kind === 'clean_open') ctx.focusWorkflow('cleaning', primary.req.id)
     } finally { setActing(false) }
   }
-  const wf = [primary?.current, primary?.secondary, primary?.view].filter(Boolean) as any[]
+  // Dry cleaning is shown only while the dress is waiting in the queue to be sent. Once it is back in the shop nothing is shown.
+  const wf = [primary?.current, primary?.secondary, primary?.view].filter((w: any) => w && w.module === 'cleaning' && w.status === 'to_be_sent') as any[]
+  // Preparation status is read from the Alterations module (this booking's own alteration job); it is never typed in.
+  const bookingAlts = (ctx.AJ || []).filter((a: any) => a.booking_id === b.id && a.source !== 'damage' && a.status !== 'cancelled').slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
+  const prepJob = bookingAlts.find((a: any) => a.status !== 'ready') || bookingAlts[0]
+  const prepLabel = prepJob ? ALT_STAGE[prepJob.status] || prepJob.status : 'No alterations'
   const altHistory = (ctx.AJ || []).filter((a: any) => a.dress_id === b.dress_id).slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
 
   async function saveNotes() {
@@ -74,12 +78,6 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
     if (error) return ctx.say('Could not save the alteration notes.')
     setSaved({ notes: txt.trim() || null, by: ctx.name, at: new Date().toISOString() })
     setEdit(false); ctx.say('Alteration notes saved'); ctx.load()
-  }
-
-  async function setPrepStatus(v: string) {
-    const { error } = await ctx.sb.rpc('set_prep_status', { p_id: b.id, p_status: v })
-    if (error) return ctx.say('Could not update the preparation status.')
-    setPrep(v); ctx.say('Preparation: ' + PREP[v]); ctx.load()
   }
 
   const who = (id?: string | null, ts?: string | null) => id
@@ -138,6 +136,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
         </section>
 
         <div className="bd-columns">
+          <div className="bd-col">
           <section className="bd-card bd-operations">
             <h3 className="bd-section-title"><Ic n="receipt" s={23} />Booking &amp; Operations</h3>
             <div className="bd-period">
@@ -146,14 +145,14 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
               {b.event_date && <div><Ic n="gift" s={19} /><span>Event</span><b>{b.event_type ? `${b.event_type} · ` : ''}{dmy(b.event_date)}</b></div>}
             </div>
 
-            {wf.length > 0 && <div className="bd-wf"><b>Current workflow</b><div>{wf.map((w, i) => <button key={w.id} type="button" className={'bd-wf-chip' + (i > 0 ? ' sec' : '')} onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">{w.label}</button>)}</div></div>}
-
             <div className="bd-prep-row">
               <Ic n="tag" s={20} /><b>Preparation Status</b>
-              {b.status === 'confirmed'
-                ? <select aria-label="Preparation status" value={prep} onChange={e => setPrepStatus(e.target.value)}>{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{PREP[k]}</option>)}</select>
-                : <span className="bd-prep-value">{PREP[prep] || prep || '—'}</span>}
+              {prepJob
+                ? <button type="button" className="bd-wf-chip" style={{ justifySelf: 'start' }} onClick={() => ctx.focusWorkflow('alteration', prepJob.id)} title="Open this alteration">{prepLabel}</button>
+                : <span className="bd-prep-value">{prepLabel}</span>}
             </div>
+
+            {wf.length > 0 && <div className="bd-wf"><b>Dry cleaning</b><div>{wf.map(w => <button key={w.id} type="button" className="bd-wf-chip" onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">In queue to be sent</button>)}</div></div>}
 
             <div className="bd-notes">
               <div className="bd-subhead"><h4><Ic n="scissors" s={19} />Alteration Notes</h4>
@@ -177,20 +176,9 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
               <div>{handled.map(([label, value]) => <div className="bd-handled-row" key={label}><span>{label}</span><b className={value === '—' ? 'empty' : ''}>{value}</b></div>)}</div>
             </div>}
           </section>
-
-          {!limited && <section className="bd-financial" aria-label="Financial information">
-            <PaymentSummary b={b} payments={pays} />
-            <details className="bd-card bd-history bd-payrec" onToggle={e => setPayOpen((e.currentTarget as HTMLDetailsElement).open)}>
-              <summary>Payment Record<small>Booking {b.id}</small></summary>
-              {payOpen && <><PaymentRecordInline ctx={ctx} b={b} /><p className="bd-payrec-note">Payment transactions for this booking. Refunds and charges appear in the same list.</p></>}
-            </details>
-          </section>}
-        </div>
-
-        {!limited && <div className="bd-extras">
-          {(() => { const ap = (ctx.APPR || []).filter((a: any) => a.booking_id === b.id); if (!ap.length) return null
-            return <section className="bd-card bd-extra-card"><h3><Ic n="bell" s={19} />Shortfall Approvals</h3>{ap.map((a: any) => <div key={a.id} className="bd-approval-row"><b className={'bd-approval-status ' + a.status}>{a.status.toUpperCase()}</b><span>Short by {inr(a.shortfall)} · asked by {ctx.staffName(a.requested_by) || 'staff'}{a.reason ? ` · “${a.reason}”` : ''}{a.decided_at ? ` · decided by ${ctx.staffName(a.decided_by) || 'owner'}${a.decision_note ? ` (${a.decision_note})` : ''}` : ''}</span></div>)}</section>
-          })()}
+            {!limited && <>
+          {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
+            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
           {(b.return_notes || inspection) && <section className="bd-card bd-extra-card"><h3><Ic n="ret" s={19} />Return Condition</h3>
             {b.return_notes && <p className="bd-return-note">{b.return_notes}</p>}
             {inspection && <><div className="bd-inspection-condition"><span>Inspection</span><b>{({ good: 'Good', minor_marks: 'Minor Marks', needs_cleaning: 'Needs Cleaning', damage_repair: 'Damage / Repair Required' } as any)[inspection.condition] || inspection.condition}</b></div>
@@ -198,9 +186,24 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
               {inspection.photos?.length > 0 && <div className="inspection-photos">{inspection.photos.map((src: string, i: number) => <a key={i} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`Return condition ${i + 1}`} loading="lazy" /></a>)}</div>}
               <small className="mut">Inspected {istTime(inspection.inspected_at)}</small></>}
           </section>}
-          {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
-            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
-        </div>}
+            </>}
+          </div>
+          <div className="bd-col">
+          {!limited && <section className="bd-financial" aria-label="Financial information">
+            <PaymentSummary b={b} payments={pays} />
+            <details className="bd-card bd-history bd-payrec" onToggle={e => setPayOpen((e.currentTarget as HTMLDetailsElement).open)}>
+              <summary>Payment Record<small>Booking {b.id}</small></summary>
+              {payOpen && <><PaymentRecordInline ctx={ctx} b={b} /><p className="bd-payrec-note">Payment transactions for this booking. Refunds and charges appear in the same list.</p></>}
+            </details>
+          </section>}
+            {!limited && <>
+          {(() => { const ap = (ctx.APPR || []).filter((a: any) => a.booking_id === b.id); if (!ap.length) return null
+            return <section className="bd-card bd-extra-card"><h3><Ic n="bell" s={19} />Shortfall Approvals</h3>{ap.map((a: any) => <div key={a.id} className="bd-approval-row"><b className={'bd-approval-status ' + a.status}>{a.status.toUpperCase()}</b><span>Short by {inr(a.shortfall)} · asked by {ctx.staffName(a.requested_by) || 'staff'}{a.reason ? ` · “${a.reason}”` : ''}{a.decided_at ? ` · decided by ${ctx.staffName(a.decided_by) || 'owner'}${a.decision_note ? ` (${a.decision_note})` : ''}` : ''}</span></div>)}</section>
+          })()}
+            </>}
+          </div>
+        </div>
+
       </div>
 
       <footer className="bd-actionbar">
