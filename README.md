@@ -295,3 +295,12 @@ The booking popup also shows a one-line "what to do next" under the status. Meas
 - Bookings header: search box and **Take Booking** now sit on one row on desktop.
 - Checked after the fix: no stray full-screen elements on Inventory, Alterations, Approvals, Bookings, Calendar, Customers, Dry Cleaning or Dress Performance.
 - Files: `components/admin/Inventory.tsx`, `components/admin/PageHead.tsx`, `app/globals.css`.
+
+---
+
+## Payments & Cash Counter: category no longer shown twice (no database change)
+
+- In the Transactions list (and the Cash Counter movements) a remark that only repeated the category pill is hidden. For example "Late-return fee" under *Late Return Charges*, "Damage / repair / cleaning charge" under *Damage Charges*, "Unpaid rent" and "Unpaid customization charge".
+- If the remark carries extra detail, only the detail is kept, e.g. "Damage / repair / cleaning charge: torn hem" shows "torn hem".
+- Other remarks (entered by staff) are unchanged. Stored data is not modified.
+- File: `components/admin/Finance.tsx`.

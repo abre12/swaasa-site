@@ -25,6 +25,10 @@ const modeKey = (m?: string | null) => /deposit adj|from security deposit/i.test
 const MODE_UI: Record<string, [string, string]> = { cash: ['Cash', 'cash'], upi: ['UPI / Online', 'qr'], card: ['Card', 'card'], bank: ['Bank Transfer', 'bank'], dep: ['From Security Deposit', 'coins'], other: ['Other', 'wallet'] }
 const ModeCell = ({ m }: { m?: string | null }) => { const [l, i] = MODE_UI[modeKey(m)]; return <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap' }}><Ic n={i} s={18} style={{ color: 'var(--blue)' }} />{l}</span> }
 const Pill = ({ cat }: { cat: string }) => { const c = PAYCOL[cat] || EXP[cat]?.[1] || '#7a7a7a', ic = EXP[cat]?.[0]; return <span className="bdg" style={tint(c)}>{ic && <Ic n={ic} s={14} />}{cat}</span> }
+// The category pill already says what the charge is, so a remark that only repeats it (e.g. "Late-return fee" under Late Return Charges) is hidden.
+// A remark with extra detail ("Damage / repair / cleaning charge: torn hem") keeps just the detail.
+const GENERIC_REMARK = /^(unpaid rent|unpaid customi[sz]ation charge|earlier late fee \/ charges|late-return fee|damage \/ repair \/ cleaning charge)\s*:?\s*/i
+const remNote = (t: string | null | undefined) => { const x = (t || '').trim(); const m = x.match(GENERIC_REMARK); return m ? x.slice(m[0].length).trim() : x }
 export function payCat(r: any): string {
   const pu = r.purpose || ({ rent: 'rent', deposit: 'deposit', deposit_refund: 'deposit_refund', rent_refund: 'rent_refund', charge: 'deposit_applied' } as any)[r.kind] || 'rent'
   const m: Record<string, string> = { advance: 'Advance Received', rent: 'Rental Charges', customization: 'Customisation Charges', damage: 'Damage Charges', late_fee: 'Late Return Charges', cleaning: 'Cleaning Charges', other_charge: 'Other Charges',
@@ -136,7 +140,7 @@ export default function Finance({ ctx }: { ctx: any }) {
   const modeOpts: [string, string][] = [['', 'All payment modes'], ['cash', 'Cash'], ['upi', 'UPI / Online'], ['card', 'Card'], ['bank', 'Bank Transfer']]
 
   // ---------------- Tab 1: Transactions ----------------
-  const txRows = useMemo(() => pays.map(r => { const refund = r.kind.endsWith('refund'), cat = payCat(r); return { id: r.id, at: r.created_at, booking: r.booking_id, who: r.bookings?.customer_name || '', cat, amount: refund ? -r.amount : r.amount, mode: r.mode, by: r.created_by, rem: r.remarks || '', kind: r.kind } })
+  const txRows = useMemo(() => pays.map(r => { const refund = r.kind.endsWith('refund'), cat = payCat(r); return { id: r.id, at: r.created_at, booking: r.booking_id, who: r.bookings?.customer_name || '', cat, amount: refund ? -r.amount : r.amount, mode: r.mode, by: r.created_by, rem: remNote(r.remarks), kind: r.kind } })
     .filter(t => (!fl.mode || modeKey(t.mode) === fl.mode) && (!fl.cat || t.cat === fl.cat) && (!fl.dir || (fl.dir === 'in' ? t.amount > 0 : t.amount < 0)) && (!fl.q || (t.who + t.booking + t.rem).toLowerCase().includes(fl.q.toLowerCase()))), [pays, fl])
   const groupedTx = useMemo(() => {
     const groups: Record<string, any> = {}
@@ -163,7 +167,7 @@ export default function Finance({ ctx }: { ctx: any }) {
   // ---------------- Tab 2: Cash Counter ----------------
   const known = !!book?.opening_known, tallied = !!book?.status
   const mv = useMemo(() => [
-    ...pays.filter(r => r.kind !== 'charge' && modeKey(r.mode) === 'cash').map(r => ({ key: 'p' + r.id, at: r.created_at, booking: r.booking_id, who: r.bookings?.customer_name || '', cat: payCat(r), amt: r.kind.endsWith('refund') ? -r.amount : r.amount, rem: r.remarks || '', by: r.created_by, voided: false })),
+    ...pays.filter(r => r.kind !== 'charge' && modeKey(r.mode) === 'cash').map(r => ({ key: 'p' + r.id, at: r.created_at, booking: r.booking_id, who: r.bookings?.customer_name || '', cat: payCat(r), amt: r.kind.endsWith('refund') ? -r.amount : r.amount, rem: remNote(r.remarks), by: r.created_by, voided: false })),
     ...exps.filter(x => modeKey(x.mode) === 'cash').map(x => ({ key: 'e' + x.id, at: x.created_at, booking: x.booking_id, who: x.payee || x.category, cat: x.category, amt: -x.amount, rem: x.remarks === x.category ? '' : x.remarks || '', by: x.created_by, voided: !!x.voided_at }))]
     .filter(t => (!fl.cat || t.cat === fl.cat) && (!fl.dir || (fl.dir === 'in' ? t.amt > 0 : t.amt < 0))).sort((a, b) => a.at.localeCompare(b.at)), [pays, exps, fl])
   const cin = mv.filter(t => !t.voided && t.amt > 0).reduce((s, t) => s + t.amt, 0), cout = mv.filter(t => !t.voided && t.amt < 0).reduce((s, t) => s - t.amt, 0)
