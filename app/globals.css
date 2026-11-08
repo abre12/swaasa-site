@@ -806,3 +806,18 @@ html:has(.adm){background:var(--bg)}
 .ac-sum{grid-template-columns:30px minmax(0,1fr)}
 .ac-sum .ac-act{grid-column:2;justify-self:start}
 .ac-sum .ac-gic{align-self:start}
+
+/* Phones: summary cards keep the same look but with sizes that fit three across (numbers such as ₹1,32,950 must never be cut off) */
+@media(max-width:860px){
+  .adm .kc,.adm .cx-sc,.adm .alt-overview-card,.adm .dp-card,.adm .cust-cards .cust-kpi{min-height:0;padding:12px;gap:8px;border-radius:14px}
+  .adm .k6 .kc>svg,.adm .kc>svg,.adm .kc .cust-icon>svg,.adm .cx-sc svg,.adm .alt-overview-icon,.adm .alt-overview-icon svg,.adm .dp-card-icon,.adm .dp-card-icon svg,.adm .dp-mini-icon,.adm .dp-mini-icon svg,.adm .cust-kpi .cust-icon{width:24px;height:24px}
+  .adm .kc b,.adm .cx-sc .n,.adm .alt-overview-copy>strong,.adm .dp-card>div>b,.adm .cust-kpi b{font-size:clamp(18px,6vw,24px);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .adm .kc>div>span,.adm .kc small,.adm .cx-sc .l,.adm .alt-overview-copy>b,.adm .dp-card>div>span,.adm .cust-kpi span:not(.cust-icon){font-size:13px;line-height:1.3}
+  .adm .kc{min-width:0}.adm .kc>div{min-width:0;max-width:100%}
+  .adm .dp-card{grid-template-columns:24px minmax(0,1fr);column-gap:8px}
+}
+@media(max-width:520px){
+  .adm .k6,.adm .k6[style*="repeat"]{grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow:visible}
+  .adm .kc>div{font-size:13px}
+  .adm .kc>div>span:not(.cust-icon){font-size:13px;line-height:1.3}
+}

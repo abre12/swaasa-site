@@ -368,3 +368,5 @@ The bell is now a small operational command centre. It shows only things staff m
 - Files: `lib/alerts.ts` (new), `components/admin/Notifications.tsx`, `components/AdminApp.tsx`, `app/globals.css`.
 
 - Build fix: `components/AdminApp.tsx` listed `go` twice in the shared `ctx` object, which failed the Vercel type check ("An object literal cannot have multiple properties with the same name"). The duplicate is removed.
+
+- **Phone fix (summary cards):** on phones the summary cards (Dashboard, Dress Inventory, Payments, Alterations, Dress Performance, Customers, Calendar) now use smaller numbers (18 to 24px), 13px labels and 24px icons, and the card rows are two across instead of three, so amounts such as ₹1,32,950 are never cut off. The swipeable card strip on All Bookings is unchanged. File: `app/globals.css`.
