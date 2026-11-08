@@ -393,3 +393,12 @@ The bell is now a small operational command centre. It shows only things staff m
 - **Account:** the signed-in person (initials, name, role) and a sign-out button are in one row at the bottom of the sidebar.
 - **Phone:** the top-bar button now says **New Booking**. On phones up to 430px wide the small logo in the top bar is hidden to leave room for the page name.
 - Files: `components/AdminApp.tsx`, `app/globals.css`.
+
+---
+
+## The main link opens the admin dashboard (no database change)
+
+- The site's main address (`swaasa-site.vercel.app`, and the Swaasa logo/brand link) now opens the **admin dashboard**. If you are not signed in you are taken to the login page first, and after signing in to the dashboard.
+- The dress collection used for taking a new booking moved from `/` to **`/collection`** (same page, same filters, same booking steps). Every link to it was updated: the **New Booking** buttons (sidebar, phone top bar, phone menu, All Bookings), the Collection link in the public header, and "Take another booking" at the end of a booking.
+- Files: `app/page.tsx` (now just redirects to `/admin`), `app/collection/page.tsx` (new, the old home page), `app/layout.tsx`, `components/BookingFlow.tsx`, `components/AdminApp.tsx`, `components/admin/Bookings.tsx`.
+- Old bookmarks to `/#collection` now land on the dashboard; the new address of the collection is `/collection`.

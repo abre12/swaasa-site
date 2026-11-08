@@ -116,7 +116,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
         {alt !== 'none' && <div><dt>Alterations</dt><dd>{altText}{alt === 'later' && !hasMeas && <span className="bf-flag">Measurements pending</span>}</dd></div>}</dl>
       {warns.map(w => <p key={w} className="bad">{w}</p>)}
       <div className="bf-actions"><a className="btn wine" href={`https://wa.me/91${digits}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">Share on WhatsApp</a>
-        <button className="btn alt" onClick={() => navigator.clipboard?.writeText(text)}>Copy details</button><a className="btn alt" href="/admin">Open admin</a><a className="btn alt" href="/">Take another booking</a></div></div></section>
+        <button className="btn alt" onClick={() => navigator.clipboard?.writeText(text)}>Copy details</button><a className="btn alt" href="/admin">Open admin</a><a className="btn alt" href="/collection">Take another booking</a></div></div></section>
   }
 
   return <section className="sec">

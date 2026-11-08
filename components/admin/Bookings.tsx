@@ -73,7 +73,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
     <PageHead icon="calcheck" title="All Bookings" sub="Manage upcoming deliveries, returns, payments and booking activity">
       <div className="pg-tools bk-head-tools" style={{ justifyContent: 'flex-end' }}>
         <label className="bk-search"><Ic n="search" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by Booking ID, Customer, Phone or Dress..." aria-label="Search bookings" /></label>
-        <a className="btn wine" href="/#collection" style={{ textDecoration: 'none' }}>＋ New Booking</a></div></PageHead>
+        <a className="btn wine" href="/collection#collection" style={{ textDecoration: 'none' }}>＋ New Booking</a></div></PageHead>
     <div className="k6 k7 hs">
       <KC ic="calcheck" c="var(--wine)" v={monthB.length} l="Total Bookings" on={() => setFlt('all')} />
       <KC ic="truck" c="var(--blue)" v={cnt('upcoming')} l="Upcoming Deliveries" on={() => setFlt('upcoming')} />
