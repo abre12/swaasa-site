@@ -260,7 +260,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { showDay: (d: string) => setDay(d), go, cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())

@@ -366,3 +366,5 @@ The bell is now a small operational command centre. It shows only things staff m
 - Data refreshes every 20 seconds, and the 5 PM summary and the date roll over appear without reloading.
 - Read marks are remembered per person on each device (browser storage).
 - Files: `lib/alerts.ts` (new), `components/admin/Notifications.tsx`, `components/AdminApp.tsx`, `app/globals.css`.
+
+- Build fix: `components/AdminApp.tsx` listed `go` twice in the shared `ctx` object, which failed the Vercel type check ("An object literal cannot have multiple properties with the same name"). The duplicate is removed.
