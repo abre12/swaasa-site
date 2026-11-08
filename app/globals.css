@@ -821,3 +821,17 @@ html:has(.adm){background:var(--bg)}
   .adm .kc>div{font-size:13px}
   .adm .kc>div>span:not(.cust-icon){font-size:13px;line-height:1.3}
 }
+
+/* New Booking: the one call-to-action in the navigation, styled apart from the ordinary menu items */
+.adm-newbk{display:flex;align-items:center;gap:12px;margin:2px 0 14px;padding:13px 16px;border-radius:14px;background:linear-gradient(135deg,#8f123a,#6b0b2a);color:#fff!important;font:700 15px/1.2 Inter,system-ui,sans-serif;text-decoration:none;border:1px solid #ffffff1f;box-shadow:0 8px 18px #7a0b2c3d,inset 0 1px 0 #ffffff26;cursor:pointer;transition:transform .12s,box-shadow .12s,filter .12s}
+.adm-newbk i{display:grid;place-items:center;width:26px;height:26px;border:2px solid #fff;border-radius:50%;flex:none}
+.adm-newbk:hover{filter:brightness(1.1);box-shadow:0 10px 22px #7a0b2c52,inset 0 1px 0 #ffffff26}
+.adm-newbk:active{transform:translateY(1px)}
+.adm-newbk:focus-visible,.adm-newbk-top:focus-visible{outline:3px solid #d9a441;outline-offset:2px}
+.adm-sheet .adm-newbk{margin:6px 0 12px}
+.adm-newbk-top{display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 13px;border-radius:18px;background:var(--wine);color:#fff!important;font:700 14px Inter,system-ui,sans-serif;text-decoration:none;box-shadow:0 3px 10px #7a0b2c33}
+@media(min-width:861px){.adm-newbk-top{display:none}}
+/* make the New Booking button clearly different from the (also burgundy) selected menu item: darker, gold ring and gold plus */
+.adm-newbk{background:linear-gradient(135deg,#7d0f33,#52071f);border:1px solid #d9a44166;padding:15px 16px;font-size:15.5px;letter-spacing:.01em}
+.adm-newbk i{width:28px;height:28px;border:0;background:linear-gradient(135deg,#f6e2b4,#d9a441);color:#5a0b24}
+.adm-newbk i svg{stroke-width:2.6}

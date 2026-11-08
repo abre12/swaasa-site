@@ -12,7 +12,13 @@ export async function middleware(req: NextRequest) {
   })
   const deny = (to: string) => isApi ? NextResponse.json({ error: 'Please sign in.' }, { status: 401 }) : NextResponse.redirect(new URL(to, req.url))
   const { data: { user } } = await sb.auth.getUser()
-  if (path === '/login') return res
+  if (path === '/login') {
+    if (user && !req.nextUrl.searchParams.has('denied')) {       // already signed in: skip the form and open the dashboard
+      const { data: s0 } = await sb.from('staff').select('active').eq('user_id', user.id).maybeSingle()
+      if (s0?.active) return NextResponse.redirect(new URL('/admin', req.url))
+    }
+    return res
+  }
   if (!user) return deny('/login')
   const { data: st } = await sb.from('staff').select('role,active').eq('user_id', user.id).maybeSingle()      // someone who is not (or no longer) staff gets nothing
   if (!st || !st.active) return deny('/login?denied=1')

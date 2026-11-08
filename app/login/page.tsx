@@ -9,7 +9,7 @@ export default function Login() {
     if (!email.trim() || !pw) return setErr('Enter your work email and password.')
     setBusy(true); setErr('')
     const { error } = await supa().auth.signInWithPassword({ email: email.trim(), password: pw })
-    if (error) { setBusy(false); setErr('Incorrect email or password.') } else location.href = '/admin'
+    if (error) { setBusy(false); setErr('Incorrect email or password.') } else location.replace('/admin')   // signing in always opens the admin dashboard
   }
   return <main className="lg">
     <header className="lg-top"><span className="lg-brand"><img src="/logo-mark.png" alt="" />SWAASA</span><span className="lg-tag">Staff access only</span></header>
@@ -17,7 +17,7 @@ export default function Login() {
       <section className="lg-hero" aria-label="Swaasa staff workspace"><div><span className="lg-eyebrow">Swaasa · Staff workspace</span>
         <h1>Every look, ready for its next occasion.</h1><p>Browse the collection, check availability and create rental bookings for your customers.</p></div></section>
       <section className="lg-side"><form className="lg-card" onSubmit={go} noValidate>
-        <h2>Staff sign in</h2><p className="lg-sub">Sign in to access the collection and booking workspace.</p>
+        <h2>Staff sign in</h2><p className="lg-sub">Sign in to open your dashboard.</p>
         <label>Work email<input type="email" autoComplete="username" placeholder="name@swaasa.in" value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label>Password<input type="password" autoComplete="current-password" placeholder="Enter your password" value={pw} onChange={e => setPw(e.target.value)} /></label>
         {err && <p className="lg-err" role="alert">{err}</p>}

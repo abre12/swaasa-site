@@ -370,3 +370,14 @@ The bell is now a small operational command centre. It shows only things staff m
 - Build fix: `components/AdminApp.tsx` listed `go` twice in the shared `ctx` object, which failed the Vercel type check ("An object literal cannot have multiple properties with the same name"). The duplicate is removed.
 
 - **Phone fix (summary cards):** on phones the summary cards (Dashboard, Dress Inventory, Payments, Alterations, Dress Performance, Customers, Calendar) now use smaller numbers (18 to 24px), 13px labels and 24px icons, and the card rows are two across instead of three, so amounts such as ₹1,32,950 are never cut off. The swipeable card strip on All Bookings is unchanged. File: `app/globals.css`.
+
+---
+
+## Sign-in goes to the dashboard; New Booking button (no database change)
+
+- **Sign-in:** after a successful sign-in staff always land on the admin dashboard (`/admin`); the Back button no longer returns to the login form. Anyone who is already signed in and opens the login page is sent straight to the dashboard. (Preparation-only staff have no dashboard, so they land on their own Alterations to Complete page.) The login page text now says "Sign in to open your dashboard."
+- **New Booking** button, shown to everyone who can take bookings (not preparation-only staff):
+  - Desktop: at the top of the left menu under the Swaasa logo, in dark burgundy with a gold plus, so it does not look like the selected menu item.
+  - Phone: a burgundy **+ New** button in the top bar (always visible) and the same full button at the top of the menu drawer.
+  - It opens the dress collection (`/#collection`), the start of a new booking. The All Bookings page button is renamed from "Take Booking" to **New Booking** to match.
+- Files: `middleware.ts`, `app/login/page.tsx`, `components/AdminApp.tsx`, `components/admin/Bookings.tsx`, `app/globals.css`.
