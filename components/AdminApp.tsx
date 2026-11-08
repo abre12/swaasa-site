@@ -30,7 +30,7 @@ const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', ret
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
   ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']],
-  ['cash', 'Transactions & Cash Counter', 'wallet', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
+  ['cash', 'Cash & Transactions', 'wallet', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
 export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
@@ -286,20 +286,20 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[],string][] = [['',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning'],'wrench'],['',['cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],'crown'],['',['prep'],'']]
+  const navGroups: [string,string[],string][] = [['Workspace',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning','cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],''],['',['prep'],'']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
   const navCount: Record<string, number> = { alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'returned_pending_check').length, approvals: pendingAppr }
-  const navButtons=(keys:string[],close=false,sub=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=><button key={k} className={'nv'+(sub?' sub':'')+((tab===k||(k==='reports'&&tab==='performance'))?' on':'')} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>)
-  const navTree=(close=false)=>navGroups.map(([label,keys,icon])=>myNav.some(n=>keys.includes(n[0]))&&<section className={'adm-nav-group'+(label?' has-parent':'')} key={keys.join()}>{label&&<div className={'adm-nav-parent'+(keys.includes(tab)||(keys.includes('reports')&&tab==='performance')?' on':'')}><Ic n={icon} s={20}/>{label}</div>}{navButtons(keys,close,!!label)}</section>)
+  const navButtons=(keys:string[],close=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=>{const on=tab===k||(k==='reports'&&tab==='performance');return <button key={k} type="button" className={'nv'+(on?' on':'')} aria-current={on?'page':undefined} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>})
+  const navTree=(close=false)=>navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={keys.join()} aria-label={label||undefined}>{label&&<div className="adm-nav-label" aria-hidden="true">{label}</div>}{navButtons(keys,close)}</section>)
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
   return (<div className="adm">
-    <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" />{ops && <a className="adm-newbk-top" href="/#collection" aria-label="New Booking"><Ic n="plus" s={16} />New</a>}<Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
+    <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" />{ops && <a className="adm-newbk-top" href="/#collection" aria-label="New Booking"><Ic n="plus" s={16} />New Booking</a>}<Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
-      {ops && <a className="adm-newbk" href="/#collection"><i><Ic n="plus" s={14} /></i>New Booking</a>}
+      {ops && <a className="adm-newbk" href="/#collection"><Ic n="plus" s={20} />New Booking</a>}
       {navTree()}
       <span className="sp" />
-      <div className="adm-me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
-      <button className="nv out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} />Sign out</button></aside>
+      <div className="adm-me"><i>{(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div>
+        <button type="button" className="adm-out" aria-label="Sign out" title="Sign out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} /></button></div></aside>
     <main className="adm-main"><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period and refundable deposit rules.' : 'Alterations to complete before delivery.'} />}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
@@ -327,7 +327,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     </main>
     {ops && <nav className="adm-bot" aria-label="Main">{BOT.map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => goNav(k)}><Ic n={i} s={22} /><span>{k === 'cash' ? 'Payments' : l}</span></button>)}<button className={drawer ? 'on' : ''} onClick={() => setDrawer(true)}><Ic n="menu" s={22} /><span>More</span></button></nav>}
     {drawer && <div className="adm-sheet" onClick={() => setDrawer(false)}><div className="in" onClick={e => e.stopPropagation()}><div className="hd"><img src="/logo-mark.png" alt="" /><div><b>Swaasa</b><span>Wedding Rentals</span></div><button onClick={() => setDrawer(false)} aria-label="Close menu">✕</button></div>
-      {ops && <a className="adm-newbk" href="/#collection"><i><Ic n="plus" s={14} /></i>New Booking</a>}
+      {ops && <a className="adm-newbk" href="/#collection"><Ic n="plus" s={20} />New Booking</a>}
       {navTree(true)}
       <div className="me"><i>{(name || '?').trim().charAt(0).toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div></div>
       <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}

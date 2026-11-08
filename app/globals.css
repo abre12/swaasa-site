@@ -835,3 +835,36 @@ html:has(.adm){background:var(--bg)}
 .adm-newbk{background:linear-gradient(135deg,#7d0f33,#52071f);border:1px solid #d9a44166;padding:15px 16px;font-size:15.5px;letter-spacing:.01em}
 .adm-newbk i{width:28px;height:28px;border:0;background:linear-gradient(135deg,#f6e2b4,#d9a441);color:#5a0b24}
 .adm-newbk i svg{stroke-width:2.6}
+
+/* ======================= Sidebar: clearer hierarchy ======================= */
+.adm-side .adm-nav-group{display:grid;gap:2px;margin:0 0 4px}
+.adm-side .adm-nav-label,.adm-sheet .adm-nav-label{padding:16px 12px 6px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#98899a;line-height:1}
+.adm-side .adm-nav-label{color:#9a8d94}
+.adm-sheet .adm-nav-label{color:#ffffffa8}
+/* every menu row: same height, icon size, spacing and badge position */
+.adm-side button.nv{position:relative;min-height:40px;padding:0 12px;gap:12px;font-size:14px;font-weight:500;color:#4d4247;border-radius:10px}
+.adm-side .nv svg{width:20px;height:20px;color:#7d6f77}
+.adm-side .nv .nv-l{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.adm-side .nv .nv-n{margin-left:auto;flex:none;min-width:22px;height:22px;padding:0 6px;display:grid;place-items:center;border-radius:11px;background:#f3dde2;color:var(--wine);font-size:12px;font-weight:700;line-height:1}
+.adm-side .nv:hover{background:#faf0f2;color:var(--wine)}
+.adm-side .nv:hover svg{color:var(--wine)}
+/* the open page: pale rose with a slim burgundy marker (no second strong filled button) */
+.adm-side button.nv.on{background:#f7e4e8;color:var(--wine);font-weight:650;box-shadow:none}
+.adm-side .nv.on svg{color:var(--wine)}
+.adm-side button.nv.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:4px;border-radius:0 4px 4px 0;background:var(--wine)}
+.adm-side .nv.on .nv-n{background:#fff;color:var(--wine)}
+.adm-side button.nv:focus-visible,.adm-me .adm-out:focus-visible,.adm-newbk:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
+/* New Booking: the one standout action; burgundy fill, soft shadow, plain plus icon */
+.adm-newbk{min-height:46px;padding:0 16px;gap:10px;margin:2px 0 6px;background:var(--wine);border:0;font-size:15px;font-weight:700;box-shadow:0 2px 8px #7a0b2c2e}
+.adm-newbk svg{width:20px;height:20px;stroke-width:2.2;flex:none}
+.adm-newbk:hover{filter:none;background:#7a1032;box-shadow:0 3px 10px #7a0b2c3a}
+.adm-sheet .adm-newbk{margin:6px 0 10px;background:#fff;color:var(--wine)!important;box-shadow:none}
+/* account controls at the bottom of the sidebar */
+.adm-me{gap:10px}
+.adm-me .adm-out{margin-left:auto;flex:none;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--mut);cursor:pointer}
+.adm-me .adm-out:hover{background:#faf0f2;color:var(--wine)}
+/* phone top bar: the full words "New Booking", with the page title shrinking first */
+.adm-top b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-newbk-top{white-space:nowrap;padding:0 12px;font-size:13px;height:36px;gap:5px;flex:none}
+@media(max-width:380px){.adm-newbk-top{padding:0 10px;font-size:12.5px}}
+@media(max-width:430px){.adm-top>img{display:none}.adm-top b{font-size:17px}}

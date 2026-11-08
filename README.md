@@ -381,3 +381,15 @@ The bell is now a small operational command centre. It shows only things staff m
   - Phone: a burgundy **+ New** button in the top bar (always visible) and the same full button at the top of the menu drawer.
   - It opens the dress collection (`/#collection`), the start of a new booking. The All Bookings page button is renamed from "Take Booking" to **New Booking** to match.
 - Files: `middleware.ts`, `app/login/page.tsx`, `components/AdminApp.tsx`, `components/admin/Bookings.tsx`, `app/globals.css`.
+
+---
+
+## Sidebar refinement (no database change)
+
+- **Hierarchy:** New Booking stays the standout action (burgundy fill, 46px high, soft shadow, plain plus icon). The open page is the only highlighted menu item, shown with a pale rose background and a slim burgundy marker on the left instead of a filled button.
+- **Group labels:** Workspace, Operations and Owner's Corner are small muted uppercase headings with extra space around them, not selectable rows. Cash & Transactions now sits under Operations.
+- **Rows:** every menu row has the same height (40px), icon size (20px), spacing and text size (14px), with the count badge always on the right. "Transactions & Cash Counter" is shortened to **Cash & Transactions** (the page itself is still titled Payments & Cash Counter).
+- **Interaction:** subtle hover background, visible keyboard focus outline, and `aria-current="page"` on the open page.
+- **Account:** the signed-in person (initials, name, role) and a sign-out button are in one row at the bottom of the sidebar.
+- **Phone:** the top-bar button now says **New Booking**. On phones up to 430px wide the small logo in the top bar is hidden to leave room for the page name.
+- Files: `components/AdminApp.tsx`, `app/globals.css`.
