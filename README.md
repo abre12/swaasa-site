@@ -334,3 +334,35 @@ One set of sizes now applies to every admin module (the rules are the "DESIGN SY
 - **Reports & Analytics:** the page no longer shrinks the sidebar (it was forced to 164px with 12px labels and a different page background). The sidebar is 248px on every page. Table, controls, charts' cards and buttons are on the common sizes. The date and filter row now sits under the page header.
 - **Dress Inventory:** summary cards show the number first, like the other pages.
 - Files: `app/globals.css`, `components/AdminApp.tsx`, and in `components/admin/`: Alterations, Customers, Performance, Inventory.
+
+---
+
+## Action Center (the notification bell) (no database change; nothing to run in Supabase)
+
+The bell is now a small operational command centre. It shows only things staff must act on, and it is calculated live from the real bookings, dresses, alterations and cleaning records (`lib/alerts.ts`), so an alert appears, gets more urgent and disappears by itself. Nothing is stored except which alerts you have read.
+
+**Order in the panel:** 1. Delivery at Risk, 2. Critical, 3. High Priority, 4. Tomorrow's Deliveries. Each group is a compact summary card (e.g. "Critical (3): 1 Delivery risk · 1 Overdue alteration · 1 Overdue return") that opens to show the dresses. Each alert has a short headline, the dress, one or two lines of context, the date, and one button (View Booking / View Details / View Workflow).
+
+**What raises an alert**
+
+| Alert | When | Group |
+|---|---|---|
+| Overdue return | Dress still out past its return date | Critical |
+| Delivery risk | Dress is out and the next confirmed booking is within 3 days | 3 days: Critical, 2 days: Critical (Urgent), tomorrow: Delivery at Risk (Immediate Attention), delivery day: Delivery at Risk |
+| Alteration overdue | Tailor is late (expected back date passed), or the alteration is due today (the day before delivery) | Critical |
+| Alteration pending on delivery day | Alteration still open on or after the delivery date | Delivery at Risk |
+| Delivery preparation risk | Dry cleaning pending (or dress marked Damaged) with not enough time before the next confirmed delivery (to be sent: 3 days, at the cleaner: until it is back, returned and waiting to be checked: 1 day) | Critical; on delivery day: Delivery at Risk |
+| Alteration due soon | Alteration must be finished within 1 to 2 days | High |
+| Upcoming dry-cleaning requirement | Cleaning pending, delivery within 7 days, enough time left | High |
+| Tomorrow's deliveries | One summary from 5:00 PM IST: how many are ready, need alteration, need preparation | Summary |
+
+**Behaviour**
+- One card per dress: the most urgent issue is shown and other issues on the same dress are listed under it ("Also: ...").
+- Alerts resolve on their own: dress marked Returned, alteration completed, cleaning completed, dress ready.
+- Reading is separate from resolving. Reading lowers the bell count only. Critical alerts stay in the panel until the problem is fixed. An alert that becomes more urgent shows as unread again.
+- The bell count = unread Delivery at Risk, Critical and High alerts. The tomorrow summary is not counted.
+- No alerts for booking creation, payments, payment corrections or approvals. The old Recent list and the Pending Approvals tab are gone from the bell. Owners see a single "N approvals waiting, Open Approvals" line at the bottom of the panel, which is not an alert and not in the count.
+- Same panel for owner, manager, salesperson and preparation staff. The panel works on desktop and phone.
+- Data refreshes every 20 seconds, and the 5 PM summary and the date roll over appear without reloading.
+- Read marks are remembered per person on each device (browser storage).
+- Files: `lib/alerts.ts` (new), `components/admin/Notifications.tsx`, `components/AdminApp.tsx`, `app/globals.css`.
