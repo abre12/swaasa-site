@@ -1,4 +1,5 @@
 'use client'
+import { fetchAll } from '@/lib/fetchAll'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PageHead from './PageHead'
 import { Ic } from './icons'
@@ -13,7 +14,7 @@ export default function Customers({ ctx }: { ctx: any }) {
   const [profiles, setProfiles] = useState<any[]>([]), [query, setQuery] = useState(''), [filter, setFilter] = useState('all')
   const [selected, setSelected] = useState(''), [notes, setNotes] = useState(''), [detailTab, setDetailTab] = useState<'overview' | 'history' | 'notes'>('overview'), [page, setPage] = useState(1)
   const initializedSelection = useRef(false)
-  useEffect(() => { ctx.sb.from('customer_profiles').select('*').order('name').then(({ data }: any) => setProfiles(data || [])) }, [ctx.sb, ctx.tick])
+  useEffect(() => { fetchAll(() => ctx.sb.from('customer_profiles').select('*').order('name').order('phone')).then(({ data }: any) => { if (data) setProfiles(data) }) }, [ctx.sb, ctx.fullTick])   // paged (no 1,000-row cut) and refreshed with each full load, not every poll
 
   const rows = useMemo(() => {
     const map: Record<string, any> = {}

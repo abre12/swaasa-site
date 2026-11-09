@@ -1,4 +1,5 @@
 'use client'
+import { fetchAll } from '@/lib/fetchAll'
 import { hasApplicableFinancialValue } from '@/lib/payments'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, inr, istDate, mainCatOf, MAIN_CATS, nDays, todayIST } from '@/lib/util'
@@ -8,6 +9,7 @@ import MonthPick from './MonthPick'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
 const fmt = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
 const n0 = (n: number) => n ? n.toLocaleString('en-IN') : '–'
+const PAGE = 50   // rows drawn at a time; totals and counts still cover every matching booking
 const TABS: [string, string][] = [['all', 'All Bookings'], ['upcoming', 'Upcoming Deliveries'], ['out', 'Active'], ['returns', 'Returns Due'], ['done', 'Returned'], ['cancelled', 'Cancelled'], ['overdue', 'Overdue']]
 const EXTRA: Record<string, string> = { today: 'Due today (deliveries and returns)', deltoday: 'Deliveries today', rettoday: 'Returns due today', pending: 'Awaiting confirmation', owing: 'Balance due', received: 'Payment received', depheld: 'Deposit held', alterations: 'With alteration notes', created_today: 'Booked today' }
 // Tabs that describe what is happening right now. They ignore the month selector so nothing active or overdue is ever hidden.
@@ -15,10 +17,10 @@ const LIVE = new Set(['upcoming', 'out', 'returns', 'overdue', 'today', 'deltoda
 const NOF = { dFrom: '', dTo: '', rFrom: '', rTo: '', status: '', pay: '', staff: '', cat: '' }
 export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; setFlt: (f: string) => void }) {
   const B: any[] = ctx.B, today = todayIST(), tomorrow = addD(today, 1), in7 = addD(today, 7)
-  const [q, setQ] = useState(''), [sort, setSort] = useState('del'), [showF, setShowF] = useState(false), [f, setF] = useState(NOF), [month, setMonth] = useState(today.slice(0, 7)), [menu, setMenu] = useState<{ b: any; x: number; y: number } | null>(null), [adv, setAdv] = useState<Record<string, number>>({})
+  const [q, setQ] = useState(''), [sort, setSort] = useState('del'), [showF, setShowF] = useState(false), [f, setF] = useState(NOF), [month, setMonth] = useState(today.slice(0, 7)), [menu, setMenu] = useState<{ b: any; x: number; y: number } | null>(null), [adv, setAdv] = useState<Record<string, number>>({}), [limit, setLimit] = useState(PAGE)
   useEffect(() => { const c = () => setMenu(null); document.addEventListener('click', c); window.addEventListener('scroll', c, true); return () => { document.removeEventListener('click', c); window.removeEventListener('scroll', c, true) } }, [])
   // Advance = rent taken when the booking was made (purpose "advance"), less any advance refunded. It is separate from the refundable deposit.
-  useEffect(() => { ctx.sb.from('payments').select('booking_id,amount,purpose').in('purpose', ['advance', 'advance_refund']).then(({ data }: any) => { const m: Record<string, number> = {}; (data || []).forEach((p: any) => { m[p.booking_id] = (m[p.booking_id] || 0) + (p.purpose === 'advance' ? p.amount : -p.amount) }); setAdv(m) }) }, [ctx.tick, ctx.sb])
+  useEffect(() => { fetchAll(() => ctx.sb.from('payments').select('id,booking_id,amount,purpose').in('purpose', ['advance', 'advance_refund']).order('id')).then(({ data }: any) => { if (!data) return; const m: Record<string, number> = {}; (data || []).forEach((p: any) => { m[p.booking_id] = (m[p.booking_id] || 0) + (p.purpose === 'advance' ? p.amount : -p.amount) }); setAdv(m) }) }, [ctx.fullTick, ctx.sb])   // paged; refreshed with each full load rather than every poll
   const live = (b: any) => b.status !== 'cancelled', owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid), total = (b: any) => b.rent + b.charges
   const undelivered = (b: any) => ['pending', 'confirmed'].includes(b.status), lateDel = (b: any) => undelivered(b) && b.start_date < today, lateRet = (b: any) => b.status === 'out' && b.end_date < today
   const delT = (b: any) => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status), retT = (b: any) => b.end_date === today && ['out', 'returned'].includes(b.status)
@@ -46,6 +48,8 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
     const s = sort === 'del' ? (cur === 'returns' || cur === 'out' || cur === 'rettoday' ? byNear('end_date') : prio) : sort === 'ret' ? byNear('end_date') : sort === 'new' ? (a: any, b: any) => b.created_at.localeCompare(a.created_at) : (a: any, b: any) => owe(b) - owe(a)
     return l.slice().sort(s)
   }, [B, q, f, cur, sort, month, today])
+  useEffect(() => { setLimit(PAGE) }, [flt, q, sort, month, f])
+  const shown = useMemo(() => rows.slice(0, limit), [rows, limit])
   const T = { adv: sum(rows, b => adv[b.id] || 0), dep: sum(rows, b => Math.max(0, b.deposit_held)), rent: sum(rows, b => b.rent), cus: sum(rows, b => b.custom_charge || 0), dmg: sum(rows, b => b.damage_charge || 0), late: sum(rows, b => b.late_fee || 0), tot: sum(rows, total), rec: sum(rows, b => b.paid), pend: sum(rows, owe) }
   const days = (a: string, b: string) => nDays(a, b) - 1
   const dateBadge = (b: any): [string, string, string] => {
@@ -101,7 +105,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       <tr><th rowSpan={2}>Booking ID</th><th rowSpan={2} className="g-date">Delivery / Return Dates</th><th rowSpan={2}>Customer (Phone)</th><th rowSpan={2}>Dress / Item</th>
         <th colSpan={2} className="g-blue c">Advance &amp; Deposit (₹)</th><th colSpan={4} className="g-pink c">Charges (₹)</th><th rowSpan={2} className="c">Total Value (₹)</th><th colSpan={2} className="g-green c">Payments (₹)</th><th rowSpan={2}>Status</th><th rowSpan={2}></th></tr>
       <tr className="sub"><th className="g-blue c" title="Rent paid when the booking was made">Advance</th><th className="g-blue c" title="Refundable deposit currently held. Not revenue.">Refundable Deposit</th><th className="g-pink c">Rent</th><th className="g-pink c">Customization</th><th className="g-pink c">Damage</th><th className="g-pink c">Late</th><th className="g-green c">Received</th><th className="g-amber c">Pending</th></tr></thead><tbody>
-      {rows.map(b => { const [sl, sc, si] = badge(b), o = owe(b), dh = Math.max(0, b.deposit_held)
+      {shown.map(b => { const [sl, sc, si] = badge(b), o = owe(b), dh = Math.max(0, b.deposit_held)
         return <tr key={b.id} className={cls(b)} style={b.status === 'cancelled' ? { opacity: .6 } : undefined}>
           <td>{idCell(b)}</td><td>{dateCell(b)}</td>
           <td style={{ whiteSpace: 'nowrap' }}><b style={{ fontWeight: 600 }}>{b.customer_name}</b><div><a href={'tel:' + b.phone} style={{ fontSize: 12, color: 'var(--mut)' }}>({b.phone})</a></div></td><td>{dressCell(b)}</td>
@@ -114,7 +118,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       {ctx.owner && !!rows.length && <tfoot><tr><td colSpan={4}>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</td>
         <td className="c g-blue">{inr(T.adv)}</td><td className="c g-blue">{inr(T.dep)}</td><td className="c g-pink">{inr(T.rent)}</td><td className="c g-pink">{inr(T.cus)}</td><td className="c g-pink">{inr(T.dmg)}</td><td className="c g-pink">{inr(T.late)}</td>
         <td className="c g-pink2">{inr(T.tot)}</td><td className="c g-green">{money(T.rec, 'var(--green)')}</td><td className="c g-amber">{money(T.pend, 'var(--red)')}</td><td colSpan={2}></td></tr></tfoot>}</table></div></div>
-    <div className="bk-cards">{rows.map(b => { const [sl, sc, si] = badge(b), o = owe(b), ex = [['Rent', b.rent], ['Customization', b.custom_charge || 0], ['Damage', b.damage_charge || 0], ['Late', b.late_fee || 0]].filter(x => hasApplicableFinancialValue(x[1]))
+    <div className="bk-cards">{shown.map(b => { const [sl, sc, si] = badge(b), o = owe(b), ex = [['Rent', b.rent], ['Customization', b.custom_charge || 0], ['Damage', b.damage_charge || 0], ['Late', b.late_fee || 0]].filter(x => hasApplicableFinancialValue(x[1]))
       return <div key={b.id} className={'bk-m ' + cls(b)}><div className="top">{idCell(b)}<span className="bdg" style={tint(sc)}><Ic n={si} s={14} />{sl}</span></div>
         <div style={{ margin: '8px 0' }}>{dateCell(b)}</div>{dressCell(b)}
         <div className="ft" style={{ marginTop: 8 }}><span><b>{b.customer_name}</b><br /><a href={'tel:' + b.phone} style={{ fontSize: 12 }}>{b.phone}</a></span><span>{next(b)} {dots(b)}</span></div>
@@ -122,6 +126,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
         {(ex.length > 0 || b.deposit_held > 0) && <div className="mut" style={{ fontSize: 11.5, marginTop: 6 }}>{ex.map(x => `${x[0]} ${inr(x[1] as number)}`).join(' · ')}{b.deposit_held > 0 && b.status !== 'returned' ? `${ex.length ? ' · ' : ''}Deposit held ${inr(b.deposit_held)}` : ''}</div>}</div> })}
       {!rows.length && <p className="mut">No bookings match.</p>}
       {ctx.owner && !!rows.length && <div className="bk-m tot"><b>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</b><div className="mny"><div><small>Value</small><b>{inr(T.tot)}</b></div><div><small>Received</small><b style={{ color: 'var(--green)' }}>{inr(T.rec)}</b></div><div><small>Pending</small><b style={{ color: 'var(--red)' }}>{inr(T.pend)}</b></div></div></div>}</div>
+    {rows.length > shown.length && <div style={{ textAlign: 'center', padding: '14px 0' }}><span className="mut" style={{ marginRight: 12 }}>Showing {shown.length} of {rows.length}</span><button className="btn sm" onClick={() => setLimit(l => l + PAGE)}>Show 50 more</button><button className="btn sm" style={{ marginLeft: 8 }} onClick={() => setLimit(rows.length)}>Show all</button></div>}
     {menu && <div className="bkm-pop" onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: Math.min(menu.y, innerHeight - 340), right: Math.max(8, innerWidth - menu.x) }}>{ctx.sel(menu.b)}{handled(menu.b).length > 0 && <small>{handled(menu.b).map(([l, n]) => <div key={l}>{l}: {n}</div>)}</small>}</div>}
   </div>)
 }

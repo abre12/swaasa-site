@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supa } from '@/lib/supabase/client'
 import { addD, CATS, COLOURS, dmy, inr, istDate, MAIN_CATS, mainCatOf, nDays, PAY_MODES, PREP, todayIST } from '@/lib/util'
 import { autoColours } from '@/lib/colours'
+import { fetchAll } from '@/lib/fetchAll'
+import { byDesc, mergeRows } from '@/lib/merge'
 import DressForm from './admin/DressForm'
 import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
 import Dashboard from './admin/Dashboard'
@@ -35,22 +37,101 @@ const NAV: [string, string, string, string[]][] = [
 export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
   const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(initialTab && (role === 'owner' || initialTab !== 'performance') ? initialTab : (ops ? 'dashboard' : 'prep')); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
-  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [CR, setCR] = useState<any[]>([]); const [AJ, setAJ] = useState<any[]>([]); const [NOTIFS, setNOTIFS] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
+  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [CR, setCR] = useState<any[]>([]); const [AJ, setAJ] = useState<any[]>([]); const [NOTIFS] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [calView,setCalView]=useState<'month'|'week'|'day'>('month'),[calFocus,setCalFocus]=useState(today()),[calFilters,setCalFilters]=useState({bookings:true,deliveries:true,returns:true,alterations:true,cleaning:true})
   const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
-  const load = useCallback(async () => {
-    if (ops) {
-      const [b, k, d, s, dc, cr, aj, no, sf, ap] = await Promise.all([sb.from('booking_view').select('*').order('start_date', { ascending: false }), sb.from('blocks').select('*'), sb.from('dresses').select('*').order('code'), sb.from('settings').select('*').single(), sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }), sb.from('dry_clean_requests').select('*').order('added_at', { ascending: false }), sb.from('alteration_jobs').select('*').order('created_at', { ascending: false }), sb.from('admin_notifications').select('*').order('created_at', { ascending: false }).limit(100), sb.from('staff').select('user_id,name,role,active,email,deleted_at').order('name'), sb.from('approvals').select('*').order('requested_at', { ascending: false })])
-      setDC(dc.data || []); setCR(cr.data || []); setAJ(aj.data || []); setNOTIFS(no.data || []); setSTAFF(sf.data || []); setAPPR(ap.data || []); { const ev = await sb.from('bookings').select('id,event_date,event_type'); const em = new Map((ev.data || []).map((x: any) => [x.id, x])); setB((b.data || []).map((x: any) => ({ ...x, event_date: em.get(x.id)?.event_date ?? null, event_type: em.get(x.id)?.event_type ?? null }))) }; setK(k.data || []); setD(d.data || []); setSt(s.data); setBuf(s.data?.buffer_days ?? 1)
-    } else { const [d, s] = await Promise.all([sb.from('dresses').select('id,code,name,images,thumbs,medium').order('code'), sb.from('settings').select('buffer_days').single()]); setD(d.data || []); setBuf(s.data?.buffer_days ?? 1) }
-    setTick(t => t + 1)
+  // ── Data loading ────────────────────────────────────────────────────────────────────────────
+  // FULL load  : every table, paged so nothing is cut at the API row cap. Runs when the app opens, after every
+  //              action (load() is passed to all the action handlers), and every few minutes as a safety net.
+  // LIVE refresh: the polled path. Fetches only rows that can still change in practice (open bookings, open work,
+  //              recent history) and merges them into what is already on screen, so a poll costs a few KB
+  //              however large the history grows. The page only polls while the tab is visible.
+  const seq = useRef(0), inflight = useRef(0), lastFull = useRef(0), fails = useRef(0)
+  const [fullTick, setFullTick] = useState(0)
+  const load = useCallback(async (): Promise<boolean> => {
+    seq.current++; inflight.current++
+    try {
+      if (ops) {
+        const [b, k, d, s, dc, cr, aj, sf, ap] = await Promise.all([
+          fetchAll(() => sb.from('booking_view').select('*').order('start_date', { ascending: false }).order('id')),
+          fetchAll(() => sb.from('blocks').select('*').order('id')),
+          fetchAll(() => sb.from('dresses').select('*').order('code').order('id')),
+          sb.from('settings').select('*').single(),
+          fetchAll(() => sb.from('dry_cleanings').select('*').order('sent_on', { ascending: false }).order('id')),
+          fetchAll(() => sb.from('dry_clean_requests').select('*').order('added_at', { ascending: false }).order('id')),
+          fetchAll(() => sb.from('alteration_jobs').select('*').order('created_at', { ascending: false }).order('id')),
+          sb.from('staff').select('user_id,name,role,active,email,deleted_at').order('name'),
+          fetchAll(() => sb.from('approvals').select('*').order('requested_at', { ascending: false }).order('id'))])
+        // A failed request keeps what is already on screen (it used to blank the list, which also silently cleared every alert).
+        const ok = !(b.error || k.error || d.error || dc.error || cr.error || aj.error || ap.error)
+        if (!dc.error) setDC(dc.data || []); if (!cr.error) setCR(cr.data || []); if (!aj.error) setAJ(aj.data || []); if (!sf.error) setSTAFF(sf.data || []); if (!ap.error) setAPPR(ap.data || [])
+        if (!k.error) setK(k.data || []); if (!d.error) setD(d.data || []); if (!s.error) { setSt(s.data); setBuf(s.data?.buffer_days ?? 1) }
+        if (!b.error) {
+          let rows: any[] = b.data || []
+          // booking_view already carries event_date / event_type (migrationcpt-v13c). Only an older database needs the extra lookup.
+          if (rows.length && !('event_date' in rows[0])) {
+            const ev = await fetchAll(() => sb.from('bookings').select('id,event_date,event_type').order('id')); const em = new Map((ev.data || []).map((x: any) => [x.id, x]))
+            rows = rows.map((x: any) => ({ ...x, event_date: em.get(x.id)?.event_date ?? null, event_type: em.get(x.id)?.event_type ?? null }))
+          }
+          setB(rows)
+        }
+        lastFull.current = Date.now(); setFullTick(t => t + 1); setTick(t => t + 1)
+        return ok
+      }
+      const [d, s] = await Promise.all([fetchAll(() => sb.from('dresses').select('id,code,name,images,thumbs,medium').order('code').order('id')), sb.from('settings').select('buffer_days').single()])
+      if (!d.error) setD(d.data || []); if (!s.error) setBuf(s.data?.buffer_days ?? 1)
+      lastFull.current = Date.now(); setFullTick(t => t + 1); setTick(t => t + 1)
+      return !d.error
+    } finally { inflight.current-- }
   }, [sb, ops])
-  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load() }, 20000); return () => clearInterval(t) }, [load])   // stays fresh across devices
+  const refreshLive = useCallback(async (): Promise<boolean> => {
+    if (!ops || inflight.current > 0) return true            // a load is already running: it will bring everything up to date
+    const s0 = seq.current; inflight.current++
+    try {
+      const t = today(), since = addD(t, -45), recent = new Date(Date.now() - 7 * 864e5).toISOString()
+      const CAP = 1000
+      const [b, k, d, dc, cr, aj, ap] = await Promise.all([
+        sb.from('booking_view').select('*').or(`status.in.(pending,confirmed,out),end_date.gte.${since},returned_at.gte.${recent}`).order('start_date', { ascending: false }).order('id').limit(CAP),
+        sb.from('blocks').select('*').gte('end_date', since).limit(CAP),
+        sb.from('dresses').select('id,status,condition').limit(CAP),     // status flips (Out / Damaged / Available) matter live; the heavy photo columns do not
+        sb.from('dry_cleanings').select('*').or(`returned_on.is.null,returned_on.gte.${since}`).limit(CAP),
+        sb.from('dry_clean_requests').select('*').or(`status.in.(to_be_sent,sent,returned_pending_check),added_at.gte.${recent},returned_on.gte.${since}`).limit(CAP),
+        sb.from('alteration_jobs').select('*').or(`status.in.(pending_dispatch,at_unit,quality_check),updated_at.gte.${recent}`).limit(CAP),
+        sb.from('approvals').select('*').or(`status.eq.pending,requested_at.gte.${recent}`).limit(CAP)])
+      if (b.error || k.error || d.error || dc.error || cr.error || aj.error || ap.error) return false
+      // If a live query ever hits the cap it can no longer be trusted to be complete: do a proper full load instead.
+      if ([b, k, d, dc, cr, aj, ap].some(x => (x.data || []).length >= CAP)) return load()
+      if (seq.current !== s0) return true                    // an action's full load started meanwhile: its data is newer, drop this one
+      setB(p => mergeRows(p, b.data || [], (x: any, y: any) => String(y.start_date).localeCompare(String(x.start_date)) || String(x.id).localeCompare(String(y.id))))
+      setK(p => mergeRows(p, k.data || []))
+      setD(p => { const m = new Map((d.data || []).map((x: any) => [x.id, x])); let ch = false; const n = p.map((x: any) => { const u: any = m.get(x.id); if (u && (u.status !== x.status || u.condition !== x.condition)) { ch = true; return { ...x, status: u.status, condition: u.condition } } return x }); return ch ? n : p })
+      setDC(p => mergeRows(p, dc.data || [], byDesc('sent_on'))); setCR(p => mergeRows(p, cr.data || [], byDesc('added_at'))); setAJ(p => mergeRows(p, aj.data || [], byDesc('created_at'))); setAPPR(p => mergeRows(p, ap.data || [], byDesc('requested_at')))
+      setTick(x => x + 1)
+      return true
+    } finally { inflight.current-- }
+  }, [sb, ops, load])
   useEffect(() => {
-    const ch = sb.channel('approvals-live').on('postgres_changes', { event: '*', schema: 'public', table: 'approvals' }, () => load()).subscribe()
-    return () => { sb.removeChannel(ch) }
-  }, [sb, load])
+    let stopped = false, timer: any
+    const LIVE_MS = ops ? 30000 : 60000, FULL_MS = ops ? 180000 : 60000
+    const run = async () => {
+      clearTimeout(timer); if (stopped) return
+      if (!document.hidden) { let ok = false; try { ok = Date.now() - lastFull.current > FULL_MS ? await load() : await refreshLive() } catch { ok = false }; fails.current = ok ? 0 : Math.min(fails.current + 1, 4) }
+      if (!stopped) timer = setTimeout(run, LIVE_MS * 2 ** fails.current)     // backs off (30s, 1m, 2m, 4m…) while the connection is failing
+    }
+    load().then(ok => { fails.current = ok ? 0 : 1; if (!stopped) timer = setTimeout(run, LIVE_MS * 2 ** fails.current) }).catch(() => { if (!stopped) timer = setTimeout(run, LIVE_MS) })
+    const onVis = () => { if (!document.hidden) run() }                        // catch up as soon as the tab is opened again
+    document.addEventListener('visibilitychange', onVis)
+    return () => { stopped = true; clearTimeout(timer); document.removeEventListener('visibilitychange', onVis) }
+  }, [load, refreshLive, ops])
+  // Approvals are pushed instantly by realtime; refresh just those rows rather than reloading everything.
+  useEffect(() => {
+    if (!ops) return
+    let t: any
+    const refreshApprovals = async () => { const since = new Date(Date.now() - 7 * 864e5).toISOString(); const r = await sb.from('approvals').select('*').or(`status.eq.pending,requested_at.gte.${since}`).order('requested_at', { ascending: false }).limit(1000); if (!r.error) setAPPR(p => mergeRows(p, r.data || [], byDesc('requested_at'))) }
+    const ch = sb.channel('approvals-live').on('postgres_changes', { event: '*', schema: 'public', table: 'approvals' }, () => { clearTimeout(t); t = setTimeout(refreshApprovals, 400) }).subscribe()
+    return () => { clearTimeout(t); sb.removeChannel(ch) }
+  }, [sb, ops])
   const [showForm, setShowForm] = useState(false); const [dq, setDq] = useState(''); const [dcat, setDcat] = useState('')
   const tried = useRef<Set<string>>(new Set())
   // Dresses with no colours yet get them worked out automatically (colour words first, then the photo). They can be corrected in Edit.
@@ -275,7 +356,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, fullTick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())

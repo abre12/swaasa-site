@@ -1,4 +1,5 @@
 'use client'
+import { fetchAll } from '@/lib/fetchAll'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { addD, inr, istTime, todayIST } from '@/lib/util'
 import { downloadBlob, makeWorkbook, Cell } from '@/lib/xlsx'
@@ -80,10 +81,10 @@ export default function Finance({ ctx }: { ctx: any }) {
     const rng = (a: string, b: string) => [new Date(`${a}T00:00:00+05:30`).toISOString(), new Date(`${b}T00:00:00+05:30`).toISOString()]
     if (tab === 'tx') {
       const [f, t] = rng(txStart, addD(txEnd, 1)), [tf, tt] = rng(today, addD(today, 1))
-      const [p, tp] = await Promise.all([ctx.sb.from('payments').select(sel).gte('created_at', f).lt('created_at', t).order('created_at', { ascending: false }), ctx.sb.from('payments').select(sel).gte('created_at', tf).lt('created_at', tt)])
+      const [p, tp] = await Promise.all([fetchAll(() => ctx.sb.from('payments').select(sel).gte('created_at', f).lt('created_at', t).order('created_at', { ascending: false }).order('id')), ctx.sb.from('payments').select(sel).gte('created_at', tf).lt('created_at', tt)])
       if (off) return; if (p.error || tp.error) setErr('Could not load the transactions. Please refresh.'); setPays(p.data || []); setTodayPays(tp.data || [])
     } else if (tab === 'exp') {
-      const x = await ctx.sb.from('cash_expenses').select('*').gte('spent_on', month + '-01').lt('spent_on', monthEnd(month) + '-01').order('created_at', { ascending: false })
+      const x = await fetchAll(() => ctx.sb.from('cash_expenses').select('*').gte('spent_on', month + '-01').lt('spent_on', monthEnd(month) + '-01').order('created_at', { ascending: false }).order('id'))
       if (off) return; if (x.error) setErr('Could not load the expenses. Please refresh.'); setExps(x.data || [])
     } else {
       const [f, t] = rng(date, addD(date, 1))
@@ -92,7 +93,7 @@ export default function Finance({ ctx }: { ctx: any }) {
       if (cb.error) setErr(cb.error.message.includes('FORBIDDEN') ? 'Only the owner can open dates before this month.' : 'Could not load the cash book. Please refresh.'); else if (p.error || x.error) setErr('Could not load this date. Please refresh.')
       setPays(p.data || []); setExps(x.data || []); setBook(cb.data?.[0] || null)
     }
-    setLoading(false) })(); return () => { off = true } }, [tab, month, date, txStart, txEnd, ctx.tick, ctx.sb])
+    setLoading(false) })(); return () => { off = true } }, [tab, month, date, txStart, txEnd, ctx.fullTick, ctx.sb])   // date-range reports refresh with each full load, not every 30s poll
   useEffect(() => { setCnt(book?.counted != null ? String(book.counted) : ''); setCnote(book?.note || '') }, [book])
 
   const B: any[] = ctx.B, owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid)

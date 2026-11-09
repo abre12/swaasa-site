@@ -429,3 +429,13 @@ The bell is now a small operational command centre. It shows only things staff m
 Files: `supabase/migration-v15.sql` (new), `lib/approvals.ts` (new), `components/admin/Notifications.tsx`, `components/admin/Approvals.tsx`, `components/admin/icons.tsx`, `components/AdminApp.tsx`, `app/globals.css`.
 
 - **Fix (notification panel behind the page):** on desktop the notification panel opened underneath the dashboard cards and title. The sidebar, and the panel that opens from it, are now layered above the page content and below pop-up windows such as the booking window. File: `app/globals.css`.
+
+## Data loading, polling and scale (v16)
+
+- **Full load** (`load()` in `AdminApp.tsx`): every table, fetched with `lib/fetchAll.ts` so nothing is cut at the API's 1,000-row cap. Runs on open, after every action, and every 3 minutes.
+- **Live refresh** (every 30 s, only while the tab is visible): open bookings, open alteration/cleaning work, pending approvals and the last few days of history, merged into the screen by `lib/merge.ts`. Unchanged data causes no re-render. If any live query reaches 1,000 rows it falls back to a full load. Failures keep the data on screen and back the polling off (30 s → 4 min).
+- Approvals still arrive instantly through realtime, but only the approvals are refreshed.
+- Unbounded per-page queries (Bookings advance totals, Customers profiles, Finance date ranges) are paged and refresh on `ctx.fullTick`, not on every poll.
+- The Bookings table draws 50 rows at a time (totals still cover every matching booking).
+- Run `supabase/migration-v16-performance.sql` once. It adds indexes, an `updated_at` trigger on alteration jobs and a phone-search index. It changes no data.
+- If your Supabase "Max rows" API setting is below 1,000, lower the `pageSize` default in `lib/fetchAll.ts` to match.
