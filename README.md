@@ -402,3 +402,28 @@ The bell is now a small operational command centre. It shows only things staff m
 - The dress collection used for taking a new booking moved from `/` to **`/collection`** (same page, same filters, same booking steps). Every link to it was updated: the **New Booking** buttons (sidebar, phone top bar, phone menu, All Bookings), the Collection link in the public header, and "Take another booking" at the end of a booking.
 - Files: `app/page.tsx` (now just redirects to `/admin`), `app/collection/page.tsx` (new, the old home page), `app/layout.tsx`, `components/BookingFlow.tsx`, `components/AdminApp.tsx`, `components/admin/Bookings.tsx`.
 - Old bookmarks to `/#collection` now land on the dashboard; the new address of the collection is `/collection`.
+
+---
+
+## Owner approvals in the notification bell (RUN `supabase/migration-v15.sql` in the Supabase SQL Editor)
+
+**Where the bell is:** desktop: top-right corner of the sidebar, beside the Swaasa logo (the panel opens to the right of the sidebar); phone: the top bar. A badge shows the count and disappears at zero.
+
+**Owner panel, three tabs**
+- **Pending Approvals (n):** the default tab whenever something is waiting. Each card has an icon by type (percent for discount, return arrow for refund, cancel for cancellation, wallet for short payment), the title (e.g. "Discount Approval Required"), the booking and customer (tap to open the booking), what is being asked (e.g. "Additional discount: ₹1,000"), the reason if given, and "Requested by: Jeena · 42 minutes ago".
+- Actions on the card, no page change: **Approve** (filled) and **Reject** (outlined). Reject opens an inline box for an optional reason. Refunds and cancellations (money out, cannot be undone) ask once more ("Confirm approve"); discounts and short payments approve in one tap.
+- The card leaves Pending at once; if the database refuses, it is put back with a message. After a decision the bell count, the Recent tab, the booking and the dashboard refresh on their own.
+- **Action Center:** the operational alerts (deliveries, returns, alterations, dry cleaning), unchanged.
+- **Recent:** the last 15 decisions: type, booking and customer, requester, Approved (green) or Rejected (red), who decided and when, and the rejection reason.
+- Badge = pending approvals + unread operational alerts.
+
+**Staff panel:** Action Center and **My Requests** (the status of what they asked the owner to approve: waiting, approved or rejected, with the reason). Staff have no approve or reject controls.
+
+**Rules enforced in the database (not just hidden buttons)**
+- Only the owner can decide a request; a staff login is refused.
+- Staff can only request a discount, a booking cancellation or a refund (and the existing short-payment approval). There is no request type for editing or deleting a payment, and payments stay insert-only: nobody can edit or delete a recorded transaction.
+- Only one pending request per booking and action: a second one is refused ("already waiting for the owner").
+- Once decided, a request is locked: its type, booking, details, requester and decision cannot be changed. The requester's and the decider's names are stored on the request, with the time. Nothing is deleted.
+- migration-v15 also turns on live updates for approvals, so the bell changes without a refresh (the 20-second refresh still runs).
+
+Files: `supabase/migration-v15.sql` (new), `lib/approvals.ts` (new), `components/admin/Notifications.tsx`, `components/admin/Approvals.tsx`, `components/admin/icons.tsx`, `components/AdminApp.tsx`, `app/globals.css`.

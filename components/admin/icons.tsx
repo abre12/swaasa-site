@@ -24,6 +24,7 @@ const P: Record<string, React.ReactNode> = {
   down: <path d="M6 9l6 6 6-6" />,
   check: <path d="M5 13l4 4L19 7" />,
   checkc: <><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.7 2.7L16 9.5" /></>,
+  percent: <><path d="M19 5L5 19" /><circle cx="7.5" cy="7.5" r="2.2" /><circle cx="16.5" cy="16.5" r="2.2" /></>,
   xc: <><circle cx="12" cy="12" r="9" /><path d="M15 9l-6 6M9 9l6 6" /></>,
   prog: <path d="M21 12a9 9 0 11-3-6.7M21 3v5h-5" />,
   ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,

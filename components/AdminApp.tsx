@@ -47,6 +47,10 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     setTick(t => t + 1)
   }, [sb, ops])
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load() }, 20000); return () => clearInterval(t) }, [load])   // stays fresh across devices
+  useEffect(() => {
+    const ch = sb.channel('approvals-live').on('postgres_changes', { event: '*', schema: 'public', table: 'approvals' }, () => load()).subscribe()
+    return () => { sb.removeChannel(ch) }
+  }, [sb, load])
   const [showForm, setShowForm] = useState(false); const [dq, setDq] = useState(''); const [dcat, setDcat] = useState('')
   const tried = useRef<Set<string>>(new Set())
   // Dresses with no colours yet get them worked out automatically (colour words first, then the photo). They can be corrected in Edit.
@@ -223,6 +227,17 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const a = Math.round(+v.a); if (!(a >= 0)) return say('Enter a valid amount.')
     const { error } = await sb.rpc('set_custom_charge', { p_id: b.id, p_amount: a }); say(error ? 'Could not change the charge.' : `Customization charge set to ${inr(a)}`); load()
   }
+  // Owner decision made from the notification bell: the request leaves Pending at once, and is put back if the database refuses.
+  async function decideApproval(a: any, approve: boolean, note = ''): Promise<boolean> {
+    setAPPR(p => p.map(x => x.id === a.id ? { ...x, status: approve ? 'approved' : 'rejected', decided_at: new Date().toISOString(), decided_by_name: name, decision_note: note.trim() || null } : x))
+    const { error } = await sb.rpc('decide_approval', { p_id: a.id, p_approve: approve, p_note: note.trim() })
+    if (error) {
+      setAPPR(p => p.map(x => x.id === a.id ? a : x))
+      say(error.message.includes('NOT_FOUND') ? 'This request was already decided.' : error.message.includes('BAD_AMOUNT') ? 'The amount no longer fits this booking. Please review it on the Approvals page.' : 'Could not save the decision. Nothing was changed.')
+      load(); return false
+    }
+    say(approve ? 'Request approved.' : 'Request rejected.'); load(); return true
+  }
   // Cancelling is meant for rare cases. One popup asks whether a refund is due, how much, the payment mode and the reason.
   // Staff: the answers are sent to the owner for approval (the booking stays active until then). Owner: applied at once.
   const [cx, setCx] = useState<any>(null)
@@ -260,7 +275,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, NOTIFS, STAFF, APPR, staffName, dmap, buf, tick, load, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())
@@ -294,13 +309,14 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const BOT = ['dashboard', 'bookings', 'calendar', 'cash'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
   return (<div className="adm">
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" />{ops && <a className="adm-newbk-top" href="/collection#collection" aria-label="New Booking"><Ic n="plus" s={16} />New Booking</a>}<Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
-    <aside className="adm-side"><div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
+    <aside className="adm-side"><div className="adm-side-bell"><Notifications ctx={ctx} placement="side" /></div>
+      <div className="adm-brand"><img src="/logo-mark.png" alt="" /><b>Swaasa</b><span>Wedding Rentals</span></div>
       {ops && <a className="adm-newbk" href="/collection#collection"><Ic n="plus" s={20} />New Booking</a>}
       {navTree()}
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div>
         <button type="button" className="adm-out" aria-label="Sign out" title="Sign out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} /></button></div></aside>
-    <main className="adm-main"><div className="adm-notification-slot"><Notifications ctx={ctx}/></div>{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period and refundable deposit rules.' : 'Alterations to complete before delivery.'} />}
+    <main className="adm-main">{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period and refundable deposit rules.' : 'Alterations to complete before delivery.'} />}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
