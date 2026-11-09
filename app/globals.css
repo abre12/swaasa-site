@@ -925,3 +925,7 @@ html:has(.adm){background:var(--bg)}
 .adm-top .notif-pop .ap-row .ap-main b{font-size:13.5px;font-weight:600}
 .adm-top .notif-pop .ac-clear b{font-size:15px;font-weight:700}
 .adm-top .notif-pop .lvl-risk .ac-ghd b{color:#fff}
+
+/* the sidebar (and the notification panel that opens from it) must sit above the page content, but below pop-up windows (75+) */
+@media(min-width:861px){.adm-side{z-index:40}}
+.notif-pop{z-index:60}

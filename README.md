@@ -427,3 +427,5 @@ The bell is now a small operational command centre. It shows only things staff m
 - migration-v15 also turns on live updates for approvals, so the bell changes without a refresh (the 20-second refresh still runs).
 
 Files: `supabase/migration-v15.sql` (new), `lib/approvals.ts` (new), `components/admin/Notifications.tsx`, `components/admin/Approvals.tsx`, `components/admin/icons.tsx`, `components/AdminApp.tsx`, `app/globals.css`.
+
+- **Fix (notification panel behind the page):** on desktop the notification panel opened underneath the dashboard cards and title. The sidebar, and the panel that opens from it, are now layered above the page content and below pop-up windows such as the booking window. File: `app/globals.css`.
