@@ -57,7 +57,7 @@ export default function ReturnForm({ ctx, b, owing, late, lateFee, onClose }: { 
         <label>Damage / repair (₹)<input type="number" min="0" inputMode="numeric" value={dc} onChange={e => setDc(e.target.value)} /></label>
         <label>Deposit hand-back<select value={rm} onChange={e => setRm(e.target.value)}>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select></label>
       </div>
-      <p className="rw-note">{late > 0 && lateFee > 0 ? `${late} day${late > 1 ? 's' : ''} late — suggested late fee ${inr(lateFee)}. ` : ''}Deposit held {inr(b.deposit_held)}{owing > 0 ? `. Unpaid rent ${inr(owing)} is settled from the deposit.` : '.'}{!ctx.owner && (+lf > 0 || +dc > 0) ? ' Charges you enter are passed to the owner to add.' : ''}</p>
+      <p className="rw-note">{late > 0 && lateFee > 0 ? `${late} day${late > 1 ? 's' : ''} late — suggested late fee ${inr(lateFee)}. ` : ''}Deposit held {inr(b.deposit_held)}{owing > 0 ? `. Unpaid rent ${inr(owing)} is settled from the deposit.` : '.'}</p>
 
       <label className="rf-l">Condition notes <small>(optional)</small><textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add a note for the team…" /></label>
       <details className="rf-photos"><summary>Photos <small>(optional){files.length ? ` · ${files.length} attached` : ''}</small></summary>

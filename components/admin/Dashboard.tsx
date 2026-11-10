@@ -1,6 +1,8 @@
 'use client'
 import { Fragment, useEffect, useState } from 'react'
-import { addD, dmy, inr, istDate, PREP, todayIST } from '@/lib/util'
+import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
+import { altStatus } from '@/lib/bookingAction'
+import { ALT_OPEN, bookingReadiness } from '@/lib/readiness'
 import { Ic } from './icons'
 import PageHead from './PageHead'
 import MonthPick from './MonthPick'
@@ -37,11 +39,11 @@ export function Chart({ B }: { B: any[] }) {
 type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret' | 'appr'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
 const dShort = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })
-const ALT: Record<string, [string, string, string]> = { not_started: ['Not Started', 'var(--red)', 'xc'], alterations_pending: ['In Progress', 'var(--amber)', 'prog'], cleaning_pending: ['In Progress (cleaning)', 'var(--amber)', 'prog'], ready: ['Completed', 'var(--green)', 'checkc'] }
+// Colour and icon for each alteration stage (the label itself comes from altStatus() in lib/bookingAction.ts).
+const JT: Record<string, [string, string]> = { warn: ['var(--red)', 'xc'], todo: ['var(--amber)', 'prog'], busy: ['var(--amber)', 'prog'], check: ['var(--blue)', 'search'], done: ['var(--green)', 'checkc'], off: ['var(--mut)', 'ban'] }
 export default function Dashboard({ ctx }: { ctx: any }) {
   const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), tomorrow = addD(today, 1)
-  const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [all, setAll] = useState(false); const [wf, setWf] = useState<string | null>(null); const [alts, setAlts] = useState<any[]>([])
-  useEffect(() => { ctx.sb.rpc('prep_list', { p_days: 7 }).then(({ data }: any) => setAlts((data || []).filter((r: any) => (r.alteration_notes || '').trim()))) }, [ctx.tick])
+  const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [all, setAll] = useState(false); const [wf, setWf] = useState<string | null>(null)
   const made = B.filter(b => b.status !== 'cancelled' && istDate(b.created_at) === today)
   const delToday = B.filter(b => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status))
   const retToday = B.filter(b => b.end_date === today && ['out', 'returned'].includes(b.status))
@@ -55,31 +57,30 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const rent = sum(b => b.rent), cust = sum(b => b.custom_charge || 0), dmg = sum(b => b.damage_charge || 0), late = sum(b => b.late_fee || 0)
   const other = Math.max(0, sum(b => b.charges) - cust - dmg - late), total = sum(b => b.rent + b.charges)
   const monName = new Date(mon + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-  // Today's deliveries show only three states: Alteration Pending, Ready, Delivered.
-  const stOf = (b: any) => b.status !== 'confirmed' ? 2 : ((b.alteration_notes || '').trim() && b.prep_status !== 'ready') ? 0 : 1
+  // Today's deliveries show three states: Not Ready (with the reason), Ready, Delivered. Readiness comes from lib/readiness.ts.
+  const stOf = (b: any) => b.status !== 'confirmed' ? 2 : bookingReadiness(ctx, b).ready ? 1 : 0
   const todays = delToday.slice().sort((a, b) => stOf(a) - stOf(b) || a.id.localeCompare(b.id))
   const shownDel = all ? todays : todays.slice(0, 5)
-  const ST: [string, string, string][] = [['Alteration Pending', 'var(--amber)', 'scissors'], ['Ready', 'var(--blue)', 'truck'], ['Delivered', 'var(--green)', 'checkc']]
+  const ST: [string, string, string][] = [['Not Ready', 'var(--amber)', 'scissors'], ['Ready', 'var(--blue)', 'truck'], ['Delivered', 'var(--green)', 'checkc']]
   // Pending alterations: delivery from today to today+7 (plus any overdue). Due by = the day before delivery, never earlier than today.
   const dueBy = (r: any) => { const d = addD(r.start_date, -1); return d < today ? today : d }
-  const alRows = alts.filter(r => r.status === 'confirmed' || r.status === 'pending').map(r => ({ ...r, due: dueBy(r), over: r.start_date < today })).sort((a, b) => (a.prep_status === 'ready' ? 1 : 0) - (b.prep_status === 'ready' ? 1 : 0) || a.due.localeCompare(b.due) || a.start_date.localeCompare(b.start_date))
-  const openAl = alRows.filter(r => r.prep_status !== 'ready').length
-  async function setPrep(r: any, v: string) { const { error } = await ctx.sb.rpc('set_prep_status', { p_id: r.id, p_status: v }); ctx.say(error ? 'Could not update the status.' : `${r.dress_code}: ${ALT[v]?.[0] || v}`); ctx.load() }
+  const bookById = new Map<string, any>(B.map(b => [b.id, b]))
+  const alRows = (ctx.AJ || []).filter((j: any) => j.source !== 'damage' && [...ALT_OPEN, 'ready'].includes(j.status)).map((j: any) => ({ job: j, b: bookById.get(j.booking_id) })).filter(({ b }: any) => b && (b.status === 'confirmed' || b.status === 'pending') && b.start_date <= in7)
+    .map(({ job, b }: any) => ({ ...b, job, due: dueBy(b), over: b.start_date < today })).sort((a: any, b: any) => (a.job.status === 'ready' ? 1 : 0) - (b.job.status === 'ready' ? 1 : 0) || a.due.localeCompare(b.due) || a.start_date.localeCompare(b.start_date))
   const decide = async (a: any, yes: boolean) => {
     const v = await ctx.ask(yes ? 'Approve the shortfall?' : 'Decline the shortfall?', [{ name: 'n', label: 'Note for the team (optional)' }], { ok: yes ? 'Approve' : 'Decline', note: `${yes ? 'The booking can then be delivered or returned' : 'The team must collect the balance'} with ${inr(a.shortfall)} unpaid.` }); if (!v) return
     const { error } = await ctx.sb.rpc('decide_approval', { p_id: a.id, p_approve: yes, p_note: v.n }); ctx.say(error ? 'Could not save your decision.' : yes ? 'Approved' : 'Declined'); ctx.load()
   }
-  const markReady = async (b: any) => { const { error } = await ctx.sb.rpc('set_prep_status', { p_id: b.id, p_status: 'ready' }); ctx.say(error ? 'Could not update the status.' : `${b.dress_code} marked ready`); ctx.load() }
   const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers', appr: ctx.owner ? 'Shortfalls waiting for your approval' : 'Shortfall requests' }
   const dl = (f: string) => <PendingDeliveries ctx={ctx} filter={f} />, rt = (f: string) => <PendingReturns ctx={ctx} filter={f} />
   // Workflow overview (secondary): live lists, each sorted by its nearest relevant date.
-  const needsAlt = (b: any) => !!(b.alteration_notes || '').trim() && b.prep_status !== 'ready'
+  const needsAlt = (b: any) => (ctx.AJ || []).some((j: any) => j.booking_id === b.id && j.source !== 'damage' && ALT_OPEN.includes(j.status))
   const un = B.filter(b => b.status === 'confirmed' || b.status === 'pending'), outs = B.filter(b => b.status === 'out')
   const asc = (k: string) => (a: any, b: any) => a[k].localeCompare(b[k]) || a.id.localeCompare(b.id)
   const dcOpen = (ctx.DC || []).filter((c: any) => !c.returned_on).sort((a: any, b: any) => (a.expected_back || a.sent_on).localeCompare(b.expected_back || b.sent_on))
   const WF: { k: string; l: string; ic: string; c: string; rows: any[]; dk: 'start_date' | 'end_date' | 'dc' }[] = [
     { k: 'alt', l: 'Alterations', ic: 'scissors', c: '#c58a2b', rows: un.filter(needsAlt).sort(asc('start_date')), dk: 'start_date' },
-    { k: 'ready', l: 'Ready for Delivery', ic: 'truck', c: '#4d6d9a', rows: B.filter(b => b.status === 'confirmed' && !needsAlt(b)).sort(asc('start_date')), dk: 'start_date' },
+    { k: 'ready', l: 'Ready for Delivery', ic: 'truck', c: '#4d6d9a', rows: B.filter(b => b.status === 'confirmed' && bookingReadiness(ctx, b).ready).sort(asc('start_date')), dk: 'start_date' },
     { k: 'out', l: 'Out for Rental', ic: 'dress', c: '#4f8a5b', rows: outs.slice().sort(asc('end_date')), dk: 'end_date' },
     { k: 'due', l: 'Due for Return', ic: 'ret', c: '#9a7b6a', rows: outs.filter(b => b.end_date <= addD(today, 2)).sort(asc('end_date')), dk: 'end_date' },
     { k: 'dc', l: 'Dry Cleaning', ic: 'sparkle', c: '#7a6aa6', rows: dcOpen, dk: 'dc' }]
@@ -93,10 +94,11 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   ) : null
   const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={40} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
   const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 46, 60)}<div><b>{code}</b><span>{name}</span></div></div>
-  const duePill = (r: any) => r.prep_status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Ic n="calendar" s={15} />{dShort(r.due)}</span>
-  const delAction = (b: any, k: number) => k === 1 ? <button className="btn sm wine" onClick={e => { e.stopPropagation(); ctx.pickup(b) }}>Mark delivered</button> : k === 0 ? <button className="btn sm alt" onClick={e => { e.stopPropagation(); markReady(b) }}>Mark ready</button> : null
+  const duePill = (r: any) => r.job.status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Ic n="calendar" s={15} />{dShort(r.due)}</span>
+  const delAction = (b: any, k: number) => k === 1 ? <button className="btn sm wine" onClick={e => { e.stopPropagation(); ctx.pickup(b) }}>Mark delivered</button> : k === 0 ? <button className="btn sm alt" onClick={e => { e.stopPropagation(); ctx.openBooking(b.id) }}>See what's pending</button> : null
   const pendOf = (b: any) => Math.max(0, b.rent + b.charges - b.paid) + Math.max(0, b.deposit - b.deposit_held)
-  const altSel = (r: any, c: string, ic: string) => <span className="bdg" style={tint(c)}><Ic n={ic} s={15} /><select className="bare" value={r.prep_status} onChange={e => setPrep(r, e.target.value)} aria-label="Alteration status">{['not_started', 'alterations_pending', 'cleaning_pending', 'ready'].map(k => <option key={k} value={k}>{ALT[k][0]}</option>)}</select></span>
+  // Alteration stage badge: read-only. The work itself is done in Alterations (open the booking, then its primary action).
+  const altBadge = (r: any) => { const st = altStatus(r.job), [c, ic] = JT[st.tone] || JT.off; return <span className="bdg" style={tint(c)} title={st.hint}><Ic n={ic} s={15} />{st.label}</span> }
   return (<div>
     <PageHead icon="home" title="Dashboard" sub="Daily operations, deliveries, alterations and business overview"><div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></PageHead>
     <div className="k6">
@@ -115,25 +117,25 @@ export default function Dashboard({ ctx }: { ctx: any }) {
           {shownDel.map(b => { const k = stOf(b), [lab, c, ic] = ST[k], pend = pendOf(b)
             return <tr key={b.id} className="cl" onClick={() => ctx.openBooking(b.id)}><td><span className="bid">{b.id}</span></td><td>{b.customer_name}</td><td>{dressCell(b.dress_code, b.dress_name, b.dress_id)}</td><td>{dShort(b.end_date)}</td>
               <td title="Rent still unpaid plus any refundable deposit still to collect">{k === 2 || !pend ? <span className="mut">—</span> : <b>{inr(pend)}</b>}</td>
-              <td><span className="bdg" style={tint(c)}><Ic n={ic} s={14} />{lab}</span></td><td style={{ whiteSpace: 'nowrap' }}>{delAction(b, k)}</td></tr> })}
+              <td><span className="bdg" style={tint(c)} title={k === 0 ? bookingReadiness(ctx, b).reasons.map(x => x.label).join(' · ') : undefined}><Ic n={ic} s={14} />{k === 0 ? bookingReadiness(ctx, b).summary : lab}</span></td><td style={{ whiteSpace: 'nowrap' }}>{delAction(b, k)}</td></tr> })}
           {!todays.length && <tr><td colSpan={7} className="mut" style={{ padding: 16 }}>No deliveries today.</td></tr>}</tbody></table></div>
         <div className="m-list">{shownDel.map(b => { const k = stOf(b), [lab, c, ic] = ST[k], pend = pendOf(b)
           return <div key={b.id} className="mc" onClick={() => ctx.openBooking(b.id)}><div className="mc-top">{ctx.thumb(ctx.dmap[b.dress_id], 54, 70)}
-            <div className="mc-main"><div className="mc-row"><b>{b.dress_code}</b><span className="bdg" style={tint(c)}><Ic n={ic} s={13} />{lab}</span></div><div className="mc-sub">{b.dress_name}</div>
+            <div className="mc-main"><div className="mc-row"><b>{b.dress_code}</b><span className="bdg" style={tint(c)}><Ic n={ic} s={13} />{k === 0 ? bookingReadiness(ctx, b).summary : lab}</span></div><div className="mc-sub">{b.dress_name}</div>
               <div className="mc-meta">{b.customer_name} · <span className="bid">{b.id}</span></div><div className="mc-meta">Return {dShort(b.end_date)}{k !== 2 && pend > 0 && <> · <b style={{ color: 'var(--red)' }}>Pending {inr(pend)}</b></>}</div></div></div>
             {k !== 2 && <div className="mc-act">{delAction(b, k)}</div>}</div> })}
           {!todays.length && <p className="mut" style={{ padding: 14, margin: 0 }}>No deliveries today.</p>}</div>
         {todays.length > 5 && <button className="more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `View ${todays.length - 5} more deliveries for today`}</button>}</div>
       <div className="pnl"><div className="pnl-h" style={tint('var(--amber)')}><h2><Ic n="scissors" s={26} />Pending Alterations (Next 7 Days)</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'alterations' }) }}>View All <Ic n="arrow" s={16} /></a></div>
         <div className="scroll dt-wrap"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Delivery Date</th><th>Due By</th><th>Status</th></tr></thead><tbody>
-          {alRows.map(r => { const [lab, c, ic] = ALT[r.prep_status] || ALT.not_started
-            return <tr key={r.id} className="cl" style={r.prep_status === 'ready' ? { opacity: .6 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><td><span className="bid">{r.id}</span></td><td>{r.customer_name}</td><td>{dressCell(r.dress_code, r.dress_name, r.dress_id, r.image)}</td><td>{dShort(r.start_date)}</td><td>{duePill(r)}</td>
-              <td onClick={e => e.stopPropagation()}>{altSel(r, c, ic)}</td></tr> })}
+          {alRows.map(r => { const [lab, c, ic] = [0, 0, 0]
+            return <tr key={r.id} className="cl" style={r.job.status === 'ready' ? { opacity: .6 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><td><span className="bid">{r.id}</span></td><td>{r.customer_name}</td><td>{dressCell(r.dress_code, r.dress_name, r.dress_id, r.image)}</td><td>{dShort(r.start_date)}</td><td>{duePill(r)}</td>
+              <td>{altBadge(r)}</td></tr> })}
           {!alRows.length && <tr><td colSpan={6} className="mut" style={{ padding: 16 }}>No alterations pending in the next 7 days.</td></tr>}</tbody></table></div>
-        <div className="m-list">{alRows.map(r => { const [lab, c, ic] = ALT[r.prep_status] || ALT.not_started
-          return <div key={r.id} className="mc" style={r.prep_status === 'ready' ? { opacity: .65 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><div className="mc-top">{ctx.thumb(ctx.dmap[r.dress_id] || { images: r.image ? [r.image] : [] }, 54, 70)}
+        <div className="m-list">{alRows.map(r => { const [lab, c, ic] = [0, 0, 0]
+          return <div key={r.id} className="mc" style={r.job.status === 'ready' ? { opacity: .65 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><div className="mc-top">{ctx.thumb(ctx.dmap[r.dress_id] || { images: r.image ? [r.image] : [] }, 54, 70)}
             <div className="mc-main"><div className="mc-row"><b>{r.dress_code}</b>{duePill(r)}</div><div className="mc-sub">{r.dress_name}</div><div className="mc-meta">{r.customer_name} · <span className="bid">{r.id}</span></div><div className="mc-meta">Delivery {dShort(r.start_date)}</div></div></div>
-            <div className="mc-act" onClick={e => e.stopPropagation()}>{altSel(r, c, ic)}</div></div> })}
+            <div className="mc-act">{altBadge(r)}</div></div> })}
           {!alRows.length && <p className="mut" style={{ padding: 14, margin: 0 }}>No alterations pending in the next 7 days.</p>}</div></div></div>
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
       <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>

@@ -92,7 +92,7 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
     if (dcu.error) return ctx.say(ERR(dcu.error.message))
     const up = await ctx.sb.from('dry_clean_requests').update({ status: 'complete', returned_on: f.date, returned_by: actor, final_charge: f.cost, returned_condition: 'Ready', return_notes: f.notes || null, completed_at: now, completed_by: actor }).eq('id', r.id)
     if (up.error) return ctx.say('The dress is back, but the cleaning record could not be closed: ' + up.error.message)
-    await ctx.sb.from('dresses').update({ status: 'available', condition: f.notes || 'Ready after dry cleaning' }).eq('id', r.dress_id)
+    await ctx.sb.from('dresses').update({ condition: f.notes || 'Ready after dry cleaning' }).eq('id', r.dress_id)   // cleaning never changes the stock status, so a Damaged dress stays Damaged
     const paid = await ctx.sb.from('cash_expenses').select('id').eq('dry_cleaning_id', r.dry_cleaning_id).is('voided_at', null).maybeSingle()
     if (!paid.data && f.cost > 0) { const pay = await ctx.ask('Record cleaner payment?', [{ name: 'mode', label: 'Payment mode', options: ['Cash', 'GPay / UPI', 'Card', 'Bank transfer', 'Not paid yet'], value: 'Cash' }], { ok: 'Continue', note: `Final charge ${inr(f.cost)}. If already paid, select the payment mode used.` }); if (pay && pay.mode !== 'Not paid yet') await ctx.sb.rpc('record_wash_payment', { p_wash: r.dry_cleaning_id, p_mode: pay.mode }) }
     ctx.say(`${d?.code || 'Dress'} is back and available.`); ctx.load()

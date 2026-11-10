@@ -4,6 +4,7 @@ import { supa } from '@/lib/supabase/client'
 import { addD, CATS, COLOURS, dmy, inr, istDate, MAIN_CATS, mainCatOf, nDays, PAY_MODES, PREP, todayIST } from '@/lib/util'
 import { autoColours } from '@/lib/colours'
 import { fetchAll } from '@/lib/fetchAll'
+import { bookingReadiness } from '@/lib/readiness'
 import { byDesc, mergeRows } from '@/lib/merge'
 import DressForm from './admin/DressForm'
 import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
@@ -159,7 +160,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   async function patch(b: any, p: any, msg: string): Promise<boolean> {
     const { error } = await sb.from('bookings').update({ ...p, log: [...(b.log || []), { t: new Date().toISOString(), m: msg, by: name }] }).eq('id', b.id)
-    say(error ? (error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : error.message.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : error.message) : msg); load(); return !error
+    say(error ? (error.message.includes('DRESS_ALREADY_OUT') ? 'This dress is still out with another customer. Process that return first.' : error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : error.message.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : error.message) : msg); load(); return !error
   }
   // Deposit still to be handed back on return = deposit held, less any rent/charges still unpaid.
   const refundDue = (b: any, extra = 0) => Math.max(0, b.deposit_held - Math.max(0, b.rent + b.charges + extra - b.paid))
@@ -202,6 +203,14 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     return shortfallOk(b.id, owing - a)
   }
   async function pickup(b: any) {
+    // Readiness guard (same rules as the Dashboard / Calendar / Inventory, from lib/readiness.ts). It runs for every Mark delivered button.
+    const rd = bookingReadiness({ B, D, AJ, CR, dmap }, b); let notReadyNote = ''
+    if (rd.applicable && !rd.ready) {
+      if (rd.hard) return say(`Cannot deliver yet: ${rd.reasons.filter(r => r.hard).map(r => r.label).join('; ')}. Record that return first.`)
+      const labels = rd.reasons.map(r => r.label).join('; ')
+      const ov = await ask('This dress is not ready', [{ name: 'why', label: 'Why are you delivering it anyway?', required: true }], { ok: 'Deliver anyway', note: `Not ready: ${labels}. Only continue if you have checked the dress yourself. Your reason is saved in the booking history.` }); if (!ov) return
+      notReadyNote = String(ov.why || '').trim(); if (!notReadyNote) return say('Please enter the reason.')
+    }
     const depPending = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
     const fields: Fld[] = []
     if (depPending > 0) fields.push({ name: 'dep', label: `Refundable deposit still to collect (₹). Deposit ${inr(b.deposit)}, already paid ${inr(b.deposit_held)}`, type: 'number', value: String(depPending), required: true })
@@ -217,7 +226,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     if (adv > 0) rows.push(...rentRows(b, adv, v.mode))
     if (rows.length) { const { error } = await sb.from('payments').insert(rows); if (error) return say(error.message) }
     if (!(await shortfallOk(b.id, owing - adv))) { load(); return }
-    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}`)
+    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}${notReadyNote ? `. Delivered although not ready (${rd.reasons.map(r => r.label).join('; ')}). Reason: ${notReadyNote}` : ''}`)
   }
   async function ret(b: any) {
     // Rent (and customization) must be fully received before a return is processed; a shortfall needs the owner's approval.
@@ -228,7 +237,9 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const condition = ({ 'Good':'good','Minor Marks':'minor_marks','Needs Cleaning':'needs_cleaning','Damage / Repair Required':'damage_repair' } as any)[v.condition], cleanRequired = v.clean === 'Add to Dry Cleaning List'
     if ((condition === 'good' || condition === 'damage_repair') && cleanRequired) return say(condition === 'good' ? 'Good condition does not need a cleaning queue entry.' : 'Route damage or repair issues to maintenance; do not add them to dry cleaning.')
     if (condition === 'needs_cleaning' && !cleanRequired) return say('This inspection requires a cleaning queue entry.')
-    const lf = +(v.lf || 0), dc = +(v.dc || 0), n = String(v.n || '').trim(), aLf = owner ? lf : 0, aDc = owner ? dc : 0, refund = refundDue(b, aLf + aDc)
+    const lf = +(v.lf || 0), dc = +(v.dc || 0), n = String(v.n || '').trim()
+    // Late fee and damage charge apply immediately for whoever processes the return; the deposit settles them first.
+    const aLf = lf, aDc = dc, refund = refundDue(b, lf + dc)
     const kept = Math.max(0, Math.min(b.deposit_held - refund, Math.max(0, b.rent + b.charges + aLf + aDc - b.paid)))   // deposit kept against unpaid dues
     // What the kept deposit was applied to, in the order dues are settled: rent, customization, earlier charges, late fee, damage / repair / cleaning.
     const cust = b.custom_charge || 0, unpaidRent = Math.max(0, b.rent - b.paid), unpaidCust = Math.max(0, cust - Math.max(0, b.paid - b.rent)), unpaidPrev = Math.max(0, Math.max(0, b.rent + b.charges - b.paid) - unpaidRent - unpaidCust)
@@ -237,26 +248,18 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       const t = Math.min(left, due); if (t > 0) { applied.push({ amt: t, why }); left -= t }
     }
     if (left > 0) applied.push({ amt: left, why: 'Unpaid dues' })
-    const ok = await patch(b, { status: 'returned', returned_at: new Date().toISOString(), charges: b.charges + aLf + aDc, late_fee: b.late_fee + aLf, damage_charge: b.damage_charge + aDc, return_notes: n || b.return_notes || null },
-      `Returned${n ? ': ' + n : ''}${(lf || dc) && !owner ? ` (charges ${inr(lf + dc)} to be set by owner)` : ''}. Deposit handed back: ${inr(refund)}${kept ? `. Deposit kept against dues: ${inr(kept)} (${applied.map(a => `${a.why} ${inr(a.amt)}`).join(', ')})` : ''}`)
-    if (!ok) return
-    const photoFiles: File[] = Array.from(v.photos || [])
-    const photoUrls: string[] = []
-    for (const [i, file] of photoFiles.entries()) { if (!(file instanceof File) || !file.size) continue; const path = `${b.id}/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`; const up = await sb.storage.from('return-inspection-photos').upload(path,file,{upsert:false,contentType:file.type}); if(!up.error) photoUrls.push(sb.storage.from('return-inspection-photos').getPublicUrl(path).data.publicUrl) }
-    const ins = await sb.from('return_inspections').insert({ booking_id:b.id,dress_id:b.dress_id,condition,notes:n||null,photos:photoUrls,cleaning_required:cleanRequired }).select('id').single()
-    if (ins.error) { say('Return saved, but condition inspection could not be stored. Run Supabase migration-v10.sql and record the inspection.'); load(); return }
-    if (cleanRequired) { const act = CR.find((r: any) => r.dress_id === b.dress_id && ['to_be_sent', 'sent', 'returned_pending_check'].includes(r.status)); if (act) say(`This dress is already in the cleaning workflow (${act.status === 'to_be_sent' ? 'To Be Sent' : act.status === 'sent' ? 'Sent to Cleaner' : 'Returned from Cleaner'}); no second record was created.`)
-      else { const req = await sb.from('dry_clean_requests').insert({ dress_id:b.dress_id,booking_id:b.id,inspection_id:ins.data.id,condition,condition_notes:n||null,status:'to_be_sent' }); if(req.error) say('Return saved and inspection recorded, but the dress could not be added to the cleaning queue: '+req.error.message) } }
-    if (condition === 'damage_repair') {
-      // Damaged Queue: a normal alteration job (same stages) linked to this dress and return inspection.
-      const q = await sb.from('alteration_jobs').insert({ booking_id: b.id, dress_id: b.dress_id, inspection_id: ins.data.id, source: 'damage', requirements: n || 'Damage / repair required', status: 'pending_dispatch' })
-      if (q.error) say('Return saved, but the dress could not be added to the Damaged Queue. Run Supabase migration-v13.sql. ' + q.error.message)
-      else await sb.from('dresses').update({ status: 'maintenance', condition: n || 'Damage / repair required' }).eq('id', b.dress_id)
-      await sb.from('admin_notifications').insert({target_role:'owner',kind:'maintenance',title:'Maintenance review needed',body:`${b.dress_code} returned damaged and was added to Alterations → Damaged Queue. ${n||''}`.trim(),booking_id:b.id}) }
-    if (refund > 0) await sb.from('payments').insert({ booking_id: b.id, amount: refund, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.rm })
-    if (kept > 0) await sb.from('payments').insert(applied.map(a => ({ booking_id: b.id, amount: a.amt, kind: 'charge', purpose: 'deposit_applied', mode: 'From Security Deposit', remarks: a.why })))
-    if (n) await sb.from('dresses').update({ condition: n }).eq('id', b.dress_id)
-    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept: ${applied.map(a => `${a.why} ${inr(a.amt)}`).join('; ')}.` : ''}${(lf || dc) && !owner ? ` The ${inr(lf + dc)} of charges must be added by the owner, and the amount above does not include it.` : ''} The dress becomes available again after the cleaning period.` })
+    // Photos go up first. The return itself is ONE database call: it is saved completely, or not at all.
+    const photoFiles: File[] = Array.from(v.photos || []), photoUrls: string[] = [], photoPaths: string[] = []; let photoFail = 0
+    for (const [i, file] of photoFiles.entries()) { if (!(file instanceof File) || !file.size) continue; const path = `${b.id}/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`; const up = await sb.storage.from('return-inspection-photos').upload(path, file, { upsert: false, contentType: file.type }); if (up.error) photoFail++; else { photoPaths.push(path); photoUrls.push(sb.storage.from('return-inspection-photos').getPublicUrl(path).data.publicUrl) } }
+    const { data: res, error } = await sb.rpc('return_dress', { p_booking: b.id, p_condition: condition, p_notes: n || null, p_photos: photoUrls, p_clean_required: cleanRequired, p_late_fee: lf, p_damage_charge: dc, p_refund: refund, p_refund_mode: refund > 0 ? v.rm : null, p_applied: applied })
+    if (error) {
+      if (photoPaths.length) await sb.storage.from('return-inspection-photos').remove(photoPaths)
+      const m = error.message || ''
+      say(m.includes('BAD_STATUS') ? 'This booking is not out any more. Refresh and check its status.' : m.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : m.includes('BAD_AMOUNT') ? 'The deposit amounts do not add up. Please try the return again.' : /Could not find the function|PGRST202|return_dress/i.test(m) && !m.includes('BAD_') ? 'The database update for returns (migration-v17) has not been applied yet, so nothing was saved.' : 'The return could not be saved, so nothing was changed. Please try again.')
+      load(); return
+    }
+    load()
+    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept: ${applied.map(a => `${a.why} ${inr(a.amt)}`).join('; ')}.` : ''}${res?.already_in_cleaning ? ' This dress was already in the cleaning workflow, so no second cleaning record was created.' : ''}${photoFail ? ` ${photoFail} photo(s) could not be uploaded; add them again from the booking.` : ''} The dress becomes available again after the cleaning period.` })
   }
   async function resched(b: any) {
     const v = await ask('Reschedule booking', [{ name: 's', label: 'New delivery date', type: 'date', value: b.start_date }, { name: 'e', label: 'New return date', type: 'date', value: b.end_date }]); if (!v) return

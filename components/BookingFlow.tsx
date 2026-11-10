@@ -19,7 +19,7 @@ const addDays = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z')
 export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staff, initialFrom, initialTo, left, info }: { dress: any; advancePct: number; advanceMin?: number; staff: string; initialFrom?: string; initialTo?: string; left: React.ReactNode; info: React.ReactNode }) {
   const [step, setStep] = useState<'check' | 1 | 2 | 3 | 'done'>('check')
   const [s, setS] = useState(initialFrom || ''), [e, setE] = useState(initialTo || ''), [busy, setBusy] = useState<any[]>([]), [checked, setChecked] = useState(false)
-  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', eventType: 'Wedding', eventDate: '', advance: '', mode: '', ref: '', discount: '', custom: '' })
+  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', eventType: 'Wedding', eventDate: '', dMode: '', dAddr: '', dSlot: '', dWho: '', advance: '', mode: '', ref: '', discount: '', custom: '' })
   const [eventTouched, setEventTouched] = useState(false)
   const [alt, setAlt] = useState<Alt>('none'), [items, setItems] = useState<Record<string, string>>({}), [meas, setMeas] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState(''), [warns, setWarns] = useState<string[]>([]), [wait, setWait] = useState(false), [done, setDone] = useState<any>(null)
@@ -76,19 +76,17 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
     if (rentPaid > net + cust) return setMsg('Amount received cannot be more than the refundable deposit plus the rent and customization charge.')
     setWait(true); setMsg('')
     const sb = supa(), w: string[] = []
-    const { data: id, error } = await sb.rpc('staff_create_booking', { p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_notes: altText || null, p_advance: Math.min(rentPaid, net), p_mode: f.mode, p_discount: +f.discount || 0, p_override: gapOnly && checked, p_custom: cust })
-    if (error) { setWait(false); const k = Object.keys(ERR).find(k => error.message.includes(k)); return setMsg(k ? ERR[k] : 'Something went wrong. Please try again.') }
-    if (dep > 0) { const r = await sb.from('payments').insert({ booking_id: id, amount: dep, kind: 'deposit', purpose: 'deposit', mode: f.mode, remarks: f.ref.trim() || null }); if (r.error) w.push(`The ${inr(dep)} deposit could not be recorded automatically. Record it when the dress is picked up.`) }
-    const custPaid = rentPaid - Math.min(rentPaid, net)
-    if (custPaid > 0) { const r = await sb.from('payments').insert({ booking_id: id, amount: custPaid, kind: 'rent', purpose: 'customization', mode: f.mode }); if (r.error) w.push(`The ${inr(custPaid)} customization payment could not be recorded automatically. Record it from the booking.`) }
-    const dt = await sb.rpc('set_booking_details', { p_id: id, p_event_date: f.eventDate, p_event_type: f.eventType, p_notes: f.notes || null }); if (dt.error) w.push('The event details could not be saved. Run Supabase migration-v14.sql, then add them from the booking.')
-    if (alt !== 'none') {
-      const checklist = Object.entries(items).map(([k, note]) => ({ k, note: note.trim() })), measurements = Object.fromEntries(Object.entries(meas).filter(([, v]) => v.trim()))
-      const patch = { checklist, measurements, measurements_pending: alt === 'later' && !hasMeas }
-      const ex = await sb.from('alteration_jobs').select('id').eq('booking_id', id).neq('status', 'cancelled').maybeSingle()
-      const r = ex.data ? await sb.from('alteration_jobs').update(patch).eq('id', ex.data.id) : await sb.from('alteration_jobs').insert({ booking_id: id, dress_id: dress.id, status: 'pending_dispatch', requirements: altText, ...patch })
-      if (r.error) w.push('The alteration details could not be saved with the booking. Open the booking and add them from Alterations.')
-    }
+    // ONE database call creates the booking, its payments, event and delivery details and the alteration job together:
+    // either everything is saved or nothing is, so there is no half-created booking to repair by hand.
+    const checklist = Object.entries(items).map(([k, note]) => ({ k, note: note.trim() })), measurements = Object.fromEntries(Object.entries(meas).filter(([, v]) => v.trim()))
+    const hasDelivery = !!(f.dMode || f.dAddr.trim() || f.dSlot.trim() || f.dWho.trim())
+    const { data: id, error } = await sb.rpc('staff_create_booking_full', {
+      p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_alt_notes: altText || null, p_advance: Math.min(rentPaid, net), p_mode: f.mode,
+      p_discount: +f.discount || 0, p_override: gapOnly && checked, p_custom: cust, p_deposit: dep, p_deposit_ref: f.ref.trim() || null, p_cust_paid: rentPaid - Math.min(rentPaid, net),
+      p_event_date: f.eventDate, p_event_type: f.eventType, p_notes: f.notes || null,
+      p_alt: alt !== 'none' ? { requirements: altText, checklist, measurements, measurements_pending: alt === 'later' && !hasMeas } : null,
+      p_delivery: hasDelivery ? { mode: f.dMode || null, address: f.dAddr, slot: f.dSlot, assignee: f.dWho } : null })
+    if (error) { setWait(false); const k = Object.keys(ERR).find(k => error.message.includes(k)); return setMsg(k ? ERR[k] : /Could not find the function|PGRST202|staff_create_booking_full/i.test(error.message) ? 'The booking update (migration-v17) has not been applied to the database yet, so nothing was saved.' : 'Something went wrong, so nothing was saved. Please try again.') }
     setWait(false); setWarns(w); setDone({ id, total, received: amt, balance, depDue })
     setStep('done')
   }
@@ -141,6 +139,14 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
           <label className="bk-f">Name *<input placeholder="Customer name" value={f.name} onChange={x => set('name', x.target.value)} /></label></div>
         {known && !f.name && <div className="bf-known">Returning customer · {known.n} earlier booking{known.n === 1 ? '' : 's'} <button type="button" className="textlink" onClick={() => setF(x => ({ ...x, name: known.name, email: x.email || known.email }))}>Use {known.name}</button></div>}
         <label className="bk-f" style={{ marginTop: 10 }}>Email (optional)<input type="email" placeholder="Email address" value={f.email} onChange={x => set('email', x.target.value)} /></label>
+        <details style={{ marginTop: 10 }}><summary style={{ cursor: 'pointer', fontWeight: 600 }}>Delivery details (optional)</summary>
+          <div className="bk-g2" style={{ marginTop: 8 }}>
+            <label className="bk-f">How will the dress reach the customer?<select value={f.dMode} onChange={x => set('dMode', x.target.value)}><option value="">Not decided</option><option value="pickup">Customer collects from store</option><option value="courier">We deliver it</option></select></label>
+            <label className="bk-f">Time slot<input placeholder="e.g. 10am to 12pm" value={f.dSlot} onChange={x => set('dSlot', x.target.value)} /></label>
+            <label className="bk-f">Taken by (staff or courier)<input value={f.dWho} onChange={x => set('dWho', x.target.value)} /></label>
+          </div>
+          <label className="bk-f" style={{ marginTop: 8 }}>Delivery address<textarea rows={2} placeholder="Only needed if we deliver" value={f.dAddr} onChange={x => set('dAddr', x.target.value)} /></label>
+        </details>
         <label className="bk-f" style={{ marginTop: 10 }}>Booking notes (optional)<textarea rows={2} placeholder="Notes for this booking" value={f.notes} onChange={x => set('notes', x.target.value)} /></label>
         {msg && <p className="bad">{msg}</p>}
         <div className="bk-act"><button className="btn alt" onClick={() => { setMsg(''); setStep('check') }}>Back</button>

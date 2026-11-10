@@ -439,3 +439,16 @@ Files: `supabase/migration-v15.sql` (new), `lib/approvals.ts` (new), `components
 - The Bookings table draws 50 rows at a time (totals still cover every matching booking).
 - Run `supabase/migration-v16-performance.sql` once. It adds indexes, an `updated_at` trigger on alteration jobs and a phone-search index. It changes no data.
 - If your Supabase "Max rows" API setting is below 1,000, lower the `pageSize` default in `lib/fetchAll.ts` to match.
+
+## Readiness, returns and delivery (v17)
+
+Run `supabase/migration-v17-readiness-return-delivery.sql` once (after v16). Then run its three commented REVIEW queries to see records that need a human decision; the migration itself changes no existing data.
+
+- **One readiness model** (`lib/readiness.ts`). `dressStage()` answers "where is this dress?" and `bookingReadiness()` answers "can this booking be handed over, and if not, why?". Both are derived from live bookings, alteration jobs, the cleaning queue and the dress status. The Dashboard, Calendar, Deliveries, Inventory, booking popup, Preparation list and Mark delivered all use them. The old `bookings.prep_status` is no longer read anywhere (the column stays, because the alteration-sync trigger still uses it).
+- **Dress status is no longer overwritten** by unrelated workflows. Only approving a repair can clear Damaged (and only if no other repair is open). Finishing an alteration or a dry clean leaves the status alone. Inventory's "Return to Available" warns if a repair is still open.
+- **Store location.** Optional text on each dress (Inventory → Set Store Location), shown under the dress state.
+- **Mark delivered** checks readiness on every screen. Not ready: the manager must give a reason (saved in the booking history). Dress still with another customer: blocked outright, and the database enforces it (`DRESS_ALREADY_OUT`).
+- **Delivery details** (optional): pickup or courier, time slot, taken by, address. Set when booking or from the booking popup.
+- **Returns** are one database call, `return_dress()`. Everything is saved or nothing is. Late fees and damage charges entered at return apply immediately for whoever processes it (no approval step); the deposit settles them first.
+- **Booking creation** is one database call, `staff_create_booking_full()`: booking, payments, event and delivery details and alteration job together.
+- **Preparation role** now sees the real alteration/repair queue (`prep_jobs()`), read-only. Moving a job forward is done in Alterations.

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addD, dmy, PREP, todayIST } from '@/lib/util'
+import { addD, dmy, todayIST } from '@/lib/util'
+import { bookingReadiness } from '@/lib/readiness'
 import { Ic } from './icons'
 
 type Kind = 'delivery' | 'alteration' | 'return' | 'cleaning' | 'other'
@@ -45,8 +46,7 @@ export default function Calendar({ ctx, onBlock, onBlockInfo }: { ctx: any; onBl
       if (b.status === 'out' || b.status === 'returned') { status = 'Delivered'; tone = 'ok' }
       else if (atRisk) { status = 'Delivery at Risk'; tone = 'bad' }
       else if (b.start_date < today) { status = 'Not delivered'; tone = 'bad' }
-      else if (b.prep_status === 'ready') { status = 'Ready'; tone = 'ok' }
-      else { status = PREP[b.prep_status] || 'Not started'; tone = b.prep_status === 'alterations_pending' || b.prep_status === 'cleaning_pending' ? 'warn' : 'neutral' }
+      else { const r = bookingReadiness(ctx, b); status = r.ready ? 'Ready' : r.summary; tone = r.ready ? 'ok' : 'warn' }
       const late = active(b) && b.start_date < today
       ev.push({ id: 'd' + b.id, kind: 'delivery', date: late ? today : b.start_date, dress: b.dress_id, title: b.customer_name, ref: `${b.id} · ${b.dress_code}`, sub: late ? 'Was due ' + short(b.start_date) : undefined, status, tone, risk: tone === 'bad', done: b.status === 'out' || b.status === 'returned', bid: b.id })
       const od = state(b) === 'overdue'

@@ -1,4 +1,5 @@
 'use client'
+import { shouldClearDamaged } from '@/lib/readiness'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
@@ -69,8 +70,9 @@ export default function Alterations({ ctx }: { ctx: any }) {
   async function approve(j: any, qc: Record<string, boolean>, note: string) {
     const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'ready', checked_at: new Date().toISOString(), qc, qc_notes: note.trim() || null, updated_at: new Date().toISOString() }).eq('id', j.id)
     if (error) return ctx.say('Could not approve. Has migration v12 been run? ' + error.message)
-    await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id); if (!isDmg(j)) await ctx.sb.rpc('set_prep_status', { p_id: j.booking_id, p_status: 'ready' })
-    ctx.say('Quality check approved. Dress marked ready.'); ctx.load(); setOpenId(null)
+    // Only finishing a REPAIR can clear "Damaged" (and only when no other repair is open). A normal alteration never changes the dress status.
+    if (shouldClearDamaged(ctx, ctx.dmap[j.dress_id], j)) await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id)
+    ctx.say(isDmg(j) ? 'Repair approved.' : 'Quality check approved. Alteration complete.'); ctx.load(); setOpenId(null)
   }
   // Quality check failed: the same job goes back to At Tailoring Unit (no new status). The reason is kept in the job notes.
   async function sendBack(j: any) {
