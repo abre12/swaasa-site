@@ -19,7 +19,7 @@ const addDays = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z')
 export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staff, initialFrom, initialTo, left, info }: { dress: any; advancePct: number; advanceMin?: number; staff: string; initialFrom?: string; initialTo?: string; left: React.ReactNode; info: React.ReactNode }) {
   const [step, setStep] = useState<'check' | 1 | 2 | 3 | 'done'>('check')
   const [s, setS] = useState(initialFrom || ''), [e, setE] = useState(initialTo || ''), [busy, setBusy] = useState<any[]>([]), [checked, setChecked] = useState(false)
-  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', eventType: 'Wedding', eventDate: '', dMode: '', dAddr: '', dSlot: '', dWho: '', advance: '', mode: '', ref: '', discount: '', custom: '' })
+  const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', eventType: 'Wedding', eventDate: '', dMode: '', dAddr: '', advance: '', mode: '', ref: '', discount: '', custom: '' })
   const [eventTouched, setEventTouched] = useState(false)
   const [alt, setAlt] = useState<Alt>('none'), [items, setItems] = useState<Record<string, string>>({}), [meas, setMeas] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState(''), [warns, setWarns] = useState<string[]>([]), [wait, setWait] = useState(false), [done, setDone] = useState<any>(null)
@@ -61,6 +61,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
     if (!valid || !canBook) { setMsg('Choose dates that are available for this dress.'); return false }
     if (!f.name.trim() || f.phone.replace(/\D/g, '').length < 10) { setMsg(ERR.BAD_CONTACT); return false }
     if (!f.eventDate) { setMsg('Event date is required.'); return false }
+    if (f.dMode === 'courier' && !f.dAddr.trim()) { setMsg('Please enter the delivery address, or choose that the customer collects from the store.'); return false }
     if (f.eventDate < s || f.eventDate > e) { setMsg(`The event date must fall between delivery (${dmy(s)}) and return (${dmy(e)}).`); return false }
     return true
   }
@@ -79,13 +80,13 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
     // ONE database call creates the booking, its payments, event and delivery details and the alteration job together:
     // either everything is saved or nothing is, so there is no half-created booking to repair by hand.
     const checklist = Object.entries(items).map(([k, note]) => ({ k, note: note.trim() })), measurements = Object.fromEntries(Object.entries(meas).filter(([, v]) => v.trim()))
-    const hasDelivery = !!(f.dMode || f.dAddr.trim() || f.dSlot.trim() || f.dWho.trim())
+    const hasDelivery = f.dMode === 'courier'   // nothing set = the customer collects from the store
     const { data: id, error } = await sb.rpc('staff_create_booking_full', {
       p_dress: dress.id, p_start: s, p_end: e, p_name: f.name, p_phone: f.phone, p_email: f.email || null, p_alt_notes: altText || null, p_advance: Math.min(rentPaid, net), p_mode: f.mode,
       p_discount: +f.discount || 0, p_override: gapOnly && checked, p_custom: cust, p_deposit: dep, p_deposit_ref: f.ref.trim() || null, p_cust_paid: rentPaid - Math.min(rentPaid, net),
       p_event_date: f.eventDate, p_event_type: f.eventType, p_notes: f.notes || null,
       p_alt: alt !== 'none' ? { requirements: altText, checklist, measurements, measurements_pending: alt === 'later' && !hasMeas } : null,
-      p_delivery: hasDelivery ? { mode: f.dMode || null, address: f.dAddr, slot: f.dSlot, assignee: f.dWho } : null })
+      p_delivery: hasDelivery ? { mode: 'courier', address: f.dAddr } : null })
     if (error) { setWait(false); const k = Object.keys(ERR).find(k => error.message.includes(k)); return setMsg(k ? ERR[k] : /Could not find the function|PGRST202|staff_create_booking_full/i.test(error.message) ? 'The booking update (migration-v17) has not been applied to the database yet, so nothing was saved.' : 'Something went wrong, so nothing was saved. Please try again.') }
     setWait(false); setWarns(w); setDone({ id, total, received: amt, balance, depDue })
     setStep('done')
@@ -139,14 +140,10 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
           <label className="bk-f">Name *<input placeholder="Customer name" value={f.name} onChange={x => set('name', x.target.value)} /></label></div>
         {known && !f.name && <div className="bf-known">Returning customer · {known.n} earlier booking{known.n === 1 ? '' : 's'} <button type="button" className="textlink" onClick={() => setF(x => ({ ...x, name: known.name, email: x.email || known.email }))}>Use {known.name}</button></div>}
         <label className="bk-f" style={{ marginTop: 10 }}>Email (optional)<input type="email" placeholder="Email address" value={f.email} onChange={x => set('email', x.target.value)} /></label>
-        <details style={{ marginTop: 10 }}><summary style={{ cursor: 'pointer', fontWeight: 600 }}>Delivery details (optional)</summary>
-          <div className="bk-g2" style={{ marginTop: 8 }}>
-            <label className="bk-f">How will the dress reach the customer?<select value={f.dMode} onChange={x => set('dMode', x.target.value)}><option value="">Not decided</option><option value="pickup">Customer collects from store</option><option value="courier">We deliver it</option></select></label>
-            <label className="bk-f">Time slot<input placeholder="e.g. 10am to 12pm" value={f.dSlot} onChange={x => set('dSlot', x.target.value)} /></label>
-            <label className="bk-f">Taken by (staff or courier)<input value={f.dWho} onChange={x => set('dWho', x.target.value)} /></label>
-          </div>
-          <label className="bk-f" style={{ marginTop: 8 }}>Delivery address<textarea rows={2} placeholder="Only needed if we deliver" value={f.dAddr} onChange={x => set('dAddr', x.target.value)} /></label>
-        </details>
+        <div className="bk-g2" style={{ marginTop: 10 }}>
+          <label className="bk-f">Delivery<select value={f.dMode} onChange={x => set('dMode', x.target.value)}><option value="">Customer collects from store</option><option value="courier">We deliver to the customer</option></select></label>
+        </div>
+        {f.dMode === 'courier' && <label className="bk-f" style={{ marginTop: 8 }}>Delivery address *<textarea rows={2} value={f.dAddr} onChange={x => set('dAddr', x.target.value)} /></label>}
         <label className="bk-f" style={{ marginTop: 10 }}>Booking notes (optional)<textarea rows={2} placeholder="Notes for this booking" value={f.notes} onChange={x => set('notes', x.target.value)} /></label>
         {msg && <p className="bad">{msg}</p>}
         <div className="bk-act"><button className="btn alt" onClick={() => { setMsg(''); setStep('check') }}>Back</button>

@@ -28,7 +28,8 @@ export default function Alterations({ ctx }: { ctx: any }) {
   const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1)
   const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 5
   const isDmg = (j: any) => j.source === 'damage'
-  const eligible = bookings.filter((b: any) => ['pending', 'confirmed', 'out'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !isDmg(j) && !['ready', 'cancelled'].includes(j.status)))
+  // An alteration is never started on a dress that has already gone out, so only Pending and Confirmed bookings are offered.
+  const eligible = bookings.filter((b: any) => ['pending', 'confirmed'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !isDmg(j) && !['ready', 'cancelled'].includes(j.status)))
   const count = (s: Stage) => jobs.filter(j => j.status === s && !isDmg(j) && !isCompleted(j, bookings)).length
   const damaged = jobs.filter(j => isDmg(j) && !['ready', 'cancelled'].includes(j.status))
   const completed = jobs.filter(j => isCompleted(j, bookings))
@@ -58,7 +59,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
     const b = eligible.find((x: any) => `${x.id} · ${x.customer_name} · ${x.dress_code}` === v.booking)
     if (!b) return
     const { error } = await ctx.sb.from('alteration_jobs').insert({ booking_id: b.id, dress_id: b.dress_id, requirements: v.requirements.trim(), notes: v.notes.trim() || null })
-    ctx.say(error ? error.message : 'Alteration added to Pending Dispatch.'); ctx.load()
+    ctx.say(error ? (error.message.includes('BOOKING_NOT_ACTIVE') ? 'This booking is already out, returned or cancelled, so an alteration cannot be added.' : error.message.includes('one_active') || error.message.includes('duplicate') ? 'This booking already has an open alteration.' : error.message) : 'Alteration added to Pending Dispatch.'); ctx.load()
   }
   const dispatch = (j: any) => dispatchAlteration(ctx, j)
   async function receive(j: any) {

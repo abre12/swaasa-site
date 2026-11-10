@@ -25,6 +25,7 @@ import Approvals from './admin/Approvals'
 import Calendar from './admin/Calendar'
 import PageHead from './admin/PageHead'
 import CancelBooking from './admin/CancelBooking'
+import CancelDecision from './admin/CancelDecision'
 import ReturnWizard from './admin/ReturnWizard'
 import { Ic } from './admin/icons'
 const today = todayIST
@@ -204,12 +205,17 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   }
   async function pickup(b: any) {
     // Readiness guard (same rules as the Dashboard / Calendar / Inventory, from lib/readiness.ts). It runs for every Mark delivered button.
-    const rd = bookingReadiness({ B, D, AJ, CR, dmap }, b); let notReadyNote = ''
+    const rd = bookingReadiness({ B, D, AJ, CR, dmap }, b); let notReadyNote = '', closeAlt: { id: string; how: string } | null = null
     if (rd.applicable && !rd.ready) {
       if (rd.hard) return say(`Cannot deliver yet: ${rd.reasons.filter(r => r.hard).map(r => r.label).join('; ')}. Record that return first.`)
       const labels = rd.reasons.map(r => r.label).join('; ')
-      const ov = await ask('This dress is not ready', [{ name: 'why', label: 'Why are you delivering it anyway?', required: true }], { ok: 'Deliver anyway', note: `Not ready: ${labels}. Only continue if you have checked the dress yourself. Your reason is saved in the booking history.` }); if (!ov) return
+      const altR = rd.reasons.find(r => r.code === 'alteration')
+      const ALT_OPTS: [string, string][] = [['keep', 'Keep it open (I will update it later)'], ['done', 'Close it: the alteration was completed (it was not updated in time)'], ['skipped', 'Close it: the alteration was skipped'], ['missed', 'Close it: the alteration was missed (not done)']]
+      const ov = await ask('This dress is not ready', [{ name: 'why', label: 'Why are you delivering it anyway?', required: true },
+        ...(altR ? [{ name: 'alt', label: 'What should happen to the open alteration?', options: ALT_OPTS.map(x => x[1]), value: ALT_OPTS[0][1] }] : [])], { ok: 'Deliver anyway', note: `Not ready: ${labels}. Only continue if you have checked the dress yourself. Your reason is saved in the booking history.` }); if (!ov) return
       notReadyNote = String(ov.why || '').trim(); if (!notReadyNote) return say('Please enter the reason.')
+      const pick = ALT_OPTS.find(x => x[1] === ov.alt)?.[0] || 'keep'
+      if (altR?.id && pick !== 'keep') closeAlt = { id: altR.id, how: pick }
     }
     const depPending = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
     const fields: Fld[] = []
@@ -226,7 +232,13 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     if (adv > 0) rows.push(...rentRows(b, adv, v.mode))
     if (rows.length) { const { error } = await sb.from('payments').insert(rows); if (error) return say(error.message) }
     if (!(await shortfallOk(b.id, owing - adv))) { load(); return }
-    await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}${notReadyNote ? `. Delivered although not ready (${rd.reasons.map(r => r.label).join('; ')}). Reason: ${notReadyNote}` : ''}`)
+    const delivered = await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}${notReadyNote ? `. Delivered although not ready (${rd.reasons.map(r => r.label).join('; ')}). Reason: ${notReadyNote}` : ''}`)
+    // The manager chose to close the alteration that was still open: record WHY it is closed, so the history stays honest.
+    if (delivered && closeAlt) {
+      const done = closeAlt.how === 'done', what = done ? 'completed (not updated in time)' : closeAlt.how === 'skipped' ? 'skipped' : 'missed (not done)'
+      await sb.from('alteration_jobs').update({ status: done ? 'ready' : 'cancelled', notes: `Closed at delivery by ${name}: alteration ${what}. Reason for delivering: ${notReadyNote}`, updated_at: new Date().toISOString() }).eq('id', closeAlt.id)
+      load()
+    }
   }
   async function ret(b: any) {
     // Rent (and customization) must be fully received before a return is processed; a shortfall needs the owner's approval.
@@ -313,6 +325,13 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   }
   // Owner decision made from the notification bell: the request leaves Pending at once, and is put back if the database refuses.
   async function decideApproval(a: any, approve: boolean, note = ''): Promise<boolean> {
+    // Approving a cancellation: the owner sets the refund amounts (policy default is no refund); it is one all-or-nothing database call.
+    if (approve && a.action_type === 'booking_cancellation') {
+      const v = await new Promise<any>(res => setCdec({ a, b: B.find((x: any) => x.id === a.booking_id), res })); if (!v) return false
+      const { error } = await sb.rpc('decide_cancellation', { p_approval: a.id, p_rent_refund: v.rent, p_dep_refund: v.deposit, p_mode: v.mode, p_note: v.note || note.trim() })
+      if (error) { say(error.message.includes('NOT_FOUND') ? 'This request was already decided.' : error.message.includes('BAD_STATUS') ? 'This booking is no longer pending or confirmed, so it cannot be cancelled.' : error.message.includes('BAD_AMOUNT') ? 'The refund is more than was received. Please check the amounts.' : /Could not find the function|PGRST202/i.test(error.message) ? 'The cancellation update (migration-v18) has not been applied yet, so nothing was changed.' : 'Could not save the decision. Nothing was changed.'); load(); return false }
+      say(v.rent + v.deposit > 0 ? `Cancelled. Staff to hand back ${inr(v.rent + v.deposit)}.` : 'Cancelled. No refund (policy).'); load(); return true
+    }
     setAPPR(p => p.map(x => x.id === a.id ? { ...x, status: approve ? 'approved' : 'rejected', decided_at: new Date().toISOString(), decided_by_name: name, decision_note: note.trim() || null } : x))
     const { error } = await sb.rpc('decide_approval', { p_id: a.id, p_approve: approve, p_note: note.trim() })
     if (error) {
@@ -324,22 +343,19 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   }
   // Cancelling is meant for rare cases. One popup asks whether a refund is due, how much, the payment mode and the reason.
   // Staff: the answers are sent to the owner for approval (the booking stays active until then). Owner: applied at once.
-  const [cx, setCx] = useState<any>(null)
-  const cancelDialog = (b: any) => new Promise<{ refund: number; mode: string; reason: string } | null>(res => setCx({ b, res }))
+  const [cx, setCx] = useState<any>(null), [cdec, setCdec] = useState<any>(null)
+  const cancelDialog = (b: any) => new Promise<{ rent: number; deposit: number; mode: string; reason: string; note: string } | null>(res => setCx({ b, res }))
   async function cancelBooking(b: any) {
     if (!['pending', 'confirmed'].includes(b.status)) return
     const v = await cancelDialog(b); if (!v) return
+    const fail = (m: string) => m.includes('BAD_STATUS') ? 'This booking can no longer be cancelled (check its status).' : m.includes('BAD_AMOUNT') || m.includes('BAD_REQUEST') ? 'The refund is more than was received on this booking.' : m.includes('PENDING_EXISTS') ? 'A cancellation request is already waiting for the owner.' : m.includes('REASON_REQUIRED') ? 'Please give the reason for the cancellation.' : /Could not find the function|PGRST202/i.test(m) ? 'The cancellation update (migration-v18) has not been applied yet, so nothing was changed.' : 'Could not cancel. Nothing was changed.'
     if (!owner) {
-      const { error } = await sb.rpc('request_action_approval', { p_booking: b.id, p_action: 'booking_cancellation', p_details: { refund_amount: v.refund, mode: v.mode, reason: v.reason } })
-      say(error ? (error.message.includes('PENDING_EXISTS') ? 'A cancellation request is already waiting for the owner.' : 'Could not request the cancellation.') : 'Cancellation request sent to the owner for approval.'); load(); return
+      const { error } = await sb.rpc('request_action_approval', { p_booking: b.id, p_action: 'booking_cancellation', p_details: { reason: v.reason, rent_refund: v.rent, deposit_refund: v.deposit, justification: v.note, mode: v.mode } })
+      say(error ? fail(error.message) : 'Cancellation sent to the owner. No refund is paid until the owner decides.'); load(); return
     }
-    const dep = Math.max(0, b.deposit_held || 0)
-    if (!(await patch(b, { status: 'cancelled' }, `Cancelled: ${v.reason}. ${v.refund > 0 ? `Rent refund ${inr(v.refund)} (${v.mode})` : 'No rent refund'}${dep > 0 ? `. Deposit ${inr(dep)} returned (${v.mode})` : ''}`))) return
-    const rows: any[] = []
-    if (v.refund > 0) rows.push({ booking_id: b.id, amount: v.refund, kind: 'rent_refund', purpose: 'advance_refund', mode: v.mode, remarks: 'Cancellation refund' })
-    if (dep > 0) rows.push({ booking_id: b.id, amount: dep, kind: 'deposit_refund', purpose: 'deposit_refund', mode: v.mode, remarks: 'Cancellation deposit refund' })
-    if (rows.length) { const { error } = await sb.from('payments').insert(rows); say(error ? error.message : `Booking cancelled. Refund recorded: ${inr(rows.reduce((t, r) => t + r.amount, 0))}`) } else say('Booking cancelled. No refund due.')
-    load()
+    // Owner: ONE database call. The booking is cancelled and every refund is recorded, or nothing happens.
+    const { data, error } = await sb.rpc('cancel_booking', { p_booking: b.id, p_reason: v.reason, p_rent_refund: v.rent, p_dep_refund: v.deposit, p_mode: v.mode, p_note: v.note })
+    say(error ? fail(error.message) : (data?.rent_refund || 0) + (data?.deposit_refund || 0) > 0 ? `Booking cancelled. Hand back ${inr((data?.rent_refund || 0) + (data?.deposit_refund || 0))} to the customer.` : 'Booking cancelled. No refund (policy).'); load()
   }
   const sel = (b: any) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Mark delivered</button>}
@@ -348,7 +364,8 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => discount(b)}>{owner?'Discount':'Request discount'}</button>}
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
-    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button>}</>
+    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button>}
+    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" style={{ color: 'var(--red,#b4493f)' }} onClick={() => cancelBooking(b)}>Cancel booking</button>}</>
   // Secondary actions for the booking details footer: the contextual primary action lives in the modal header.
   const selSecondary = (b: any) => <>{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
@@ -433,6 +450,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <button className="out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={20} />Sign out</button></div></div>}
     {ob && <BookingModal key={ob.id} ctx={ctx} b={ob} limited={!ops} onClose={() => setOpenB(null)} />}
     {payB && B.find(x => x.id === payB) && <PaymentRecord key={payB} ctx={ctx} b={B.find(x => x.id === payB)} onClose={() => setPayB(null)} />}
+    {cdec && <CancelDecision a={cdec.a} b={cdec.b} onClose={v => { const r = cdec.res; setCdec(null); r(v) }} />}
     {cx && <CancelBooking key={cx.b.id} b={cx.b} owner={owner} onClose={v => { const r = cx.res; setCx(null); r(v) }} />}
     {rw && <ReturnWizard key={rw.b.id} ctx={ctx} b={rw.b} owing={rw.owing} late={rw.late} lateFee={rw.lateFee} onClose={v => { const r = rw.res; setRw(null); r(v) }} />}
     {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 95, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>

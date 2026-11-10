@@ -6,7 +6,7 @@ export const approvalIcon = (t: string) => t === 'discount' ? 'percent' : t === 
 export const approvalName = (t: string) => t === 'discount' ? 'Discount' : t === 'refund' ? 'Refund' : t === 'booking_cancellation' ? 'Booking Cancellation' : 'Short Payment'
 export const approvalTitle = (t: string) => `${approvalName(t)} Approval Required`
 // money going out or a booking being cancelled cannot be undone, so the bell asks for a second tap there
-export const needsConfirm = (t: string) => t === 'refund' || t === 'booking_cancellation'
+export const needsConfirm = (t: string) => t === 'refund'   // approving a cancellation opens its own decision screen, which is the confirmation
 
 /** What the owner is being asked to approve, in one line. */
 export function approvalDetail(a: any, bookings: any[] = []): string {
@@ -15,8 +15,8 @@ export function approvalDetail(a: any, bookings: any[] = []): string {
   if (a.action_type === 'discount') return `Additional discount: ${inr(d.amount || 0)}`
   if (a.action_type === 'refund') return `${d.kind === 'deposit_refund' ? 'Deposit' : 'Rent'} refund: ${inr(d.amount || 0)} (${d.mode || 'Cash'})`
   if (a.action_type === 'booking_cancellation') {
-    const bk = bookings.find(x => x.id === a.booking_id), dep = Math.max(0, bk?.deposit_held || 0), r = Math.round(d.refund_amount || 0)
-    return ['Cancel booking', r > 0 ? `rent refund ${inr(r)} (${d.mode || 'Cash'})` : 'no rent refund', dep > 0 ? `deposit ${inr(dep)} returned` : ''].filter(Boolean).join(' · ')
+    const r = Math.round(d.rent_refund ?? d.refund_amount ?? 0), dp = Math.round(d.deposit_refund ?? 0)
+    return ['Cancel booking', r + dp > 0 ? `staff recommend refund: ${[r > 0 ? `rent ${inr(r)}` : '', dp > 0 ? `deposit ${inr(dp)}` : ''].filter(Boolean).join(' + ')}` : 'no refund recommended (policy)'].join(' · ')
   }
   return 'Review requested'
 }

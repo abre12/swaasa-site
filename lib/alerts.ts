@@ -59,6 +59,15 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
     }
   }
 
+  // ---- C2: an alteration is still open although the dress is already with the customer ----
+  // Alterations are never done on a dress that has gone out, so this is always a record-keeping mistake (High, not Critical).
+  for (const a of (ctx.AJ || []).filter(j => ALT_ACTIVE.includes(j.status) && j.source !== 'damage')) {
+    const b = live.find(x => x.id === a.booking_id); if (!b || b.status !== 'out') continue
+    out.push({ key: `altopen:${a.id}`, level: 'high', rank: 45, short: 'Alteration left open', tag: 'ALTERATION STILL OPEN · DRESS ALREADY DELIVERED', dress: label(b), dressId: b.dress_id, more: [],
+      body: 'The dress is already with the customer, but its alteration is still open. Please close it as completed, skipped or missed.', meta: `Delivered · due back ${dmy(b.end_date)}`,
+      action: { label: 'View Workflow', kind: 'workflow', module: 'alteration', id: a.id } })
+  }
+
   // ---- C: alterations ----
   for (const a of (ctx.AJ || []).filter(j => ALT_ACTIVE.includes(j.status) && j.source !== 'damage')) {
     const b = live.find(x => x.id === a.booking_id); if (!b || !upcoming(b)) continue

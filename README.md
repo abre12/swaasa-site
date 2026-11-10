@@ -448,7 +448,26 @@ Run `supabase/migration-v17-readiness-return-delivery.sql` once (after v16). The
 - **Dress status is no longer overwritten** by unrelated workflows. Only approving a repair can clear Damaged (and only if no other repair is open). Finishing an alteration or a dry clean leaves the status alone. Inventory's "Return to Available" warns if a repair is still open.
 - **Store location.** Optional text on each dress (Inventory → Set Store Location), shown under the dress state.
 - **Mark delivered** checks readiness on every screen. Not ready: the manager must give a reason (saved in the booking history). Dress still with another customer: blocked outright, and the database enforces it (`DRESS_ALREADY_OUT`).
-- **Delivery details** (optional): pickup or courier, time slot, taken by, address. Set when booking or from the booking popup.
+- **Delivery** (optional): the customer collects from the store unless you choose "deliver", which asks for an address. Set when booking or from the booking popup (Delivery → Edit). The older `delivery_slot` / `delivery_assignee` columns are unused.
 - **Returns** are one database call, `return_dress()`. Everything is saved or nothing is. Late fees and damage charges entered at return apply immediately for whoever processes it (no approval step); the deposit settles them first.
 - **Booking creation** is one database call, `staff_create_booking_full()`: booking, payments, event and delivery details and alteration job together.
 - **Preparation role** now sees the real alteration/repair queue (`prep_jobs()`), read-only. Moving a job forward is done in Alterations.
+
+## Cancellation policy (v18)
+
+Run `supabase/migration-v18-cancellation-policy.sql` once (after v17).
+
+- **Policy: no refund.** On cancellation the rent received and the security deposit are kept. Any refund, partial or full, of rent or deposit is the owner's decision.
+- **Staff** pick Cancel, give a reason, and may *recommend* a refund (default ₹0, with a justification). The booking stays active and nothing is paid until the owner decides.
+- **Owner** sees the booking, the reason, the staff recommendation, the rent received and the deposit held, then enters the rent refund and deposit refund (default ₹0, or the staff recommendation) and the payment mode. The screen shows what is handed back and what is kept.
+- Cancelling is **one database call** (`cancel_booking` / `decide_cancellation`): the booking is cancelled and every refund recorded, or nothing happens. A kept deposit is recorded as income (a `deposit_applied` charge), so it does not show as "deposit held" or "refund pending" on a cancelled booking.
+- The old approval path that refunded the whole deposit automatically is closed: `decide_approval` can still reject a cancellation, but approving one always goes through the owner's amount screen.
+
+## Alterations are never done on a dress that is out (v19)
+
+Run `supabase/migration-v19-alteration-gap.sql` once (after v18).
+
+- Alterations can only be added to **Pending or Confirmed** bookings: the "Add alteration" list no longer offers bookings that are out, the notes-to-job rule no longer creates a job for an out booking, and the database rejects it (`BOOKING_NOT_ACTIVE`).
+- **Delivering a dress that is not ready** (manager override): if an alteration is still open, the manager chooses what happens to it: keep it open, or close it as *completed (not updated in time)*, *skipped* or *missed (not done)*. Completed closes the job as Ready; skipped and missed close it as Cancelled. The reason is saved on the job and in the booking history.
+- A job left open on a booking that is **out** shows an "Alteration still open" warning in the booking popup and a **High** alert (not Critical). Out and returned bookings otherwise show no preparation row.
+- The notes-to-job rule no longer depends on the old `prep_status` flag: once a completed alteration exists, editing the notes does not create a second job.

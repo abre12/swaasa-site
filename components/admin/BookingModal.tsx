@@ -5,6 +5,7 @@ import { buildPaymentSummary } from '@/lib/payments'
 import { dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
 import { bookingReadiness } from '@/lib/readiness'
+import DeliveryEdit from './DeliveryEdit'
 import { dispatchAlteration } from './Alterations'
 import { dispatchToCleaner } from './DryCleaning'
 import { summarise } from './AlterationDrawer'
@@ -74,13 +75,11 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const prepInfo = prepJob ? altStatus(prepJob) : { label: 'No alterations', hint: '', tone: 'off' as const }
   const altHistory = (ctx.AJ || []).filter((a: any) => a.dress_id === b.dress_id).slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
 
-  const MODES: [string, string][] = [['', 'Not decided'], ['pickup', 'Customer collects from store'], ['courier', 'We deliver it']]
-  const editDelivery = async () => {
-    const v = await ctx.ask(`Delivery details: ${b.id}`, [
-      { name: 'm', label: 'How will the dress reach the customer?', options: MODES.map(x => x[1]), value: (MODES.find(x => x[0] === (b.delivery_mode || '')) || MODES[0])[1] },
-      { name: 's', label: 'Time slot', value: b.delivery_slot || '' }, { name: 'w', label: 'Taken by (staff or courier)', value: b.delivery_assignee || '' }, { name: 'a', label: 'Delivery address (only if we deliver)', value: b.delivery_address || '' }], { ok: 'Save details' }); if (!v) return
-    const { error } = await ctx.sb.rpc('set_delivery_details', { p_id: b.id, p_mode: (MODES.find(x => x[1] === v.m) || MODES[0])[0], p_address: v.a || '', p_slot: v.s || '', p_assignee: v.w || '' })
-    ctx.say(error ? 'Could not save the delivery details. Run migration-v17.' : 'Delivery details saved'); ctx.load()
+  const [dlv, setDlv] = useState(false)
+  const saveDelivery = async (v: { mode: string; address: string } | null) => {
+    setDlv(false); if (!v) return
+    const { error } = await ctx.sb.rpc('set_delivery_details', { p_id: b.id, p_mode: v.mode, p_address: v.address, p_slot: '', p_assignee: '' })
+    ctx.say(error ? 'Could not save the delivery details. Run migration-v17.' : 'Delivery saved'); ctx.load()
   }
   async function saveNotes() {
     const { error } = await ctx.sb.rpc('set_alteration_notes', { p_id: b.id, p_notes: txt })
@@ -154,18 +153,28 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
               {b.event_date && <div><Ic n="gift" s={19} /><span>Event</span><b>{b.event_type ? `${b.event_type} · ` : ''}{dmy(b.event_date)}</b></div>}
             </div>
 
-            <div className="bd-prep-row">
-              <Ic n="tag" s={20} /><b>Preparation Status</b>
-              <div className="bd-prep-val">
-                {prepJob
-                  ? <button type="button" className={'bd-wf-chip bd-prep-' + prepInfo.tone} onClick={() => ctx.focusWorkflow('alteration', prepJob.id)} title="Open this alteration">{prepInfo.label}</button>
-                  : <span className="bd-prep-value">{prepInfo.label}</span>}
-                {prepInfo.hint && <small>{prepInfo.hint}</small>}
-              </div>
-            </div>
-
-            {(() => { const rd = bookingReadiness(ctx, b); return rd.applicable ? <div className="bd-prep-row"><Ic n="checkc" s={20} /><b>Ready to deliver?</b><div className="bd-prep-val">{rd.ready ? <span className="bd-prep-value">Yes. Nothing is holding this dress back.</span> : rd.reasons.map(r => r.module ? <button key={r.code + r.id} type="button" className="bd-wf-chip" onClick={() => ctx.focusWorkflow(r.module, r.id)} title="Open this record">{r.label}</button> : <span key={r.code} className="bd-prep-value">{r.label}</span>)}</div></div> : null })()}
-            <div className="bd-prep-row"><Ic n="pin" s={20} /><b>Delivery</b><div className="bd-prep-val"><span className="bd-prep-value">{[b.delivery_mode === 'pickup' ? 'Customer collects' : b.delivery_mode === 'courier' ? 'We deliver' : '', b.delivery_slot, b.delivery_assignee ? `Taken by ${b.delivery_assignee}` : '', b.delivery_address].filter(Boolean).join(' · ') || 'No delivery details added'}</span>{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" type="button" onClick={editDelivery}><Ic n="pencil" s={15} />Edit</button>}</div></div>
+            {/* One row answers "can this go out?". It lists what is holding the dress back (tap a chip to open it) and the next step underneath.
+                Bookings that are already out / returned keep the plain alteration status. */}
+            {(() => {
+              const rd = bookingReadiness(ctx, b)
+              if (!rd.applicable) {
+                // Out or returned: nothing is left to prepare, so the row is hidden. The one exception is a mistake worth showing:
+                // an alteration still open on a dress that has already gone out (alterations are never done after delivery).
+                const open = b.status === 'out' ? bookingAlts.find((a: any) => ['pending_dispatch', 'at_unit', 'quality_check'].includes(a.status) && a.source !== 'damage') : null
+                if (!open) return null
+                return <div className="bd-prep-row"><Ic n="warn" s={20} /><b>Alteration still open</b>
+                  <div className="bd-prep-val"><button type="button" className="bd-wf-chip bd-prep-warn" onClick={() => ctx.focusWorkflow('alteration', open.id)} title="Open this alteration">{altStatus(open).label}</button>
+                    <small>The dress is already with the customer. Please close this alteration as completed, skipped or missed.</small></div></div>
+              }
+              const hint = rd.reasons.some(r => r.code === 'alteration') ? prepInfo.hint : rd.ready && prepJob ? prepInfo.hint : ''
+              return <div className="bd-prep-row"><Ic n="checkc" s={20} /><b>Ready to deliver?</b>
+                <div className="bd-prep-val">
+                  {rd.ready ? <span className="bd-prep-value">Yes. Nothing is holding this dress back.</span>
+                    : rd.reasons.map(r => r.module ? <button key={r.code + r.id} type="button" className="bd-wf-chip" onClick={() => ctx.focusWorkflow(r.module, r.id)} title="Open this record">{r.label}</button> : <span key={r.code} className="bd-prep-value">{r.label}</span>)}
+                  {hint && <small>{hint}</small>}
+                </div></div>
+            })()}
+            <div className="bd-prep-row"><Ic n="pin" s={20} /><b>Delivery</b><div className="bd-prep-val"><span className="bd-prep-value">{b.delivery_mode === 'courier' ? `Deliver to customer${b.delivery_address ? ': ' + b.delivery_address : ''}` : 'Collect from store'}</span>{['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" type="button" onClick={() => setDlv(true)}><Ic n="pencil" s={15} />Edit</button>}</div></div>
 
             {wf.length > 0 && <div className="bd-wf"><b>Dry cleaning</b><div>{wf.map(w => <button key={w.id} type="button" className="bd-wf-chip" onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">In queue to be sent</button>)}</div></div>}
 
@@ -221,6 +230,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
 
       </div>
 
+      {dlv && <DeliveryEdit b={b} onClose={saveDelivery} />}
       <footer className="bd-actionbar">
         {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.selSecondary(b)}</div>
           : <span className="mut">Booking operations are managed by sales staff.</span>}

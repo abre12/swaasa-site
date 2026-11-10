@@ -644,8 +644,8 @@ html:has(.adm){background:var(--bg)}
 .cxl-total{display:flex;justify-content:space-between;align-items:center;border-radius:10px;background:#faedf0;padding:10px 12px;color:var(--wine)}
 .cxl-note{margin:0;font-size:12.5px;color:var(--mut)}
 .cxl-err{margin:0;color:var(--red);font-weight:600;font-size:13px}
-.bd-cancel-link{margin-right:auto;border:0;background:none;color:var(--red,#b4493f);font:600 13px Inter,system-ui,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:8px 4px}
-.bd-cancel-link:hover{filter:brightness(.85)}
+.bd-cancel-link{margin-right:auto;border:1px solid var(--red,#b4493f);border-radius:8px;background:none;color:var(--red,#b4493f);font:600 13px Inter,system-ui,sans-serif;cursor:pointer;padding:8px 14px}
+.bd-cancel-link:hover{background:var(--red,#b4493f);color:#fff}
 
 /* ---- Preparation status (read from the Alterations module) ---- */
 .bd-prep-val{display:grid;gap:4px;justify-items:start;min-width:0}.bd-prep-val small{color:var(--mut);font-size:12px;line-height:1.35}
