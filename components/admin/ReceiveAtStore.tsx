@@ -12,10 +12,11 @@ export default function ReceiveAtStore({ ctx, job, onClose }: { ctx: any; job: a
   const b = ctx.B.find((x: any) => x.id === job.booking_id), d = ctx.dmap[job.dress_id], dmg = job.source === 'damage', today = todayIST()
   const items: { label: string; note: string }[] = (job.checklist || []).map((c: any) => ({ label: LBL[c.k] || c.k, note: c.note || '' }))
   const meas = MEAS.map(([k, l]) => [l, (job.measurements || {})[k]] as [string, string]).filter(([, v]) => String(v || '').trim())
-  const [received, setReceived] = useState(today), [note, setNote] = useState(''), [qc, setQc] = useState<Record<string, boolean>>({}), [err, setErr] = useState('')
+  const [received, setReceived] = useState(today), [note, setNote] = useState(''), [qc, setQc] = useState<Record<string, boolean>>({}), [err, setErr] = useState(''), [outcome, setOutcome] = useState<'' | 'ready' | 'check' | 'back'>('')
   const all = QC.every(([k]) => qc[k])
 
-  function submit(action: 'ready' | 'check' | 'back') {
+  function submit(action: '' | 'ready' | 'check' | 'back') {
+    if (!action) return setErr('Choose what happens to the dress.')
     if (!received) return setErr('Enter the date the dress was received.')
     if (received > today) return setErr('The received date cannot be in the future.')
     if (action === 'ready' && !all) return setErr('Tick every quality check to mark the alteration Ready, or choose “Received – check later”.')
@@ -41,11 +42,20 @@ export default function ReceiveAtStore({ ctx, job, onClose }: { ctx: any; job: a
         {QC.map(([k, l]) => <label key={k} className="rcv-chk"><input type="checkbox" checked={!!qc[k]} onChange={e => setQc({ ...qc, [k]: e.target.checked })} />{l}</label>)}
       </fieldset>
       <label>Return notes<input value={note} onChange={e => setNote(e.target.value)} placeholder="Anything to record about the finished work (required if sending back)" /></label>
+      <label>What happens to the dress?
+        <select value={outcome} onChange={e => { setOutcome(e.target.value as any); setErr('') }}>
+          <option value="">Select…</option>
+          <option value="ready">Quality check passed · Mark Ready</option>
+          <option value="check">Received – check later</option>
+          <option value="back">Not right – send back to tailor</option>
+        </select>
+        {outcome === 'ready' && <small className="mut">{all ? 'All checks ticked. The alteration will be closed as Ready.' : 'Tick all four quality checks above first.'}</small>}
+        {outcome === 'check' && <small className="mut">The dress is booked in and waits in Quality Check at Store.</small>}
+        {outcome === 'back' && <small className="mut">Write what needs to be corrected in the return notes.</small>}
+      </label>
       {err && <p className="cxl-err" role="alert">{err}</p>}
       <div className="rcv-actions">
-        <button type="button" className="btn" disabled={!all} title={all ? '' : 'Tick every quality check first'} onClick={() => submit('ready')}>Quality check passed · Mark Ready</button>
-        <button type="button" className="btn alt" onClick={() => submit('check')}>Received – check later</button>
-        <button type="button" className="btn alt" onClick={() => submit('back')}>Not right – send back to tailor</button>
+        <button type="button" className="btn" disabled={!outcome || (outcome === 'ready' && !all)} onClick={() => submit(outcome)}>Confirm</button>
         <button type="button" className="btn alt" onClick={() => onClose(null)}>Cancel</button>
       </div>
     </div>
