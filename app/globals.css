@@ -980,3 +980,7 @@ html:has(.adm){background:var(--bg)}
 @media(prefers-reduced-motion:reduce){.notif-bell>span.crit{animation:none}}
 .td-embed{margin:4px 0 18px}.td-embed-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin:6px 0 10px}.td-embed-head h2{display:flex;align-items:center;gap:8px;margin:0;font-size:20px;color:var(--wine)}
 .dp-money{margin:0 0 14px}.dp-money .dp-cards{margin-bottom:0}.dp-card.dp-click{cursor:pointer}.dp-card.dp-click:hover,.dp-card.dp-click:focus-visible{border-color:var(--wine);outline:none}
+/* v24: Dashboard order. Today is a boxed block at the very top; Pending Alterations sits just above the staff graphs. */
+.td-embed{margin:4px 0 16px;background:var(--card);border:1px solid #e6c4bd;border-left:5px solid var(--wine);border-radius:16px;padding:12px 18px 8px;box-shadow:0 2px 12px #8b153314}
+.td-embed .td-embed-head{margin:0 0 10px}.td-embed .td-sec:last-of-type{margin-bottom:8px}.td-embed .td-foot{margin:6px 0 4px}
+.pnl-h.sm{padding:12px 16px}.pnl-h.sm h2{font:700 20px/1.1 Inter,system-ui,sans-serif}.pnl-h.sm a{font-size:14px;font-weight:600}

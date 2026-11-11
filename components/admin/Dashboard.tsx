@@ -95,6 +95,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const altBadge = (r: any) => { const st = altStatus(r.job), [c, ic] = JT[st.tone] || JT.off; return <span className="bdg" style={tint(c)} title={st.hint}><Ic n={ic} s={15} />{st.label}</span> }
   return (<div>
     <PageHead icon="home" title="Dashboard" sub="What needs doing today, then deliveries, alterations and bookings"><div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></PageHead>
+    <Today ctx={ctx} embedded />
     {ctx.owner && (() => {
       // Owner only: what has gone wrong or is stuck, in one line each, so nothing has to be hunted for. Counts come from the same rules as the bell.
       const { alerts: al } = computeAlerts({ B, D: ctx.D, AJ: ctx.AJ, CR: ctx.CR, DC: ctx.DC, st: ctx.st }, today, 0)
@@ -118,9 +119,11 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     {(pending.length > 0 || odDel.length > 0) && <div className="alsobar">
       {pending.length > 0 && <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button>}
       {odDel.length > 0 && <button className="hot" onClick={() => setPop('over')}>{odDel.length} overdue {odDel.length === 1 ? 'delivery' : 'deliveries'}</button>}</div>}
-    <Today ctx={ctx} embedded />
-    <div>
-      <div className="pnl"><div className="pnl-h" style={tint('var(--amber)')}><h2><Ic n="scissors" s={26} />Pending Alterations (Next 7 Days)</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'alterations' }) }}>View All <Ic n="arrow" s={16} /></a></div>
+    <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
+      <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
+    {wfOpen && <div className="wf-after">{wfList}</div>}
+    <div style={{ margin: '14px 0' }}>
+      <div className="pnl"><div className="pnl-h sm" style={tint('var(--amber)')}><h2><Ic n="scissors" s={20} />Pending Alterations (Next 7 Days)</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'alterations' }) }}>View All <Ic n="arrow" s={16} /></a></div>
         <div className="scroll dt-wrap"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Delivery Date</th><th>Due By</th><th>Status</th></tr></thead><tbody>
           {alRows.map(r => { const [lab, c, ic] = [0, 0, 0]
             return <tr key={r.id} className="cl" style={r.job.status === 'ready' ? { opacity: .6 } : undefined} onClick={() => ctx.openBooking(r.id, r)}><td><span className="bid">{r.id}</span></td><td>{r.customer_name}</td><td>{dressCell(r.dress_code, r.dress_name, r.dress_id, r.image)}</td><td>{dShort(r.start_date)}</td><td>{duePill(r)}</td>
@@ -131,9 +134,6 @@ export default function Dashboard({ ctx }: { ctx: any }) {
             <div className="mc-main"><div className="mc-row"><b>{r.dress_code}</b>{duePill(r)}</div><div className="mc-sub">{r.dress_name}</div><div className="mc-meta">{r.customer_name} · <span className="bid">{r.id}</span></div><div className="mc-meta">Delivery {dShort(r.start_date)}</div></div></div>
             <div className="mc-act">{altBadge(r)}</div></div> })}
           {!alRows.length && <p className="mut" style={{ padding: 14, margin: 0 }}>No alterations pending in the next 7 days.</p>}</div></div></div>
-    <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
-      <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
-    {wfOpen && <div className="wf-after">{wfList}</div>}
     <BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} />
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
