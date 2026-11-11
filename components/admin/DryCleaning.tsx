@@ -61,8 +61,6 @@ export async function dispatchToCleaner(ctx: any, rs: any[]): Promise<boolean> {
     const up = await ctx.sb.from('dry_clean_requests').update({ status: 'sent', vendor: v.vendor.trim(), sent_on: v.sent, sent_by: actor || null, expected_back: v.expected, estimated_charge: +(v.cost || 0), notes: v.notes.trim() || null, dry_cleaning_id: dc.id }).eq('id', r.id)
     if (up.error) { failed.push(`${d?.code}: queue update needs attention`); continue }
     done.push(d?.code || 'Dress')
-    const k = riskOf(ctx, { ...r, expected_back: v.expected })
-    if (k && (k.lvl === 'Critical' || k.lvl === 'Warning')) await ctx.sb.from('admin_notifications').insert({ target_role: 'all', kind: 'cleaning_risk', title: `Delivery risk: ${d?.code} is with the cleaner`, body: k.text, booking_id: k.b.id })
   }
   ctx.say(failed.length ? `Sent ${done.length}. ${failed.join(' · ')}` : `${done.join(', ')} sent to ${v.vendor}.`); ctx.load(); return true
 }

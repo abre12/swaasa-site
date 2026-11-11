@@ -27,6 +27,5 @@ export const COLOURS: { label: string; css: string }[] = [
   { label: 'Purple', css: '#7e3fa6' }, { label: 'Beige / Cream', css: '#e9dcc3' }, { label: 'Maroon', css: '#7a1428' },
   { label: 'Floral / Multicolour', css: 'conic-gradient(#e86a92,#f4c542,#4caf72,#4a7bd0,#9b59b6,#e86a92)' }, { label: 'Other', css: '#b9b2a6' },
 ]
-export const PREP: Record<string, string> = { not_started: 'Not started', alterations_pending: 'Alterations pending', cleaning_pending: 'Cleaning pending', ready: 'Ready for delivery', delivered: 'Delivered' }
 export const PAY_MODES = ['Cash', 'GPay / UPI', 'Card']
 export const modeGroup = (m?: string | null) => /cash/i.test(m || '') ? 'Cash' : /upi|gpay|google/i.test(m || '') ? 'GPay / UPI' : /card/i.test(m || '') ? 'Card' : 'Other'

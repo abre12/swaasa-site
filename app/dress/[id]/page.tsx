@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import { supaServer } from '@/lib/supabase/server'
 import { inr } from '@/lib/util'
 import BookingFlow from '@/components/BookingFlow'
-import TryOn from '@/components/TryOn'
 import Gallery from '@/components/Gallery'
 import BookedDates from '@/components/BookedDates'
 export const dynamic = 'force-dynamic'
@@ -20,8 +19,7 @@ export default async function DressPage({ params, searchParams }: { params: { id
     <p className="mut" style={{ fontSize: 13, margin: 0 }}>{d.policy || 'Cleaning included. Damage beyond normal wear is charged at repair cost.'}</p>
     <details className="bk-more"><summary>Dress details</summary>
       {d.description && <p>{d.description}</p>}<p className="mut" style={{ fontSize: 13 }}>Colour: {d.colour} · Sizes: {d.sizes?.join(', ')}<br />Alterations: {d.alterations || 'On request'}</p></details>
-    <BookedDates dressId={d.id} />
-    <TryOn dressId={d.id} hasImage={!!process.env.FASHN_API_KEY && !!(d.try_on_image || d.images?.length)} /></div>
+    <BookedDates dressId={d.id} /></div>
   const info = <details className="bf-dd" open><summary>Dress details</summary>{d.description && <p>{d.description}</p>}
     <dl><div><dt>Colour</dt><dd>{d.colour}</dd></div><div><dt>Sizes</dt><dd>{d.sizes?.join(', ')}</dd></div><div><dt>Alterations</dt><dd>{d.alterations || 'On request'}</dd></div></dl></details>
   if (viewOnly || !st) return (<section className="sec"><div className="bk-top"><h1>{d.name}</h1><span className="chip-id">Dress ID: {d.code}</span></div><div className="bk-page"><div>{left}</div><div><p className="mut">Your login can view dresses but not make bookings.</p></div></div></section>)

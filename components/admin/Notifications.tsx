@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { dmy, istDate, istTime, todayIST } from '@/lib/util'
 import { computeAlerts, type Alert, type Level } from '@/lib/alerts'
 import { ago, approvalDetail, approvalIcon, approvalName, approvalReason, approvalTitle, needsConfirm } from '@/lib/approvals'
-import { thumbOf, mediumOf } from '@/lib/images'
 import { Ic } from './icons'
 
 // The notification bell.
@@ -51,9 +50,6 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const { alerts, summary } = useMemo(() => computeAlerts({ B: ctx.B, D: ctx.D, AJ: ctx.AJ, CR: ctx.CR, DC: ctx.DC }, todayIST(), hourIST()), [ctx.B, ctx.D, ctx.AJ, ctx.CR, ctx.DC, now])   // eslint-disable-line react-hooks/exhaustive-deps
   const isRead = (a: Alert) => (read[a.key] || 0) >= a.rank     // an alert that becomes more urgent shows as unread again
   const unreadAlerts = alerts.filter(a => !isRead(a)).length
-  // Critical alerts (Delivery at Risk + Critical) keep their count on the bell until the problem is actually fixed. Reading them does not clear the count.
-  const criticalN = alerts.filter(a => a.level === 'risk' || a.level === 'critical').length
-  const unreadOther = alerts.filter(a => a.level === 'high' && !isRead(a)).length
 
   // ---- approvals ----
   const owner = !!ctx.owner, canAsk = !!ctx.ops && !owner
@@ -61,7 +57,7 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const pending = all.filter(a => a.status === 'pending')
   const decided = all.filter(a => a.status !== 'pending').sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || ''))).slice(0, 15)
   const mine = [...all].sort((a, b) => String(b.requested_at || '').localeCompare(String(a.requested_at || ''))).slice(0, 15)
-  const badge = criticalN + (owner ? pending.length : 0) + unreadOther
+  const badge = (owner ? pending.length : 0) + unreadAlerts
   const tabs: { id: Tab; label: string; n?: number }[] = owner
     ? [{ id: 'approvals', label: 'Pending Approvals', n: pending.length }, { id: 'alerts', label: 'Action Center', n: alerts.length }, { id: 'recent', label: 'Recent' }]
     : canAsk ? [{ id: 'alerts', label: 'Action Center', n: alerts.length }, { id: 'mine', label: 'My Requests', n: pending.length || undefined }] : []
@@ -98,15 +94,6 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const whoDecided = (a: any) => a.decided_by_name || ctx.staffName?.(a.decided_by) || 'Owner'
   const when = (iso?: string) => iso ? `${dmy(istDate(iso))}, ${istTime(iso)}` : ''
   const clock = now >= 0 ? Date.now() : 0
-  // Small dress photo with the customer's name and booking number. Click opens the booking (or the workflow when no booking is behind the alert).
-  const refBlock = (a: Alert) => {
-    const b = a.bookingId ? bookingOf(a.bookingId) : null, d = ctx.dmap?.[a.dressId], src = d ? (thumbOf(d) || mediumOf(d)) : ''
-    const go = (e: React.MouseEvent) => { e.stopPropagation(); if (b) { markRead(a); setOpen(false); ctx.openBooking(b.id) } else run(a) }
-    return <button type="button" className="ac-ref" onClick={go} title={b ? 'Open this booking' : a.action.label}>
-      {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <span className="ac-th" />}
-      <span><b>{b?.customer_name || d?.code || 'Dress'}</b><small>{b ? `Booking ${b.id}` : a.action.label}</small></span>
-    </button>
-  }
 
   const sub = tab === 'approvals' ? (pending.length ? `${pending.length} pending approval${pending.length === 1 ? '' : 's'}` : 'No pending approvals')
     : tab === 'recent' ? 'Recent decisions' : tab === 'mine' ? 'Requests you sent to the owner'
@@ -123,7 +110,7 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   </article>
 
   return <div className={'notif-wrap' + (placement === 'side' ? ' side' : '')} ref={ref}>
-    <button className="notif-bell" aria-haspopup="dialog" aria-expanded={open} aria-label={`Notifications${criticalN ? `, ${criticalN} critical` : ''}${badge > criticalN ? `, ${badge - criticalN} other` : ''}`} onClick={toggleOpen}><Ic n="bell" s={20} />{badge > 0 && <span className={criticalN > 0 ? 'crit' : ''}>{badge > 99 ? '99+' : badge}</span>}</button>
+    <button className="notif-bell" aria-haspopup="dialog" aria-expanded={open} aria-label={`Notifications${badge ? `, ${badge} need attention` : ''}`} onClick={toggleOpen}><Ic n="bell" s={20} />{badge > 0 && <span>{badge > 99 ? '99+' : badge}</span>}</button>
     {open && <section className="notif-pop ac-pop" role="dialog" aria-label="Notifications">
       <header><div><b>Notifications</b><small>{sub}</small></div>
         <div className="ac-hd">{tab === 'alerts' && unreadAlerts > 0 && <button type="button" className="ac-link" onClick={markAll}>Mark all as read</button>}<button type="button" aria-label="Close notifications" onClick={() => setOpen(false)}>×</button></div></header>
@@ -175,7 +162,7 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
                 <span className={'ac-chev' + (expanded ? ' up' : '')}><Ic n="down" s={16} /></span>
               </button>
               {expanded && <div className="ac-list">{list.map(a => <article key={a.key} className={'ac-card' + (isRead(a) ? '' : ' unread')} onClick={() => markRead(a)}>
-                <div className="ac-main"><span className="ac-tag">{a.tag}</span><b>{a.dress}</b>{refBlock(a)}<p>{a.body}</p>
+                <div className="ac-main"><span className="ac-tag">{a.tag}</span><b>{a.dress}</b><p>{a.body}</p>
                   {a.meta && <small className="ac-meta">{a.meta}</small>}
                   {a.more.length > 0 && <small className="ac-more">Also: {a.more.join(', ').toLowerCase()}</small>}</div>
                 <button type="button" className="ac-act" onClick={e => { e.stopPropagation(); run(a) }}>{a.action.label}</button>

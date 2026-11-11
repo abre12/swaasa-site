@@ -59,7 +59,7 @@ export default function DressForm({ ctx, ed, onClose }: { ctx: any; ed: any | nu
       let final = tags; if (!final.length) final = (await autoColours(`${f.colour} ${f.name} ${f.description}`, photoSrc())).tags; if (!final.length) final = ['Other']
       const sz = [...sizes, ...more.split(',').map(x => x.trim()).filter(Boolean)].filter((x, i, a) => a.indexOf(x) === i)
       const body = { code, name, category: f.category, colour: f.colour.trim() || final.join(', '), colour_tags: final, acquired_on: f.acquired || null, sizes: sz, price, included_days: Math.round(+f.days) || 3, extra_day_fee: Math.round(+f.extra) || 0, dry_clean_charge: Math.round(+f.dcc) || 0, description: f.description.trim(),
-        images: entries.map(e => e.url), thumbs: entries.map(e => e.thumb), medium: entries.map(e => e.medium), try_on_image: entries[0]?.url || null }
+        images: entries.map(e => e.url), thumbs: entries.map(e => e.thumb), medium: entries.map(e => e.medium) }
       const { error } = ed ? await ctx.sb.from('dresses').update(body).eq('id', ed.id) : await ctx.sb.from('dresses').insert(body)
       if (error) { setErr(error.message.includes('duplicate') ? 'That code is already used by another dress.' : error.message); setBusy(false); return }
       ctx.say(ed ? `${code} saved` : `${code} added`); ctx.load()

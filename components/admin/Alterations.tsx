@@ -3,12 +3,11 @@ import { shouldClearDamaged } from '@/lib/readiness'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
-import ReceiveAtStore, { type ReceiveResult } from './ReceiveAtStore'
 import PageHead from './PageHead'
 import { Ic } from './icons'
 
 type Stage = 'pending_dispatch' | 'at_unit' | 'quality_check' | 'ready'
-type Queue = Stage | 'all' | 'completed' | 'damaged' | 'critical'
+type Queue = Stage | 'all' | 'completed' | 'damaged'
 const STAGES: Stage[] = ['pending_dispatch', 'at_unit', 'quality_check', 'ready']
 const LABEL: Record<Stage, string> = { pending_dispatch: 'Pending Dispatch to Tailor', at_unit: 'At Tailoring Unit', quality_check: 'Quality Check at Store', ready: 'Ready' }
 const ICON: Record<Stage, string> = { pending_dispatch: 'hourglass', at_unit: 'scissors', quality_check: 'search', ready: 'checkc' }
@@ -26,28 +25,9 @@ export async function dispatchAlteration(ctx: any, j: any): Promise<boolean> {
 }
 
 export default function Alterations({ ctx }: { ctx: any }) {
-  const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1), [rcv, setRcv] = useState<{ j: any; res: (v: ReceiveResult) => void } | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1)
   const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 15
   const isDmg = (j: any) => j.source === 'damage'
-  const daysTo = (d: string) => Math.round((+new Date(d) - +new Date(today)) / 864e5)
-  // Anything in the alteration/repair work that could make the dress late (or not ready) on its delivery date. One reason per job, most serious first.
-  // Used for the red "Delivery critical" card, the Delivery Critical tab, the reason shown on each row, and to list these jobs first.
-  const riskOf = (j: any): { k: string; text: string } | null => {
-    if (['ready', 'cancelled'].includes(j.status) || isCompleted(j, bookings)) return null
-    const b = bookings.find((x: any) => x.id === j.booking_id)
-    const nb = isDmg(j) ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : (b && ['pending', 'confirmed'].includes(b.status) ? b : null)
-    if (!nb) return null
-    const left = daysTo(nb.start_date), what = isDmg(j) ? 'Repair' : 'Alteration'
-    if (left <= 1) return { k: `${what} not complete near delivery`, text: `${what} not complete and delivery ${left < 0 ? 'date has passed' : left === 0 ? 'is today' : 'is tomorrow'}` }
-    if (j.status === 'at_unit' && j.expected_return && j.expected_return < today) return { k: 'Overdue from tailor', text: `Tailor is late: expected back ${dmy(j.expected_return)}` }
-    if (j.status === 'at_unit' && j.expected_return && j.expected_return > addD(nb.start_date, -1)) return { k: 'Back from tailor too late', text: `Expected back ${dmy(j.expected_return)}, too close to delivery` }
-    if (!isDmg(j) && j.measurements_pending && left <= 3) return { k: 'Measurements not taken', text: `Measurements not taken, delivery in ${left} days` }
-    if (j.status === 'pending_dispatch' && left <= 2) return { k: 'Not yet sent to tailor', text: `Not yet sent to the tailor, delivery in ${left} days` }
-    if (j.status === 'quality_check' && left <= 2) return { k: 'Awaiting quality check', text: `Quality check still pending, delivery in ${left} days` }
-    return null
-  }
-  const risky = jobs.filter(j => riskOf(j))
-  const riskBreakdown = (() => { const c = new Map<string, number>(); for (const j of risky) { const k = riskOf(j)!.k; c.set(k, (c.get(k) || 0) + 1) } return Array.from(c).map(([k, v]) => `${v} ${k.toLowerCase()}`).join(' · ') })()
   // An alteration is never started on a dress that has already gone out, so only Pending and Confirmed bookings are offered.
   const eligible = bookings.filter((b: any) => ['pending', 'confirmed'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !isDmg(j) && !['ready', 'cancelled'].includes(j.status)))
   const count = (s: Stage) => jobs.filter(j => j.status === s && !isDmg(j) && !isCompleted(j, bookings)).length
@@ -58,7 +38,6 @@ export default function Alterations({ ctx }: { ctx: any }) {
     if (j.status === 'cancelled') return false
     if (tab === 'damaged') { if (!isDmg(j) || done) return false }
     else if (tab === 'completed') { if (!done) return false }
-    else if (tab === 'critical') { if (!riskOf(j)) return false }
     else if (isDmg(j) || done || (tab !== 'all' && j.status !== tab)) return false
     if (q && !`${j.booking_id} ${b?.customer_name || ''} ${b?.phone || ''} ${d?.code || ''} ${d?.name || ''}`.toLowerCase().includes(q.toLowerCase())) return false
     if (due && b?.start_date !== due) return false
@@ -67,8 +46,8 @@ export default function Alterations({ ctx }: { ctx: any }) {
     return true
   }).sort((a, b) => {
     const p = (s: string) => STAGES.indexOf(s as Stage)
-    return (riskOf(b) ? 1 : 0) - (riskOf(a) ? 1 : 0) || p(a.status) - p(b.status) || (a.expected_return || '9999').localeCompare(b.expected_return || '9999')
-  }), [jobs, bookings, tab, q, due, category, status, ctx.dmap, today])
+    return p(a.status) - p(b.status) || (a.expected_return || '9999').localeCompare(b.expected_return || '9999')
+  }), [jobs, bookings, tab, q, due, category, status, ctx.dmap])
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize)), rows = filtered.slice((page - 1) * pageSize, page * pageSize)
   const categories = [...new Set(jobs.map(j => (ctx.dmap[j.dress_id]?.category || '').trim()).filter(Boolean))].sort()
 
@@ -83,17 +62,11 @@ export default function Alterations({ ctx }: { ctx: any }) {
     ctx.say(error ? (error.message.includes('BOOKING_NOT_ACTIVE') ? 'This booking is already out, returned or cancelled, so an alteration cannot be added.' : error.message.includes('one_active') || error.message.includes('duplicate') ? 'This booking already has an open alteration.' : error.message) : 'Alteration added to Pending Dispatch.'); ctx.load()
   }
   const dispatch = (j: any) => dispatchAlteration(ctx, j)
-  // Receive at Store: the requested alterations are shown so the dress can be checked against them on the spot.
   async function receive(j: any) {
-    const r = await new Promise<ReceiveResult>(res => setRcv({ j, res })); setRcv(null)
-    if (!r) return
-    if (r.action === 'back') return sendBack(j, r.note)
-    const at = new Date(`${r.received}T12:00:00+05:30`).toISOString(), now = new Date().toISOString(), notes = [j.notes, r.note].filter(Boolean).join(' · ') || null
-    const patch = r.action === 'ready' ? { status: 'ready', received_at: at, checked_at: now, qc: r.qc, qc_notes: r.note || null, notes, updated_at: now } : { status: 'quality_check', received_at: at, notes, updated_at: now }
-    const { error } = await ctx.sb.from('alteration_jobs').update(patch).eq('id', j.id)
-    if (error) return ctx.say('Could not record receipt: ' + error.message)
-    if (r.action === 'ready' && shouldClearDamaged(ctx, ctx.dmap[j.dress_id], j)) await ctx.sb.from('dresses').update({ status: 'available' }).eq('id', j.dress_id)
-    ctx.say(r.action === 'ready' ? (isDmg(j) ? 'Repair received and approved.' : 'Received at store. Quality check passed; alteration is Ready.') : 'Dress received at store; quality check is required.'); ctx.load(); setOpenId(null)
+    const v = await ctx.ask('Receive at Store', [{ name: 'received', label: 'Date received back at the store', type: 'date', value: today, required: true }, { name: 'note', label: 'Return notes' }], { ok: 'Send to quality check' })
+    if (!v) return
+    const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'quality_check', received_at: new Date(`${v.received}T12:00:00+05:30`).toISOString(), notes: [j.notes, v.note.trim()].filter(Boolean).join(' · ') || null, updated_at: new Date().toISOString() }).eq('id', j.id)
+    ctx.say(error ? 'Could not record receipt.' : 'Dress received at store; quality check is required.'); ctx.load()
   }
   async function approve(j: any, qc: Record<string, boolean>, note: string) {
     const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'ready', checked_at: new Date().toISOString(), qc, qc_notes: note.trim() || null, updated_at: new Date().toISOString() }).eq('id', j.id)
@@ -103,8 +76,8 @@ export default function Alterations({ ctx }: { ctx: any }) {
     ctx.say(isDmg(j) ? 'Repair approved.' : 'Quality check approved. Alteration complete.'); ctx.load(); setOpenId(null)
   }
   // Quality check failed: the same job goes back to At Tailoring Unit (no new status). The reason is kept in the job notes.
-  async function sendBack(j: any, reason0 = '') {
-    const v = await ctx.ask('Send back to Tailoring Unit', [{ name: 'sent', label: 'Date sent back', type: 'date', value: today, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(today, 2), required: true }, { name: 'reason', label: 'What needs to be corrected', value: reason0, required: true }], { ok: 'Send back to tailor', note: 'The alteration is not up to the mark. The dress goes back to At Tailoring Unit and returns to Quality Check when received.' })
+  async function sendBack(j: any) {
+    const v = await ctx.ask('Send back to Tailoring Unit', [{ name: 'sent', label: 'Date sent back', type: 'date', value: today, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(today, 2), required: true }, { name: 'reason', label: 'What needs to be corrected', required: true }], { ok: 'Send back to tailor', note: 'The alteration is not up to the mark. The dress goes back to At Tailoring Unit and returns to Quality Check when received.' })
     if (!v) return
     if (v.expected < v.sent) return ctx.say('Expected return cannot be before the date sent back.')
     const reason = String(v.reason || '').trim(); if (!reason) return ctx.say('Say what needs to be corrected.')
@@ -118,7 +91,6 @@ export default function Alterations({ ctx }: { ctx: any }) {
   const action = (j: any) => j.status === 'pending_dispatch' ? <button className="btn sm" onClick={() => dispatch(j)}>Send to Tailoring</button> : j.status === 'at_unit' ? <button className="btn sm" onClick={() => receive(j)}>Receive at Store</button> : j.status === 'quality_check' ? <button className="btn sm" onClick={() => setOpenId(j.id)}>Review</button> : <span className="alt-ready-mark">✓</span>
   const tabs: { id: Queue; label: string; n: number }[] = [
     { id: 'all', label: 'Alteration Queue', n: jobs.filter(j => j.status !== 'cancelled' && !isDmg(j) && !isCompleted(j, bookings)).length },
-    { id: 'critical', label: 'Delivery Critical', n: risky.length },
     { id: 'damaged', label: 'Damaged Queue', n: damaged.length },
     { id: 'at_unit', label: LABEL.at_unit, n: count('at_unit') }, { id: 'quality_check', label: LABEL.quality_check, n: count('quality_check') },
     { id: 'ready', label: LABEL.ready, n: count('ready') }, { id: 'completed', label: 'Completed', n: completed.length },
@@ -126,16 +98,16 @@ export default function Alterations({ ctx }: { ctx: any }) {
 
   return <div className="alt-page alt-reference">
     <PageHead icon="scissors" title="Alterations" sub="Manage dress alterations, tailoring dispatch and return status."><button className="btn wine" onClick={add}>＋ Add Alteration</button></PageHead>
-    <div className="alt-overview-cards has-risk"><button className={`alt-overview-card tone-risk${risky.length ? ' hot' : ''}`} onClick={() => chooseTab('critical')} aria-label={`${risky.length} items critical for delivery`}><span className="alt-overview-icon"><Ic n="warn" s={32} /></span><span className="alt-overview-copy"><strong>{risky.length}</strong><b>Delivery Critical</b><small>{risky.length ? riskBreakdown : 'Nothing is at risk of delaying a delivery'}</small></span></button>{STAGES.map((s, i) => <button key={s} className={`alt-overview-card tone-${i}`} onClick={() => chooseTab(s)}><span className="alt-overview-icon"><Ic n={ICON[s]} s={32} /></span><span className="alt-overview-copy"><strong>{count(s)}</strong><b>{LABEL[s]}</b><small>{s === 'pending_dispatch' ? 'Measurements pending, or ready to send to the tailor' : s === 'at_unit' ? 'With tailoring unit' : s === 'quality_check' ? 'Received from tailoring, awaiting verification' : 'Alteration complete, ready for delivery'}</small></span></button>)}</div>
+    <div className="alt-overview-cards">{STAGES.map((s, i) => <button key={s} className={`alt-overview-card tone-${i}`} onClick={() => chooseTab(s)}><span className="alt-overview-icon"><Ic n={ICON[s]} s={32} /></span><span className="alt-overview-copy"><strong>{count(s)}</strong><b>{LABEL[s]}</b><small>{s === 'pending_dispatch' ? 'Measurements pending, or ready to send to the tailor' : s === 'at_unit' ? 'With tailoring unit' : s === 'quality_check' ? 'Received from tailoring, awaiting verification' : 'Alteration complete, ready for delivery'}</small></span></button>)}</div>
     <nav className="alt-queue-tabs" aria-label="Alteration queues">{tabs.map(t => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => chooseTab(t.id)}>{t.label}<span>{t.n}</span></button>)}</nav>
     <div className="alt-toolbar"><label className="alt-search"><span><Ic n="search" s={18} /></span><input value={q} onChange={e => { setQ(e.target.value); setPage(1) }} placeholder="Search by booking, customer, or dress..." /></label><label className="alt-filter"><span><Ic n="calendar" s={18} /></span><select aria-label="Delivery date filter" value={due} onChange={e => { setDue(e.target.value); setPage(1) }}><option value="">All Delivery Dates</option><option value={today}>Due Today</option><option value={addD(today, 1)}>Due Tomorrow</option></select></label><label className="alt-filter"><span><Ic n="dress" s={18} /></span><select aria-label="Dress category filter" value={category} onChange={e => { setCategory(e.target.value); setPage(1) }}><option value="all">All Categories</option>{categories.map(c => <option key={c} value={c.toLowerCase()}>{c}</option>)}</select></label><label className="alt-filter"><span><Ic n="filter" s={18} /></span><select aria-label="Status filter" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="all">All Statuses</option>{STAGES.map(s => <option key={s} value={s}>{LABEL[s]}</option>)}</select></label></div>
-    <section className="alt-queue-panel"><div className="alt-queue-heading"><h2>{tab === 'all' ? 'Alteration Queue' : tab === 'damaged' ? 'Damaged Queue' : tab === 'critical' ? 'Delivery Critical' : tab === 'completed' ? 'Completed Alterations' : LABEL[tab as Stage]} <span>({filtered.length})</span></h2><small>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</small></div>
+    <section className="alt-queue-panel"><div className="alt-queue-heading"><h2>{tab === 'all' ? 'Alteration Queue' : tab === 'damaged' ? 'Damaged Queue' : tab === 'completed' ? 'Completed Alterations' : LABEL[tab as Stage]} <span>({filtered.length})</span></h2><small>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</small></div>
       <div className="scroll alt-table-scroll"><table className="bt alt-table"><thead><tr><th>Booking</th><th>Customer</th><th>Dress</th><th>Alterations Required</th><th>Delivery Date</th><th>Tailoring Details</th><th>Status</th><th>Action</th><th aria-label="More actions" /></tr></thead><tbody>
-        {rows.map(j => { const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, rk = riskOf(j), dmg = isDmg(j), nb = dmg ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : b, left = nb ? Math.round((+new Date(nb.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={(late ? 'late' : '') + (rk ? ' risk' : '')} onClick={() => setOpenId(j.id)}>
+        {rows.map(j => { const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, dmg = isDmg(j), nb = dmg ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : b, left = nb ? Math.round((+new Date(nb.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={late ? 'late' : ''} onClick={() => setOpenId(j.id)}>
           <td><button className="alt-booking-link" onClick={e => { e.stopPropagation(); if (b) ctx.openBooking(b.id) }}>{j.booking_id}</button></td>
           <td><div className="alt-customer"><b>{b?.customer_name || '—'}</b><small>{dmg ? 'Returned damaged' : b?.phone || ''}</small></div></td>
           <td><div className="alt-dress-cell">{ctx.thumb(d, 48, 62)}<span><b>{d?.name || '—'}</b><small>SKU: {d?.code || '—'}</small></span></div></td>
-          <td className="alt-requirements">{dmg && <span className="alt-dmg-tag">Damaged</span>}{j.measurements_pending && <span className="alt-dmg-tag" style={{ color: '#5b4100', background: '#fbe7b5' }}>Measurements pending</span>}{summarise(j)}</td><td>{dmg && !nb ? <span className="mut">No upcoming booking</span> : <b>{nb ? dmy(nb.start_date) : '—'}</b>}{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}{rk && <small className="alt-risk">⚠ {rk.text}</small>}</td>
+          <td className="alt-requirements">{dmg && <span className="alt-dmg-tag">Damaged</span>}{j.measurements_pending && <span className="alt-dmg-tag" style={{ color: '#5b4100', background: '#fbe7b5' }}>Measurements pending</span>}{summarise(j)}</td><td>{dmg && !nb ? <span className="mut">No upcoming booking</span> : <b>{nb ? dmy(nb.start_date) : '—'}</b>}{left !== null && <small className={left <= 1 ? 'urgent' : ''}>{left < 0 ? `${Math.abs(left)} days overdue` : left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `In ${left} days`}</small>}</td>
           <td className="alt-tailoring-cell">{j.sent_on ? <><span>Sent {dmy(j.sent_on)}</span><span>Expected {j.expected_return ? dmy(j.expected_return) : '—'}</span></> : <span className="mut">Not sent yet</span>}</td>
           <td><span className={`alt-status status-${j.status}`}>{late ? 'Overdue' : done ? 'Completed' : (j.status === 'pending_dispatch' && j.measurements_pending ? 'Measurements Pending' : LABEL[j.status as Stage]) || j.status}</span></td><td onClick={e => e.stopPropagation()}>{action(j)}</td><td><button className="alt-more" aria-label="Open alteration details" onClick={e => { e.stopPropagation(); setOpenId(j.id) }}>⋮</button></td>
         </tr> })}
@@ -144,7 +116,6 @@ export default function Alterations({ ctx }: { ctx: any }) {
       <footer className="alt-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</span><div><button disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">‹</button>{Array.from({ length: pageCount }, (_, i) => i + 1).map(p => <button key={p} className={p === page ? 'on' : ''} onClick={() => setPage(p)}>{p}</button>)}<button disabled={page >= pageCount} onClick={() => setPage(page + 1)} aria-label="Next page">›</button></div></footer>
     </section>
     <p className="alt-foot">All Swaasa alteration work is temporary and reversible. No tailor assignment is required; dresses are sent to the tailoring unit.</p>
-    {rcv && <ReceiveAtStore ctx={ctx} job={rcv.j} onClose={v => rcv.res(v)} />}
     {openId && jobs.find(j => j.id === openId) && <AlterationDrawer key={openId} ctx={ctx} job={jobs.find(j => j.id === openId)} onClose={() => setOpenId(null)} onDispatch={dispatch} onReceive={receive} onApprove={approve} onSendBack={sendBack} />}
   </div>
 }

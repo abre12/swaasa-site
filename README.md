@@ -1,6 +1,6 @@
 # Swaasa Wedding Rentals: website
 
-Next.js + Supabase (database, logins, photo storage) + FASHN (AI virtual try-on). Deploy on Vercel.
+Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 
 ## 1. Database and logins (Supabase)
 1. Create a free project at supabase.com (choose the Mumbai region).
@@ -13,8 +13,8 @@ insert into staff(user_id, role, name) select id, 'manager', 'Manager Name' from
 ```
 5. Project Settings > API: copy the URL, the anon key and the service_role key.
 
-## 2. Try-on (FASHN)
-Create an account at fashn.ai, buy credits, copy the API key. Leave `FASHN_API_KEY` empty (or delete it) to keep try-on switched off: the "Try it on" box is then hidden everywhere. Add the key later in Vercel > Settings > Environment Variables and redeploy to switch it on. Each try-on costs credits, and each visitor is limited per day (Settings table, `tryon_daily_limit`, default 3).
+## 2. (Removed) Virtual try-on
+The virtual try-on feature has been removed. `FASHN_API_KEY` and `TRYON_SALT` are no longer used and can be deleted from Vercel.
 
 ## 3. Run on your computer (optional)
 ```
@@ -28,12 +28,11 @@ npm run dev                  # http://localhost:3000
 2. vercel.com > Add New Project > import the repository.
 3. Add every variable from `.env.example` under Environment Variables, then Deploy.
 4. Domain: Vercel > Settings > Domains > add your domain and follow the DNS steps at your registrar.
-5. Try-on takes up to ~50 seconds; Vercel's free plan allows 60 seconds per request, which is enough.
 
 ## Who can do what
 | | Owner | Manager | Customer |
 |---|---|---|---|
-| Browse, check dates, request a booking, try-on | yes | yes | yes |
+| Browse the collection and check dates | yes | yes | yes |
 | See bookings and customer details | all | all | only their own, by ID + mobile |
 | Confirm, pick up, return, reschedule, cancel, record payments, block dates | yes | yes | no |
 | Change rent, discount or deposit on a booking | yes | no (blocked by the database) | no |
@@ -41,14 +40,10 @@ npm run dev                  # http://localhost:3000
 | Revenue reports, CSV export, add or remove staff | yes | no | no |
 Payment records can never be edited or deleted, only added.
 
-## Photos for good try-on results
-Upload each dress with a clear, front-facing photo on a mannequin or flat on a plain background as the **first** image. The first photo is used for the try-on.
-
 ## Backups
 Supabase free plan has no automatic backups. Use the Pro plan for daily backups, or run Database > Backups > download regularly.
 
 ## Customer photo privacy
-The selfie is shrunk in the browser, sent to FASHN as data and never saved by this app. Keep the consent text on the page and add a privacy policy page before launch (DPDP Act, India).
 
 ## Not built yet
 Razorpay online payments (advance is currently recorded by staff after UPI/cash), WhatsApp/SMS/email notifications, customer favourites, and detailed reports. Each is a separate add-on.
@@ -503,11 +498,9 @@ Run `supabase/migration-v21-medium-items.sql` once (after v20).
 - The Alterations list shows 15 rows a page instead of 5.
 - Not built: an assigned person on alteration, cleaning and delivery tasks. Who sent, received and delivered is already recorded by the database; an extra "assigned to" field adds data entry, so it waits for your decision.
 
-## v23 (11 Nov 2026): Receive at Store check, Delivery Critical card, Cancel in the bookings menu, notification thumbnails (no database change; nothing to run in Supabase)
 
-- **Receive at Store (Alterations).** The popup now lists the alterations that were requested (checklist items with their notes, the booking notes, job notes and any measurements) as a yellow note, so the person receiving the dress checks the work against it. Below it is the quality check (the same four checks as the Review screen). The outcome is chosen from one drop-down (nothing is pre-selected) and confirmed with one button. Three outcomes: **Quality check passed · Mark Ready** (needs every check ticked; records who/when and closes the alteration as Ready), **Received – check later** (as before, goes to Quality Check at Store), or **Not right – send back to tailor** (needs a note; opens the send-back dates screen with that note filled in). Repairs on damaged dresses use the same screen.
-- **Delivery Critical card (Alterations).** One red card, first in the row, counts every alteration or repair that could make the dress late on its delivery date: not complete with delivery today/tomorrow/passed; tailor overdue; expected back too close to delivery; measurements not taken with delivery within 3 days; not yet sent with delivery within 2 days; quality check pending with delivery within 2 days. It lists the reasons ("2 alteration not complete near delivery · 1 measurements not taken"). Click it to open the new **Delivery Critical** tab. Every row at risk shows its reason under the delivery date, and at-risk jobs are listed first in all queues.
-- **Cancel booking in the 3-dot menu (All Bookings).** The menu now has a red **Cancel booking…** item at the bottom for Upcoming bookings (it opens the existing cancellation popup: reason, refund, owner approval). Bookings that are out show a note instead (return them instead). The menu no longer closes when you scroll inside it, it fits short screens by scrolling or opening upward, and it closes after you pick an action.
-- **Notifications show who and what.** Each alert card has a small dress photo with the customer's name and booking number. Click it to open the booking (alerts with no booking behind them, such as a dress waiting for the cleaner, open the workflow).
-- **Bell count.** The red number on the bell now always includes every active Delivery at Risk and Critical alert, even after they are marked read. It only goes down when the problem is fixed. For the owner, pending approvals and unread High priority alerts are added to the count.
-- Files: `lib/alerts.ts` (bookingId on alerts), `components/admin/Alterations.tsx`, `ReceiveAtStore.tsx` (new), `AlterationDrawer.tsx` (exports only), `Bookings.tsx`, `Notifications.tsx`, `components/AdminApp.tsx` (`sel` option), `app/globals.css`.
+## Clean-up (v23)
+
+Removed because nothing used them: the customer "Find my booking" page (`/booking`), the old public booking form and its `/api/book` route, virtual try-on (component, `/api/tryon`, the Settings limit and the dress form's try-on image), the unused notification list in the admin screen and the cleaning-risk notification written to a table nothing displays (the bell already raises it), and the legacy preparation-status labels. The site now serves only `/` (opens the admin), `/admin`, `/admin/performance`, `/collection` (where New Booking starts), `/dress/[id]`, `/login` and `/api/staff`.
+
+Run `supabase/migration-v22-cleanup.sql` only after this version is deployed. It drops the old public-booking, lookup, `set_prep_status`, `prep_list` and `staff_create_booking_v2` functions, the `tryon_log` table and the try-on columns. It is optional.

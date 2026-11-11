@@ -10,9 +10,9 @@ export const GROUPS: { title: string; items: [string, string][] }[] = [
   { title: 'Bridal Wear', items: [['blouse', 'Blouse Fitting'], ['padding', 'Padding Adjustment'], ['hooks', 'Hooks / Zip Adjustment']] },
   { title: 'Other', items: [['other', 'Other Alteration']] },
 ]
-export const LBL: Record<string, string> = Object.fromEntries(GROUPS.flatMap(g => g.items))
-export const MEAS: [string, string][] = [['bust', 'Bust'], ['waist', 'Waist'], ['hip', 'Hip'], ['length', 'Length'], ['other', 'Other']]
-export const QC: [string, string][] = [['done', 'All requested alterations completed'], ['meets', 'Alteration meets the recorded requirements'], ['nodamage', 'No damage caused to the dress'], ['presentable', 'Dress is presentable and ready']]
+const LBL: Record<string, string> = Object.fromEntries(GROUPS.flatMap(g => g.items))
+const MEAS: [string, string][] = [['bust', 'Bust'], ['waist', 'Waist'], ['hip', 'Hip'], ['length', 'Length'], ['other', 'Other']]
+const QC: [string, string][] = [['done', 'All requested alterations completed'], ['meets', 'Alteration meets the recorded requirements'], ['nodamage', 'No damage caused to the dress'], ['presentable', 'Dress is presentable and ready']]
 const STEPS: [string, string][] = [['pending_dispatch', 'Pending Dispatch to Tailor'], ['at_unit', 'At Tailoring Unit'], ['quality_check', 'Quality Check at Store'], ['ready', 'Ready']]
 
 /** One-line summary of what is being altered: the checklist if filled in, else the booking's free-text notes. */

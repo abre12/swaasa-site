@@ -13,7 +13,6 @@ export type Alert = {
   tag: string            // headline, e.g. "DELIVERY RISK · 3 DAYS LEFT"
   dress: string          // "LH541223 · Blush Pink Bridal Lehenga"
   dressId: string
-  bookingId?: string     // the booking (and so the customer) this alert is about, when there is one
   body: string           // one or two lines of context
   meta?: string          // delivery / deadline line
   more: string[]         // other issues on the same dress (the most urgent one is shown, the rest are listed)
@@ -54,12 +53,12 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
         : left === 1 ? ['risk', 90, 'IMMEDIATE ATTENTION · DELIVERY TOMORROW', 'Delivery at risk'] as const
         : left === 2 ? ['critical', 70, 'URGENT · 2 DAYS LEFT', 'Delivery risk'] as const
         : ['critical', 60, 'DELIVERY RISK · 3 DAYS LEFT', 'Delivery risk'] as const
-      out.push({ key: `risk:${o.dress_id}:${nb.id}`, level, rank, short, tag, dress: label(o), dressId: o.dress_id, bookingId: nb.id,
+      out.push({ key: `risk:${o.dress_id}:${nb.id}`, level, rank, short, tag, dress: label(o), dressId: o.dress_id,
         body: `Still not returned and required for delivery on ${dmy(nb.start_date)}.`,
         meta: overdue ? `Expected back ${dmy(o.end_date)}` : `With customer until ${dmy(o.end_date)}`, more: [],
         action: { label: 'View Details', kind: 'booking', bookingId: o.id } })
     } else if (overdue) {
-      out.push({ key: `overdue:${o.id}`, level: 'critical', rank: 55, short: 'Overdue return', tag: 'OVERDUE RETURN', dress: label(o), dressId: o.dress_id, bookingId: o.id,
+      out.push({ key: `overdue:${o.id}`, level: 'critical', rank: 55, short: 'Overdue return', tag: 'OVERDUE RETURN', dress: label(o), dressId: o.dress_id,
         body: `Expected back on ${dmy(o.end_date)} and has not been returned.`, more: [], action: { label: 'View Booking', kind: 'booking', bookingId: o.id } })
     }
   }
@@ -68,7 +67,7 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
   // Alterations are never done on a dress that has gone out, so this is always a record-keeping mistake (High, not Critical).
   for (const a of (ctx.AJ || []).filter(j => ALT_ACTIVE.includes(j.status) && j.source !== 'damage')) {
     const b = live.find(x => x.id === a.booking_id); if (!b || b.status !== 'out') continue
-    out.push({ key: `altopen:${a.id}`, level: 'high', rank: 45, short: 'Alteration left open', tag: 'ALTERATION STILL OPEN · DRESS ALREADY DELIVERED', dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [],
+    out.push({ key: `altopen:${a.id}`, level: 'high', rank: 45, short: 'Alteration left open', tag: 'ALTERATION STILL OPEN · DRESS ALREADY DELIVERED', dress: label(b), dressId: b.dress_id, more: [],
       body: 'The dress is already with the customer, but its alteration is still open. Please close it as completed, skipped or missed.', meta: `Delivered · due back ${dmy(b.end_date)}`,
       action: { label: 'View Workflow', kind: 'workflow', module: 'alteration', id: a.id } })
   }
@@ -78,7 +77,7 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
     const b = live.find(x => x.id === a.booking_id); if (!b || !upcoming(b)) continue
     const due = addD(b.start_date, -1), dleft = days(today, due)
     const pend = a.measurements_pending ? ' Measurements are still pending.' : ''
-    const base = { dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [] as string[], meta: `Delivery ${dmy(b.start_date)} · Alteration due ${dmy(due)}`, action: { label: 'View Workflow', kind: 'workflow', module: 'alteration', id: a.id } as AlertAction }
+    const base = { dress: label(b), dressId: b.dress_id, more: [] as string[], meta: `Delivery ${dmy(b.start_date)} · Alteration due ${dmy(due)}`, action: { label: 'View Workflow', kind: 'workflow', module: 'alteration', id: a.id } as AlertAction }
     if (today >= b.start_date) out.push({ ...base, key: `altrisk:${a.id}`, level: 'risk', rank: 95, short: 'Delivery at risk', tag: 'DELIVERY AT RISK · ALTERATION PENDING', body: `Alteration is not complete and the dress is due for delivery ${today === b.start_date ? 'today' : 'on ' + dmy(b.start_date)}.${pend}` })
     else if (a.status === 'at_unit' && a.expected_return && a.expected_return < today) out.push({ ...base, key: `altover:${a.id}`, level: 'critical', rank: 64, short: 'Overdue alteration', tag: 'ALTERATION OVERDUE', body: `Expected back from the tailor on ${dmy(a.expected_return)} and is not back yet.` })
     else if (dleft <= 0) out.push({ ...base, key: `altover:${a.id}`, level: 'critical', rank: 62, short: 'Overdue alteration', tag: 'ALTERATION DUE TODAY', body: `Alteration must be completed today, one day before delivery.${pend}` })
@@ -92,7 +91,7 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
     const left = days(today, nb.start_date); if (left > C.horizon) continue
     const dress = dm.get(dressId), cl = cleaningOf(dressId)
     const act = (kind: 'cleaning' | 'booking'): AlertAction => kind === 'cleaning' && cl ? { label: 'View Workflow', kind: 'workflow', module: 'cleaning', id: cl.id } : { label: 'View Details', kind: 'booking', bookingId: nb.id }
-    const common = { dress: label(nb), dressId, bookingId: nb.id, more: [] as string[], meta: `Delivery ${dmy(nb.start_date)}` }
+    const common = { dress: label(nb), dressId, more: [] as string[], meta: `Delivery ${dmy(nb.start_date)}` }
     if (dress?.status === 'maintenance') {
       const lvl = left <= 3 ? 'critical' : 'high'
       out.push({ ...common, key: `prep:${dressId}:${nb.id}:damaged`, level: left <= 0 ? 'risk' : lvl, rank: left <= 0 ? 92 : lvl === 'critical' ? 58 : 38, short: 'Preparation risk', tag: left <= 0 ? 'DELIVERY AT RISK · DRESS DAMAGED' : 'DELIVERY PREPARATION RISK', body: `Marked as damaged and not yet repaired. Needed for delivery on ${dmy(nb.start_date)}.`, action: act('booking') })
@@ -108,7 +107,7 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
   // ---- E: a delivery whose date has passed without the dress going out ----
   for (const b of live.filter(x => upcoming(x) && x.start_date < today)) {
     const n = days(b.start_date, today)
-    out.push({ key: `missed:${b.id}`, level: 'risk', rank: 96, short: 'Delivery missed', tag: `DELIVERY MISSED · ${n} DAY${n === 1 ? '' : 'S'} LATE`, dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [],
+    out.push({ key: `missed:${b.id}`, level: 'risk', rank: 96, short: 'Delivery missed', tag: `DELIVERY MISSED · ${n} DAY${n === 1 ? '' : 'S'} LATE`, dress: label(b), dressId: b.dress_id, more: [],
       body: `Delivery was due on ${dmy(b.start_date)} and has not been recorded. Deliver it, or reschedule or cancel the booking.`, meta: b.customer_name ? `Customer: ${b.customer_name}` : undefined,
       action: { label: 'View Booking', kind: 'booking', bookingId: b.id } })
   }
