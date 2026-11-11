@@ -9,7 +9,6 @@ import { byDesc, mergeRows } from '@/lib/merge'
 import DressForm from './admin/DressForm'
 import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
 import Dashboard from './admin/Dashboard'
-import Today from './admin/Today'
 import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
 import StaffAdmin from './admin/StaffAdmin'
@@ -33,13 +32,13 @@ const today = todayIST
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
-  ['today', 'Today', 'checkc', ['owner', 'manager']], ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
+  ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
   ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']],
   ['cash', 'Cash & Transactions', 'wallet', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
 export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
-  const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(initialTab && (role === 'owner' || initialTab !== 'performance') ? initialTab : (ops ? 'today' : 'prep')); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
+  const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(initialTab && initialTab !== 'today' && (role === 'owner' || initialTab !== 'performance') ? initialTab : (ops ? 'dashboard' : 'prep')); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
   const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [CR, setCR] = useState<any[]>([]); const [AJ, setAJ] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [calView,setCalView]=useState<'month'|'week'|'day'>('month'),[calFocus,setCalFocus]=useState(today()),[calFilters,setCalFilters]=useState({bookings:true,deliveries:true,returns:true,alterations:true,cleaning:true})
@@ -371,7 +370,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const { data, error } = await sb.rpc('cancel_booking', { p_booking: b.id, p_reason: v.reason, p_rent_refund: v.rent, p_dep_refund: v.deposit, p_mode: v.mode, p_note: v.note })
     say(error ? fail(error.message) : (data?.rent_refund || 0) + (data?.deposit_refund || 0) > 0 ? `Booking cancelled. Hand back ${inr((data?.rent_refund || 0) + (data?.deposit_refund || 0))} to the customer.` : 'Booking cancelled. No refund (policy).'); load()
   }
-  const sel = (b: any) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
+  const sel = (b: any, o: { noCancel?: boolean } = {}) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Mark delivered</button>}
     {b.status === 'out' && <button className="btn sm" onClick={() => ret(b)}>Process Return</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
@@ -380,7 +379,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
     {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button>}
     {b.status === 'out' && <button className="btn alt sm" onClick={() => extendRental(b)}>Extend rental</button>}
-    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" style={{ color: 'var(--red,#b4493f)' }} onClick={() => cancelBooking(b)}>Cancel booking</button>}</>
+    {!o.noCancel && ['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" style={{ color: 'var(--red,#b4493f)' }} onClick={() => cancelBooking(b)}>Cancel booking</button>}</>
   // Secondary actions for the booking details footer: the contextual primary action lives in the modal header.
   const selSecondary = (b: any) => <>{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
@@ -418,12 +417,12 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[],string][] = [['Workspace',['today','dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning','cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],''],['',['prep'],'']]
+  const navGroups: [string,string[],string][] = [['Workspace',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning','cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],''],['',['prep'],'']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
-  const navCount: Record<string, number> = { today: (B || []).filter((b: any) => (['confirmed', 'pending'].includes(b.status) && b.start_date <= todayIST()) || (b.status === 'out' && b.end_date <= todayIST())).length, alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'returned_pending_check').length, approvals: pendingAppr }
+  const navCount: Record<string, number> = { dashboard: (B || []).filter((b: any) => (['confirmed', 'pending'].includes(b.status) && b.start_date <= todayIST()) || (b.status === 'out' && b.end_date <= todayIST())).length, alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'returned_pending_check').length, approvals: pendingAppr }
   const navButtons=(keys:string[],close=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=>{const on=tab===k||(k==='reports'&&tab==='performance');return <button key={k} type="button" className={'nv'+(on?' on':'')} aria-current={on?'page':undefined} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>})
   const navTree=(close=false)=>navGroups.map(([label,keys])=>myNav.some(n=>keys.includes(n[0]))&&<section className="adm-nav-group" key={keys.join()} aria-label={label||undefined}>{label&&<div className="adm-nav-label" aria-hidden="true">{label}</div>}{navButtons(keys,close)}</section>)
-  const BOT = ['today', 'bookings', 'alterations', 'drycleaning'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
+  const BOT = ['dashboard', 'bookings', 'alterations', 'drycleaning'].map(k => myNav.find(n => n[0] === k)).filter(Boolean) as typeof NAV
   return (<div className="adm">
     <header className="adm-top"><button className="ham" aria-label="Open menu" onClick={() => setDrawer(true)}><Ic n="menu" s={24} /></button><b>{pageTitle || 'Swaasa'}</b><span className="sp" />{ops && <a className="adm-newbk-top" href="/collection#collection" aria-label="New Booking"><Ic n="plus" s={16} />New Booking</a>}<Notifications ctx={ctx}/><img src="/logo-mark.png" alt="" /></header>
     <aside className="adm-side"><div className="adm-side-bell"><Notifications ctx={ctx} placement="side" /></div>
@@ -435,7 +434,6 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
         <button type="button" className="adm-out" aria-label="Sign out" title="Sign out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} /></button></div></aside>
     <main className="adm-main">{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period, refundable deposit rules and alert timing.' : 'Alterations to complete before delivery.'} />}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
-    {tab === 'today' && ops && <Today ctx={ctx} />}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
     {tab === 'drycleaning' && ops && <DryCleaning ctx={ctx} />}

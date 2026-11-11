@@ -10,6 +10,7 @@ import MonthPick from './MonthPick'
 import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 import BookingsByStaff from './BookingsByStaff'
+import Today from './Today'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 export function Chart({ B }: { B: any[] }) {
@@ -44,7 +45,7 @@ const dShort = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-
 const JT: Record<string, [string, string]> = { warn: ['var(--red)', 'xc'], todo: ['var(--amber)', 'prog'], busy: ['var(--amber)', 'prog'], check: ['var(--blue)', 'search'], done: ['var(--green)', 'checkc'], off: ['var(--mut)', 'ban'] }
 export default function Dashboard({ ctx }: { ctx: any }) {
   const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), tomorrow = addD(today, 1)
-  const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [all, setAll] = useState(false); const [wf, setWf] = useState<string | null>(null)
+  const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [wf, setWf] = useState<string | null>(null)
   const made = B.filter(b => b.status !== 'cancelled' && istDate(b.created_at) === today)
   const delToday = B.filter(b => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status))
   const retToday = B.filter(b => b.end_date === today && ['out', 'returned'].includes(b.status))
@@ -54,15 +55,9 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   // Monthly figures: bookings whose delivery date falls in the chosen month (cancelled ones excluded).
   const mb = B.filter(b => b.status !== 'cancelled' && b.start_date.slice(0, 7) === mon)
   const sum = (f: (b: any) => number) => mb.reduce((t, b) => t + f(b), 0)
-  const owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid)
   const rent = sum(b => b.rent), cust = sum(b => b.custom_charge || 0), dmg = sum(b => b.damage_charge || 0), late = sum(b => b.late_fee || 0)
   const other = Math.max(0, sum(b => b.charges) - cust - dmg - late), total = sum(b => b.rent + b.charges)
   const monName = new Date(mon + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-  // Today's deliveries show three states: Not Ready (with the reason), Ready, Delivered. Readiness comes from lib/readiness.ts.
-  const stOf = (b: any) => b.status !== 'confirmed' ? 2 : bookingReadiness(ctx, b).ready ? 1 : 0
-  const todays = delToday.slice().sort((a, b) => stOf(a) - stOf(b) || a.id.localeCompare(b.id))
-  const shownDel = all ? todays : todays.slice(0, 5)
-  const ST: [string, string, string][] = [['Not Ready', 'var(--amber)', 'scissors'], ['Ready', 'var(--blue)', 'truck'], ['Delivered', 'var(--green)', 'checkc']]
   // Pending alterations: delivery from today to today+7 (plus any overdue). Due by = the day before delivery, never earlier than today.
   const dueBy = (r: any) => { const d = addD(r.start_date, -1); return d < today ? today : d }
   const bookById = new Map<string, any>(B.map(b => [b.id, b]))
@@ -96,12 +91,10 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={40} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
   const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 46, 60)}<div><b>{code}</b><span>{name}</span></div></div>
   const duePill = (r: any) => r.job.status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Ic n="calendar" s={15} />{dShort(r.due)}</span>
-  const delAction = (b: any, k: number) => k === 1 ? <button className="btn sm wine" onClick={e => { e.stopPropagation(); ctx.pickup(b) }}>Mark delivered</button> : k === 0 ? <button className="btn sm alt" onClick={e => { e.stopPropagation(); ctx.openBooking(b.id) }}>See what's pending</button> : null
-  const pendOf = (b: any) => Math.max(0, b.rent + b.charges - b.paid) + Math.max(0, b.deposit - b.deposit_held)
   // Alteration stage badge: read-only. The work itself is done in Alterations (open the booking, then its primary action).
   const altBadge = (r: any) => { const st = altStatus(r.job), [c, ic] = JT[st.tone] || JT.off; return <span className="bdg" style={tint(c)} title={st.hint}><Ic n={ic} s={15} />{st.label}</span> }
   return (<div>
-    <PageHead icon="home" title="Dashboard" sub="Daily operations, deliveries, alterations and business overview"><div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></PageHead>
+    <PageHead icon="home" title="Dashboard" sub="What needs doing today, then deliveries, alterations and bookings"><div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></PageHead>
     {ctx.owner && (() => {
       // Owner only: what has gone wrong or is stuck, in one line each, so nothing has to be hunted for. Counts come from the same rules as the bell.
       const { alerts: al } = computeAlerts({ B, D: ctx.D, AJ: ctx.AJ, CR: ctx.CR, DC: ctx.DC, st: ctx.st }, today, 0)
@@ -117,31 +110,16 @@ export default function Dashboard({ ctx }: { ctx: any }) {
       return items.length ? <div className="alsobar" style={{ marginBottom: 10 }}><b style={{ marginRight: 8 }}>Needs your attention</b>{items.map(([c, l, go]) => <button key={l} className="hot" onClick={go}>{c} {l}</button>)}</div>
         : <p className="mut" style={{ margin: '0 0 10px' }}>Nothing needs your attention. No overdue items, stuck vendor work or waiting approvals.</p>
     })()}
-    <div className="k6" style={ctx.owner ? undefined : { gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
+    <div className="k6" style={{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
       <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />
       <KC ic="truck" c="var(--blue)" v={delToday.length} l="Today's Deliveries" on={() => setPop('del')} />
       <KC ic="ret" c="var(--purple)" v={retToday.length} l="Today's Returns" on={() => setPop('ret')} />
-      {ctx.owner && <KC ic="wallet" c="var(--green)" v={inr(sum(b => Math.max(0, b.paid)))} l="Total Received" sub={`rent, ${monName.split(' ')[0]} bookings`} on={() => ctx.go('cash')} />}
-      <KC ic="hourglass" c="var(--amber)" v={inr(sum(owe))} l="Due Pending" sub={`${monName.split(' ')[0]} bookings`} on={() => ctx.go('bookings', { flt: 'owing' })} />
       <KC ic="warn" c="var(--red)" v={odRet.length} l="Overdue Returns" on={() => setPop('over')} /></div>
     {(pending.length > 0 || odDel.length > 0) && <div className="alsobar">
       {pending.length > 0 && <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button>}
       {odDel.length > 0 && <button className="hot" onClick={() => setPop('over')}>{odDel.length} overdue {odDel.length === 1 ? 'delivery' : 'deliveries'}</button>}</div>}
-    <div className="adm-two">
-      <div className="pnl"><div className="pnl-h" style={tint('var(--blue)')}><h2><Ic n="truck" s={26} />Today's Deliveries ({todays.length})</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'deltoday' }) }}>View All <Ic n="arrow" s={16} /></a></div>
-        <div className="scroll dt-wrap"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Return Date</th><th>Amount Pending</th><th>Status</th><th></th></tr></thead><tbody>
-          {shownDel.map(b => { const k = stOf(b), [lab, c, ic] = ST[k], pend = pendOf(b)
-            return <tr key={b.id} className="cl" onClick={() => ctx.openBooking(b.id)}><td><span className="bid">{b.id}</span></td><td>{b.customer_name}</td><td>{dressCell(b.dress_code, b.dress_name, b.dress_id)}</td><td>{dShort(b.end_date)}</td>
-              <td title="Rent still unpaid plus any refundable deposit still to collect">{k === 2 || !pend ? <span className="mut">—</span> : <b>{inr(pend)}</b>}</td>
-              <td><span className="bdg" style={tint(c)} title={k === 0 ? bookingReadiness(ctx, b).reasons.map(x => x.label).join(' · ') : undefined}><Ic n={ic} s={14} />{k === 0 ? bookingReadiness(ctx, b).summary : lab}</span></td><td style={{ whiteSpace: 'nowrap' }}>{delAction(b, k)}</td></tr> })}
-          {!todays.length && <tr><td colSpan={7} className="mut" style={{ padding: 16 }}>No deliveries today.</td></tr>}</tbody></table></div>
-        <div className="m-list">{shownDel.map(b => { const k = stOf(b), [lab, c, ic] = ST[k], pend = pendOf(b)
-          return <div key={b.id} className="mc" onClick={() => ctx.openBooking(b.id)}><div className="mc-top">{ctx.thumb(ctx.dmap[b.dress_id], 54, 70)}
-            <div className="mc-main"><div className="mc-row"><b>{b.dress_code}</b><span className="bdg" style={tint(c)}><Ic n={ic} s={13} />{k === 0 ? bookingReadiness(ctx, b).summary : lab}</span></div><div className="mc-sub">{b.dress_name}</div>
-              <div className="mc-meta">{b.customer_name} · <span className="bid">{b.id}</span></div><div className="mc-meta">Return {dShort(b.end_date)}{k !== 2 && pend > 0 && <> · <b style={{ color: 'var(--red)' }}>Pending {inr(pend)}</b></>}</div></div></div>
-            {k !== 2 && <div className="mc-act">{delAction(b, k)}</div>}</div> })}
-          {!todays.length && <p className="mut" style={{ padding: 14, margin: 0 }}>No deliveries today.</p>}</div>
-        {todays.length > 5 && <button className="more" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `View ${todays.length - 5} more deliveries for today`}</button>}</div>
+    <Today ctx={ctx} embedded />
+    <div>
       <div className="pnl"><div className="pnl-h" style={tint('var(--amber)')}><h2><Ic n="scissors" s={26} />Pending Alterations (Next 7 Days)</h2><a href="#" onClick={e => { e.preventDefault(); ctx.go('bookings', { flt: 'alterations' }) }}>View All <Ic n="arrow" s={16} /></a></div>
         <div className="scroll dt-wrap"><table className="dt"><thead><tr><th>Booking ID</th><th>Customer</th><th>Dress / Item</th><th>Delivery Date</th><th>Due By</th><th>Status</th></tr></thead><tbody>
           {alRows.map(r => { const [lab, c, ic] = [0, 0, 0]

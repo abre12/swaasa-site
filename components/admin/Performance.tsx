@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHead from './PageHead'
+import MonthPick from './MonthPick'
 import { Ic } from './icons'
 import { dmy, inr, todayIST } from '@/lib/util'
 
@@ -22,6 +23,11 @@ const SORTS: Record<string, [string, (a: any, b: any) => number]> = {
 
 export default function Performance({ ctx }: { ctx: any }) {
   const today = todayIST()
+  // Collections for one month (bookings whose delivery date falls in it, cancelled ones excluded). Moved here from the Dashboard: this is the owner's concern, not the floor staff's.
+  const [cMon, setCMon] = useState(todayIST().slice(0, 7))
+  const cB = (ctx.B || []).filter((b: any) => b.status !== 'cancelled' && b.start_date.slice(0, 7) === cMon)
+  const cReceived = cB.reduce((t: number, b: any) => t + Math.max(0, b.paid), 0), cDue = cB.reduce((t: number, b: any) => t + Math.max(0, b.rent + b.charges - b.paid), 0)
+  const cName = new Date(cMon + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
   const [from, setFrom] = useState(`${today.slice(0, 7)}-01`), [to, setTo] = useState(today), [preset, setPreset] = useState('month')
   const [sort, setSort] = useState('net'), [q, setQ] = useState(''), [category, setCategory] = useState(''), [status, setStatus] = useState(''), [ranking, setRanking] = useState('net'), [chartMode, setChartMode] = useState('monthly')
   const [rows, setRows] = useState<any[]>([]), [err, setErr] = useState(''), [selected, setSelected] = useState<any>(null)
@@ -88,6 +94,13 @@ export default function Performance({ ctx }: { ctx: any }) {
 
   return <div className="dp-page">
     <PageHead icon="chart" title="Dress Performance" sub="Track rental performance, revenue, profitability and utilization of your dress inventory." />
+    <section className="box dp-money" aria-label="Collections for the month">
+      <div className="dp-panel-head"><h3>Collections · {cName}</h3><MonthPick value={cMon} onChange={v => v && setCMon(v)} max={today.slice(0, 7)} title="Bookings whose delivery date falls in this month" compact /></div>
+      <div className="dp-cards dp-cards-secondary">
+        <article className="dp-card dp-click" role="button" tabIndex={0} onClick={() => ctx.go('cash')} onKeyDown={e => { if (e.key === 'Enter') ctx.go('cash') }}><span className="dp-mini-icon tone-0"><Ic n="wallet" s={32} /></span><div><b>{inr(cReceived)}</b><span>Total Received</span><small>Rent on {cName.split(' ')[0]} bookings. Open Cash & Transactions</small></div></article>
+        <article className="dp-card dp-click" role="button" tabIndex={0} onClick={() => ctx.go('bookings', { flt: 'owing' })} onKeyDown={e => { if (e.key === 'Enter') ctx.go('bookings', { flt: 'owing' }) }}><span className="dp-mini-icon tone-1"><Ic n="hourglass" s={32} /></span><div><b>{inr(cDue)}</b><span>Due Pending</span><small>Rent still unpaid on {cName.split(' ')[0]} bookings. See who owes</small></div></article>
+      </div>
+    </section>
     <div className="dp-actions"><select value={preset} onChange={e => setRange(e.target.value)} aria-label="Date range preset"><option value="month">This month</option><option value="quarter">This quarter</option><option value="year">This year</option><option value="all">All time</option><option value="custom">Custom range</option></select><label className="dp-date">From<input type="date" value={from} onChange={e => { setPreset('custom'); setFrom(e.target.value) }} /></label><label className="dp-date">To<input type="date" value={to} onChange={e => { setPreset('custom'); setTo(e.target.value) }} /></label><select value={category} onChange={e => setCategory(e.target.value)} aria-label="Filter category"><option value="">All categories</option>{cats.map(c => <option key={c}>{c}</option>)}</select><select value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter inventory status"><option value="">All status</option>{inventory.map(x => <option value={x.status} key={x.status}>{x.status === 'maintenance' ? 'damaged' : x.status}</option>)}</select><button className="btn alt sm" onClick={exportCsv}>↓ Export CSV</button></div>
     {err && <p className="bad">{err}</p>}
     <div className="dp-cards dp-cards-primary">{[["Total Rental Revenue", inr(sum('gross')), 'Before discounts'], ['Net Revenue', inr(sum('net_rent')), 'After discounts and rental refunds'], ['Net After Cleaning', inr(sum('net_rent') - sum('wash_cost')), 'Less recorded cleaning charges'], ['Average Utilization', `${avgUtil}%`, 'Estimate from recorded inventory days']].map(([label, value, note], i) => <article className={`dp-card tone-${i}`} key={label}><span className="dp-card-icon"><Ic n={['cash', 'wallet', 'sparkle', 'chart'][i]} s={32} /></span><div><b>{value}</b><span>{label}</span><small>{note}</small></div></article>)}</div>

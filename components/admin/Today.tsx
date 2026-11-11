@@ -12,7 +12,7 @@ import PageHead from './PageHead'
 type Row = { key: string; dressId: string; code: string; name: string; who?: string; chip: string; tone: 'bad' | 'warn' | 'ok' | 'info'; hint?: string; label: string; go: () => void; primary?: boolean }
 type Sec = { id: string; title: string; icon: string; rows: Row[] }
 
-export default function Today({ ctx }: { ctx: any }) {
+export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: boolean }) {
   const today = todayIST(), tmr = addD(today, 1), in7 = addD(today, 7)
   const B: any[] = ctx.B || [], AJ: any[] = ctx.AJ || [], CR: any[] = ctx.CR || [], DC: any[] = ctx.DC || []
   const sections: Sec[] = useMemo(() => {
@@ -73,8 +73,10 @@ export default function Today({ ctx }: { ctx: any }) {
 
   const total = sections.reduce((n, s) => n + s.rows.length, 0)
   const tmrDel = B.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === tmr).length, tmrRet = B.filter(b => b.status === 'out' && b.end_date === tmr).length
-  return (<div>
-    <PageHead icon="checkc" title="Today" sub={`${new Date(today + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Everything that needs doing, in order.`} />
+  return (<div className={embedded ? 'td-embed' : undefined}>
+    {embedded
+      ? <div className="td-embed-head"><h2><Ic n="checkc" s={24} />Today</h2><span className="mut">{new Date(today + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Everything that needs doing, in order.</span></div>
+      : <PageHead icon="checkc" title="Today" sub={`${new Date(today + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Everything that needs doing, in order.`} />}
     {!total && <div className="td-clear"><Ic n="checkc" s={34} /><b>Nothing needs doing right now</b><p>No deliveries, returns or vendor items are waiting.</p></div>}
     {sections.map(s => <section key={s.id} className="td-sec">
       <h3><Ic n={s.icon} s={18} />{s.title}<span className="td-n">{s.rows.length}</span></h3>
