@@ -9,7 +9,7 @@ import PageHead from './PageHead'
 
 // TODAY: one list for the start of the day. Every row is something someone has to DO, the button on the row does it (or opens it),
 // and the list is derived from live records, so a row disappears as soon as the work is recorded. Sections with nothing to do are hidden.
-type Row = { key: string; dressId: string; code: string; name: string; who?: string; chip: string; tone: 'bad' | 'warn' | 'ok' | 'info'; hint?: string; label: string; go: () => void; primary?: boolean }
+type Row = { key: string; dressId: string; code: string; name: string; who?: string; chip: string; tone: 'bad' | 'warn' | 'ok' | 'info'; hint?: string; label: string; go: () => void; primary?: boolean; tags?: string[] }
 type Sec = { id: string; title: string; icon: string; rows: Row[] }
 
 export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: boolean }) {
@@ -71,22 +71,36 @@ export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: 
     return out.filter(s => s.rows.length)
   }, [B, AJ, CR, DC, ctx.D, ctx.dmap, ctx.tick, today])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const total = sections.reduce((n, s) => n + s.rows.length, 0)
+  // The dashboard is a single work queue. A dress can trigger several checks, but it appears only once: the most urgent action wins and the other conditions become tags.
+  const priority = (r: Row) => r.tone === 'bad' ? 4 : r.tone === 'warn' ? 3 : r.tone === 'info' ? 2 : 1
+  const unique = new Map<string, Row>()
+  sections.flatMap(s => s.rows).forEach(r => {
+    const key = r.key.startsWith('alt:') || r.key.startsWith('cl:') ? r.dressId : r.key
+    const prev = unique.get(key)
+    if (!prev) unique.set(key, { ...r, tags: [r.chip] })
+    else {
+      const tags = Array.from(new Set([...(prev.tags || [prev.chip]), r.chip]))
+      const winner = priority(r) > priority(prev) ? r : prev
+      unique.set(key, { ...winner, tags })
+    }
+  })
+  const mergedSections: Sec[] = unique.size ? [{ id: 'today', title: 'Today', icon: 'checkc', rows: Array.from(unique.values()).sort((a, b) => priority(b) - priority(a) || a.code.localeCompare(b.code)) }] : []
+  const total = mergedSections.reduce((n, s) => n + s.rows.length, 0)
   const tmrDel = B.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === tmr).length, tmrRet = B.filter(b => b.status === 'out' && b.end_date === tmr).length
   return (<div className={embedded ? 'td-embed' : undefined}>
     {embedded
       ? <div className="td-embed-head"><h2><Ic n="checkc" s={24} />Today</h2><span className="mut">{new Date(today + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Everything that needs doing, in order.</span></div>
       : <PageHead icon="checkc" title="Today" sub={`${new Date(today + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Everything that needs doing, in order.`} />}
     {!total && <div className="td-clear"><Ic n="checkc" s={34} /><b>Nothing needs doing right now</b><p>No deliveries, returns or vendor items are waiting.</p></div>}
-    {sections.map(s => <section key={s.id} className="td-sec">
+    {mergedSections.map(s => <section key={s.id} className="td-sec">
       <h3><Ic n={s.icon} s={18} />{s.title}<span className="td-n">{s.rows.length}</span></h3>
       {s.rows.map(r => <div key={r.key} className={'td-row ' + r.tone} role="button" tabIndex={0} onClick={r.go} onKeyDown={e => { if (e.key === 'Enter') r.go() }}>
         {ctx.thumb(ctx.dmap?.[r.dressId] || { images: [] }, 40, 52)}
         <div className="td-main"><div className="td-top"><b>{r.code}</b><span>{r.name}</span>{r.who && <em>{r.who}</em>}</div>
-          <div className="td-chip"><span className={'td-tag ' + r.tone}>{r.chip}</span>{r.hint && <small>{r.hint}</small>}</div></div>
+          <div className="td-chip"><span className={'td-tag ' + r.tone}>{r.chip}</span>{(r.tags || []).filter(t => t !== r.chip).map(t => <span key={t} className="td-tag info">{t}</span>)}{r.hint && <small>{r.hint}</small>}</div></div>
         <button type="button" className={'btn sm' + (r.primary ? ' wine' : ' alt')} onClick={e => { e.stopPropagation(); r.go() }}>{r.label}</button>
       </div>)}
     </section>)}
-    <p className="mut td-foot">Tomorrow: {tmrDel} deliver{tmrDel === 1 ? 'y' : 'ies'} · {tmrRet} return{tmrRet === 1 ? '' : 's'} due</p>
+    {(tmrDel > 0 || tmrRet > 0) && <p className="mut td-foot">Tomorrow: {tmrDel > 0 && `${tmrDel} deliver${tmrDel === 1 ? 'y' : 'ies'}`}{tmrDel > 0 && tmrRet > 0 && ' · '}{tmrRet > 0 && `${tmrRet} return${tmrRet === 1 ? '' : 's'} due`}</p>}
   </div>)
 }
