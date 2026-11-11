@@ -18,7 +18,7 @@ const NOF = { dFrom: '', dTo: '', rFrom: '', rTo: '', status: '', pay: '', staff
 export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; setFlt: (f: string) => void }) {
   const B: any[] = ctx.B, today = todayIST(), tomorrow = addD(today, 1), in7 = addD(today, 7)
   const [q, setQ] = useState(''), [sort, setSort] = useState('del'), [showF, setShowF] = useState(false), [f, setF] = useState(NOF), [month, setMonth] = useState(today.slice(0, 7)), [menu, setMenu] = useState<{ b: any; x: number; y: number } | null>(null), [adv, setAdv] = useState<Record<string, number>>({}), [limit, setLimit] = useState(PAGE)
-  useEffect(() => { const c = () => setMenu(null); document.addEventListener('click', c); window.addEventListener('scroll', c, true); return () => { document.removeEventListener('click', c); window.removeEventListener('scroll', c, true) } }, [])
+  useEffect(() => { const c = () => setMenu(null); document.addEventListener('click', c); const sc = (e: Event) => { if (e.target instanceof Element && e.target.closest('.bkm-pop')) return; setMenu(null) }; window.addEventListener('scroll', sc, true); return () => { document.removeEventListener('click', c); window.removeEventListener('scroll', sc, true) } }, [])   // scrolling INSIDE the menu must not close it
   // Advance = rent taken when the booking was made (purpose "advance"), less any advance refunded. It is separate from the refundable deposit.
   useEffect(() => { fetchAll(() => ctx.sb.from('payments').select('id,booking_id,amount,purpose').in('purpose', ['advance', 'advance_refund']).order('id')).then(({ data }: any) => { if (!data) return; const m: Record<string, number> = {}; (data || []).forEach((p: any) => { m[p.booking_id] = (m[p.booking_id] || 0) + (p.purpose === 'advance' ? p.amount : -p.amount) }); setAdv(m) }) }, [ctx.fullTick, ctx.sb])   // paged; refreshed with each full load rather than every poll
   const live = (b: any) => b.status !== 'cancelled', owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid), total = (b: any) => b.rent + b.charges
@@ -127,6 +127,12 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       {!rows.length && <p className="mut">No bookings match.</p>}
       {ctx.owner && !!rows.length && <div className="bk-m tot"><b>Total ({rows.length} Booking{rows.length === 1 ? '' : 's'})</b><div className="mny"><div><small>Value</small><b>{inr(T.tot)}</b></div><div><small>Received</small><b style={{ color: 'var(--green)' }}>{inr(T.rec)}</b></div><div><small>Pending</small><b style={{ color: 'var(--red)' }}>{inr(T.pend)}</b></div></div></div>}</div>
     {rows.length > shown.length && <div style={{ textAlign: 'center', padding: '14px 0' }}><span className="mut" style={{ marginRight: 12 }}>Showing {shown.length} of {rows.length}</span><button className="btn sm" onClick={() => setLimit(l => l + PAGE)}>Show 50 more</button><button className="btn sm" style={{ marginLeft: 8 }} onClick={() => setLimit(rows.length)}>Show all</button></div>}
-    {menu && <div className="bkm-pop" onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: Math.min(menu.y, innerHeight - 340), right: Math.max(8, innerWidth - menu.x) }}>{ctx.sel(menu.b)}{handled(menu.b).length > 0 && <small>{handled(menu.b).map(([l, n]) => <div key={l}>{l}: {n}</div>)}</small>}</div>}
+    {menu && (() => { const b = menu.b, space = innerHeight - menu.y - 8, below = space >= 330
+      return <div className="bkm-pop" role="menu" aria-label="Booking actions" onClick={e => { e.stopPropagation(); if ((e.target as HTMLElement).closest('button')) setTimeout(() => setMenu(null), 0) }} style={{ position: 'fixed', right: Math.max(8, innerWidth - menu.x), ...(below ? { top: menu.y, maxHeight: space } : { bottom: 8, maxHeight: innerHeight - 16 }) }}>
+        {ctx.sel(b, { noCancel: true })}
+        {handled(b).length > 0 && <small>{handled(b).map(([l, n]) => <div key={l}>{l}: {n}</div>)}</small>}
+        {['pending', 'confirmed'].includes(b.status) ? <button type="button" className="bkm-cancel" role="menuitem" onClick={() => ctx.cancelBooking(b)}>Cancel booking…</button>
+          : b.status === 'out' ? <small className="bkm-cancel-note">Cancelling is not possible once the dress is out. Process the return instead.</small> : null}
+      </div>})()}
   </div>)
 }

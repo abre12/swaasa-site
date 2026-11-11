@@ -371,7 +371,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const { data, error } = await sb.rpc('cancel_booking', { p_booking: b.id, p_reason: v.reason, p_rent_refund: v.rent, p_dep_refund: v.deposit, p_mode: v.mode, p_note: v.note })
     say(error ? fail(error.message) : (data?.rent_refund || 0) + (data?.deposit_refund || 0) > 0 ? `Booking cancelled. Hand back ${inr((data?.rent_refund || 0) + (data?.deposit_refund || 0))} to the customer.` : 'Booking cancelled. No refund (policy).'); load()
   }
-  const sel = (b: any) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
+  const sel = (b: any, o: { noCancel?: boolean } = {}) => <>{b.status === 'pending' && <button className="btn sm" onClick={() => patch(b, { status: 'confirmed' }, 'Confirmed')}>Confirm</button>}
     {b.status === 'confirmed' && <button className="btn sm" onClick={() => pickup(b)}>Mark delivered</button>}
     {b.status === 'out' && <button className="btn sm" onClick={() => ret(b)}>Process Return</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
@@ -380,7 +380,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     <button className="btn alt sm" onClick={() => setPayB(b.id)}>Payment record</button>
     {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" onClick={() => resched(b)}>Reschedule</button>}
     {b.status === 'out' && <button className="btn alt sm" onClick={() => extendRental(b)}>Extend rental</button>}
-    {['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" style={{ color: 'var(--red,#b4493f)' }} onClick={() => cancelBooking(b)}>Cancel booking</button>}</>
+    {!o.noCancel && ['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" style={{ color: 'var(--red,#b4493f)' }} onClick={() => cancelBooking(b)}>Cancel booking</button>}</>
   // Secondary actions for the booking details footer: the contextual primary action lives in the modal header.
   const selSecondary = (b: any) => <>{['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => pay(b, 'rent')}>Payment</button>}
     {['pending', 'confirmed', 'out'].includes(b.status) && <button className="btn alt sm" onClick={() => customCharge(b)}>Customization</button>}
