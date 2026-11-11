@@ -471,3 +471,34 @@ Run `supabase/migration-v19-alteration-gap.sql` once (after v18).
 - **Delivering a dress that is not ready** (manager override): if an alteration is still open, the manager chooses what happens to it: keep it open, or close it as *completed (not updated in time)*, *skipped* or *missed (not done)*. Completed closes the job as Ready; skipped and missed close it as Cancelled. The reason is saved on the job and in the booking history.
 - A job left open on a booking that is **out** shows an "Alteration still open" warning in the booking popup and a **High** alert (not Critical). Out and returned bookings otherwise show no preparation row.
 - The notes-to-job rule no longer depends on the old `prep_status` flag: once a completed alteration exists, editing the notes does not create a second job.
+
+## Stage 1: alerts, Today view, availability warning (v20, no new SQL)
+
+- **Today** (`components/admin/Today.tsx`) is the landing page for owner and manager, and the first item in the phone bottom bar. One list, in order: needs attention first (the bell's delivery-risk and critical items), deliveries today (Mark delivered, or what is holding it back), deliveries missed, returns due and overdue (Process return), alterations and repairs (send, due back, quality check), dry cleaning (send, due back, check), and tomorrow's deliveries that are not ready. Sections with nothing to do are hidden. Rows are derived from live records, so they disappear as soon as the work is recorded. The Dashboard is still there under Workspace.
+- **New alert rules** (`lib/alerts.ts`): **Delivery missed** (Delivery at Risk group: a delivery date passed with no delivery recorded); **Cleaner overdue** and **Repair overdue** (High, even with no booking behind them); **Waiting to be sent** and **Damaged dress waiting for repair** (High, after 3 days, `IDLE_DAYS`). One card per dress is kept.
+- **5 PM summary** now also lists returns due tomorrow and dresses not yet returned by the previous customer (they are no longer counted as ready), and appears even when tomorrow has returns but no deliveries.
+- **Booking form heads-up**: choosing a dress that is currently out (overdue, or due back within 2 days of the new delivery) or in the cleaning workflow (delivery within 7 days) shows a "Check before confirming" note. It never blocks the booking.
+- Not in this stage: sending the 5 PM summary outside the app (needs a WhatsApp/SMS provider) and per-person alert read marks.
+
+## Stage 2: controls and evidence (v21)
+
+Run `supabase/migration-v20-controls.sql` once (after v19).
+
+- **Cleaner final check.** "Returned from Cleaner" asks for the dress's condition: *Clean and ready* (closes the record, as before), *Not satisfactory: send to the cleaner again* (back to To Be Sent, the finished round and its cost stay in the history), or *Damaged at the cleaner* (dress marked Damaged, repair added to the Damaged Queue). A note is required unless it is clean and ready. One database call (`finish_dry_clean`).
+- **Rental changes.** *Extend rental* for a dress that is out (new return date, extension charge defaulting to the dress's extra-day fee, reason required; the next booking and cleaning blocks are checked by the database). *Reschedule* now needs a reason, and the old and new dates are logged. A booking can no longer start in the past (database rule `PAST_START`).
+- **Damage evidence.** A damage return needs a note and at least one photo (screen and database). Optional **handover photos** can be added to a booking before or after delivery.
+- **Private photos.** The inspection and handover photo bucket is now private; the app opens photos through short-lived signed links (`lib/photos.ts`, `PrivatePhoto.tsx`). Older photos work the same way.
+- **History of changes.** A new append-only `events` table, written by database triggers (who, when, what), records dress status and location changes, alteration and repair status changes and cleaning status changes. Inventory → Rental history shows them under "Changes to this dress".
+
+## Medium items (v22)
+
+Run `supabase/migration-v21-medium-items.sql` once (after v20).
+
+- **Phone navigation.** The bottom bar is now Today, Bookings, Alterations, Dry Cleaning and More (Calendar and Payments are under More). Each shows a count; Today counts deliveries due or missed plus returns due or overdue.
+- **Owner view.** The Dashboard opens with a "Needs your attention" line for the owner: approvals waiting, overdue returns, missed deliveries, stuck cleaner or repair work, alterations left open on delivered dresses, dresses marked damaged. The revenue card (Total Received) is owner-only; the task cards stay for the manager.
+- **Alert timing is set in Settings** (owner): how far ahead preparation problems are watched (7), time a dress waiting to be sent needs before delivery (3), how long an item may wait to be sent before it is raised (3), and the "alteration due soon" window (2). The fixed rules (delivery risk at 3, 2, 1 days and on the day; 5 PM summary) are unchanged.
+- **Alert read marks are per person**, kept in the database (`alert_reads`), with a copy in the browser. Marks older than 30 days are tidied.
+- **Cleaner names** are suggested from the vendors already used when sending a dress to the cleaner.
+- **Wording.** The return action is "Process Return" everywhere. The booking form says the booking notes are internal and not seen by the tailor. "Advance" and "Security Deposit" are left as they are in the reports, because they are separate accounting amounts.
+- The Alterations list shows 15 rows a page instead of 5.
+- Not built: an assigned person on alteration, cleaning and delivery tasks. Who sent, received and delivered is already recorded by the database; an extra "assigned to" field adds data entry, so it waits for your decision.

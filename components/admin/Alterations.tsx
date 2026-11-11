@@ -26,7 +26,7 @@ export async function dispatchAlteration(ctx: any, j: any): Promise<boolean> {
 
 export default function Alterations({ ctx }: { ctx: any }) {
   const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1)
-  const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 5
+  const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 15
   const isDmg = (j: any) => j.source === 'damage'
   // An alteration is never started on a dress that has already gone out, so only Pending and Confirmed bookings are offered.
   const eligible = bookings.filter((b: any) => ['pending', 'confirmed'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !isDmg(j) && !['ready', 'cancelled'].includes(j.status)))

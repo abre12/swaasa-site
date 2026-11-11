@@ -18,24 +18,28 @@ export type Alert = {
   more: string[]         // other issues on the same dress (the most urgent one is shown, the rest are listed)
   action: AlertAction
 }
-export type Summary = { key: string; date: string; total: number; ready: number; alteration: number; prep: number }
+export type Summary = { key: string; date: string; total: number; ready: number; alteration: number; prep: number; notBack: number; returns: number }
 
 const ALT_ACTIVE = ['pending_dispatch', 'at_unit', 'quality_check']
 const CLEAN_ACTIVE = ['to_be_sent', 'sent', 'returned_pending_check']
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
-const HORIZON = 7   // how far ahead a pending task can matter
+// Timing that used to be fixed in the code. The owner changes it under Settings (settings.alert_*_days); these are the defaults.
+export type AlertCfg = { horizon: number; idle: number; cleanLead: number; altSoon: number }
+const num = (v: any, d: number) => Number.isFinite(+v) && +v >= 1 ? Math.round(+v) : d
+export const alertCfg = (st?: any): AlertCfg => ({ horizon: num(st?.alert_horizon_days, 7), idle: num(st?.alert_idle_days, 3), cleanLead: num(st?.clean_lead_days, 3), altSoon: num(st?.alt_soon_days, 2) })
 
-export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[]; DC?: any[] }, today: string, hourIST: number): { alerts: Alert[]; summary: Summary | null } {
+export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[]; DC?: any[]; st?: any }, today: string, hourIST: number): { alerts: Alert[]; summary: Summary | null } {
   const dm = new Map<string, any>((ctx.D || []).map(d => [d.id, d]))
   const live = (ctx.B || []).filter(b => b.status !== 'cancelled')
   const upcoming = (b: any) => b.status === 'pending' || b.status === 'confirmed'   // not yet delivered
   const label = (b: any) => { const n = dm.get(b.dress_id)?.name || b.dress_name || ''; return `${b.dress_code || dm.get(b.dress_id)?.code || ''}${n ? ' · ' + n : ''}` }
   const out: Alert[] = []
 
+  const C = alertCfg(ctx.st)
   const cleaningOf = (dressId: string) => {
     const r = (ctx.CR || []).find(x => x.dress_id === dressId && CLEAN_ACTIVE.includes(x.status)); if (!r) return null
     const dc = (ctx.DC || []).find(x => x.dress_id === dressId && !x.returned_on)
-    const need = r.status === 'to_be_sent' ? 3 : r.status === 'sent' ? Math.max(1, dc?.expected_back ? days(today, dc.expected_back) + 1 : 2) : 1
+    const need = r.status === 'to_be_sent' ? C.cleanLead : r.status === 'sent' ? Math.max(1, dc?.expected_back ? days(today, dc.expected_back) + 1 : 2) : 1
     return { id: r.id as string, status: r.status as string, need, expected: dc?.expected_back as string | undefined }
   }
 
@@ -77,14 +81,14 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
     if (today >= b.start_date) out.push({ ...base, key: `altrisk:${a.id}`, level: 'risk', rank: 95, short: 'Delivery at risk', tag: 'DELIVERY AT RISK · ALTERATION PENDING', body: `Alteration is not complete and the dress is due for delivery ${today === b.start_date ? 'today' : 'on ' + dmy(b.start_date)}.${pend}` })
     else if (a.status === 'at_unit' && a.expected_return && a.expected_return < today) out.push({ ...base, key: `altover:${a.id}`, level: 'critical', rank: 64, short: 'Overdue alteration', tag: 'ALTERATION OVERDUE', body: `Expected back from the tailor on ${dmy(a.expected_return)} and is not back yet.` })
     else if (dleft <= 0) out.push({ ...base, key: `altover:${a.id}`, level: 'critical', rank: 62, short: 'Overdue alteration', tag: 'ALTERATION DUE TODAY', body: `Alteration must be completed today, one day before delivery.${pend}` })
-    else if (dleft <= 2) out.push({ ...base, key: `altsoon:${a.id}`, level: 'high', rank: 40, short: 'Alteration due soon', tag: 'ALTERATION DUE SOON', body: `Alteration must be completed by ${dmy(due)} for delivery on ${dmy(b.start_date)}.${pend}` })
+    else if (dleft <= C.altSoon) out.push({ ...base, key: `altsoon:${a.id}`, level: 'high', rank: 40, short: 'Alteration due soon', tag: 'ALTERATION DUE SOON', body: `Alteration must be completed by ${dmy(due)} for delivery on ${dmy(b.start_date)}.${pend}` })
   }
 
   // ---- D: delivery preparation (dry cleaning, damage) for the next confirmed booking ----
   const nextByDress = new Map<string, any>()
   for (const b of live.filter(x => x.status === 'confirmed').sort((a, b) => a.start_date.localeCompare(b.start_date))) if (!nextByDress.has(b.dress_id)) nextByDress.set(b.dress_id, b)
   for (const [dressId, nb] of nextByDress) {
-    const left = days(today, nb.start_date); if (left > HORIZON) continue
+    const left = days(today, nb.start_date); if (left > C.horizon) continue
     const dress = dm.get(dressId), cl = cleaningOf(dressId)
     const act = (kind: 'cleaning' | 'booking'): AlertAction => kind === 'cleaning' && cl ? { label: 'View Workflow', kind: 'workflow', module: 'cleaning', id: cl.id } : { label: 'View Details', kind: 'booking', bookingId: nb.id }
     const common = { dress: label(nb), dressId, more: [] as string[], meta: `Delivery ${dmy(nb.start_date)}` }
@@ -100,6 +104,37 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
     }
   }
 
+  // ---- E: a delivery whose date has passed without the dress going out ----
+  for (const b of live.filter(x => upcoming(x) && x.start_date < today)) {
+    const n = days(b.start_date, today)
+    out.push({ key: `missed:${b.id}`, level: 'risk', rank: 96, short: 'Delivery missed', tag: `DELIVERY MISSED · ${n} DAY${n === 1 ? '' : 'S'} LATE`, dress: label(b), dressId: b.dress_id, more: [],
+      body: `Delivery was due on ${dmy(b.start_date)} and has not been recorded. Deliver it, or reschedule or cancel the booking.`, meta: b.customer_name ? `Customer: ${b.customer_name}` : undefined,
+      action: { label: 'View Booking', kind: 'booking', bookingId: b.id } })
+  }
+
+  // ---- F: items stuck with a vendor or waiting to be sent, even when no booking is behind them ----
+  const dlabel = (id: string) => { const d = dm.get(id); return d ? `${d.code}${d.name ? ' · ' + d.name : ''}` : '' }
+  for (const d of (ctx.DC || []).filter(x => !x.returned_on && x.expected_back && x.expected_back < today)) {
+    const cl = cleaningOf(d.dress_id); if (!cl || !dlabel(d.dress_id)) continue
+    const n = days(d.expected_back, today)
+    out.push({ key: `vendor:clean:${d.dress_id}`, level: 'high', rank: 42, short: 'Cleaner overdue', tag: 'DRY CLEANING OVERDUE', dress: dlabel(d.dress_id), dressId: d.dress_id, more: [],
+      body: `Expected back from the cleaner on ${dmy(d.expected_back)}, ${n} day${n === 1 ? '' : 's'} ago.`, action: { label: 'View Workflow', kind: 'workflow', module: 'cleaning', id: cl.id } })
+  }
+  for (const r of (ctx.CR || []).filter(x => x.status === 'to_be_sent' && x.added_at && days(String(x.added_at).slice(0, 10), today) >= C.idle)) {
+    if (!dlabel(r.dress_id)) continue
+    const n = days(String(r.added_at).slice(0, 10), today)
+    out.push({ key: `vendor:tbs:${r.id}`, level: 'high', rank: 34, short: 'Waiting to be sent', tag: 'WAITING TO BE SENT TO CLEANER', dress: dlabel(r.dress_id), dressId: r.dress_id, more: [],
+      body: `Added to the cleaning list ${n} days ago and still not sent.`, action: { label: 'View Workflow', kind: 'workflow', module: 'cleaning', id: r.id } })
+  }
+  for (const j of (ctx.AJ || []).filter(x => x.source === 'damage' && ALT_ACTIVE.includes(x.status))) {
+    if (!dlabel(j.dress_id)) continue
+    const act: AlertAction = { label: 'View Workflow', kind: 'workflow', module: 'alteration', id: j.id }
+    if (j.status === 'at_unit' && j.expected_return && j.expected_return < today)
+      out.push({ key: `vendor:rep:${j.id}`, level: 'high', rank: 41, short: 'Repair overdue', tag: 'REPAIR OVERDUE', dress: dlabel(j.dress_id), dressId: j.dress_id, more: [], body: `Expected back from the tailor on ${dmy(j.expected_return)} and is not back yet.`, action: act })
+    else if (j.status === 'pending_dispatch' && j.created_at && days(String(j.created_at).slice(0, 10), today) >= C.idle)
+      out.push({ key: `vendor:repsend:${j.id}`, level: 'high', rank: 33, short: 'Repair not sent', tag: 'DAMAGED DRESS WAITING FOR REPAIR', dress: dlabel(j.dress_id), dressId: j.dress_id, more: [], body: `Marked damaged ${days(String(j.created_at).slice(0, 10), today)} days ago and not yet sent for repair.`, action: act })
+  }
+
   // ---- one card per dress: show the most urgent, list the rest ----
   const byDress = new Map<string, Alert[]>()
   for (const a of out) byDress.set(a.dressId, [...(byDress.get(a.dressId) || []), a])
@@ -110,18 +145,19 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
   }
   alerts.sort((a, b) => b.rank - a.rank || a.dress.localeCompare(b.dress))
 
-  // ---- Tomorrow's deliveries: one summary, from 5:00 PM IST ----
+  // ---- Tomorrow: one summary from 5:00 PM IST (deliveries, whether each dress is really ready, and returns due) ----
   let summary: Summary | null = null
   if (hourIST >= 17) {
     const tmr = addD(today, 1)
-    const tb = live.filter(b => upcoming(b) && b.start_date === tmr)
-    if (tb.length) {
-      let alteration = 0, prep = 0
+    const tb = live.filter(b => upcoming(b) && b.start_date === tmr), returns = live.filter(b => b.status === 'out' && b.end_date === tmr).length
+    if (tb.length || returns) {
+      let alteration = 0, prep = 0, notBack = 0
       for (const b of tb) {
         if ((ctx.AJ || []).some(j => j.booking_id === b.id && ALT_ACTIVE.includes(j.status) && j.source !== 'damage')) alteration++
+        else if (live.some(x => x.dress_id === b.dress_id && x.status === 'out' && x.id !== b.id)) notBack++
         else if (cleaningOf(b.dress_id) || dm.get(b.dress_id)?.status === 'maintenance') prep++
       }
-      summary = { key: `tomorrow:${tmr}`, date: tmr, total: tb.length, alteration, prep, ready: tb.length - alteration - prep }
+      summary = { key: `tomorrow:${tmr}`, date: tmr, total: tb.length, alteration, prep, notBack, returns, ready: tb.length - alteration - prep - notBack }
     }
   }
   return { alerts, summary }

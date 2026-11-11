@@ -28,6 +28,6 @@ export function PendingReturns({ ctx, filter = 'all' }: { ctx: any; filter?: str
       <td>{b.customer_name}<br /><a href={'tel:' + b.phone}>{b.phone}</a></td>
       <td>{dmy(b.end_date)}{od ? <div className="bad"><b>{days(b.end_date, today)} day(s) overdue</b></div> : b.status === 'returned' ? <div className="ok">Returned ✓</div> : b.end_date === today ? <div style={{ color: '#c58a2b' }}>Due today</div> : null}</td>
       <td><a href="#" onClick={e => { e.preventDefault(); ctx.openBooking(b.id) }}>{b.id}</a></td>
-      <td style={{ whiteSpace: 'normal' }}>{b.status === 'out' && <button className="btn sm" onClick={() => ctx.ret(b)}>Mark returned</button>} <button className="btn alt sm" onClick={() => ctx.openBooking(b.id)}>Details</button></td></tr> })}
+      <td style={{ whiteSpace: 'normal' }}>{b.status === 'out' && <button className="btn sm" onClick={() => ctx.ret(b)}>Process Return</button>} <button className="btn alt sm" onClick={() => ctx.openBooking(b.id)}>Details</button></td></tr> })}
     {!list.length && <tr><td colSpan={5} className="mut">Nothing here.</td></tr>}</tbody></table></div>)
 }

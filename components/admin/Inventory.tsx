@@ -53,6 +53,8 @@ export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }:
     const v = await ctx.ask(`Store location: ${d.code}`, [{ name: 'l', label: 'Where is it kept? (shelf, rail or room)', value: d.location || '' }], { ok: 'Save location', note: 'Shown in Inventory so anyone can find the dress. Leave empty to clear it.' }); if (!v) return
     const { error } = await ctx.sb.rpc('set_dress_location', { p_id: d.id, p_location: String(v.l || '').trim() }); ctx.say(error ? 'Could not save the location. Run migration-v17.' : 'Location saved'); ctx.load()
   }
+  const [evs, setEvs] = useState<any[]>([])
+  useEffect(() => { if (!hist) { setEvs([]); return } ctx.sb.from('events').select('at,by_name,action,detail').eq('dress_id', hist.id).order('at', { ascending: false }).limit(100).then(({ data }: any) => setEvs(data || [])) }, [hist, ctx.sb])
   const history = hist ? B.filter(b => b.dress_id === hist.id).sort((a, b) => b.start_date.localeCompare(a.start_date)) : []
   const Item = ({ ic, t, on, href }: { ic: string; t: string; on?: () => void; href?: string }) => { const c = <><Ic n={ic} s={16} />{t}</>; return href ? <a className="mi" href={href}>{c}</a> : <button className="mi" onClick={() => { setMenu(null); on?.() }}>{c}</button> }
   return (<div>
@@ -89,6 +91,7 @@ export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }:
       <div className="scroll" style={{ maxHeight: '60vh' }}><table className="bt"><thead><tr><th>Booking</th><th>Customer</th><th>Delivery</th><th>Return</th><th>Status</th><th style={{ textAlign: 'right' }}>Rent</th></tr></thead><tbody>
         {history.map(b => <tr key={b.id}><td><a href="#" onClick={e => { e.preventDefault(); setHist(null); ctx.openBooking(b.id) }} style={{ fontWeight: 600 }}>{b.id}</a></td><td>{b.customer_name}</td><td>{dmy(b.start_date)}</td><td>{dmy(b.end_date)}</td><td style={{ textTransform: 'capitalize' }}>{b.status}</td><td style={{ textAlign: 'right' }}>{inr(b.rent)}</td></tr>)}
         {!history.length && <tr><td colSpan={6} className="mut" style={{ padding: 18 }}>No bookings for this dress yet.</td></tr>}</tbody></table></div>
+      {evs.length > 0 && <><h4 style={{ margin: '16px 0 6px' }}>Changes to this dress</h4><div className="mut" style={{ fontSize: 13, display: 'grid', gap: 4 }}>{evs.map((e, i) => <div key={i}>{new Date(e.at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · <b style={{ color: 'var(--ink)' }}>{e.action}</b>{e.detail ? `: ${e.detail}` : ''}{e.by_name ? ` · ${e.by_name}` : ''}</div>)}</div></>}
       <p className="mut" style={{ fontSize: 12, margin: '10px 0 0' }}>{owner ? 'For discounts, late fees, damage and wash costs per booking, see Dress Performance.' : 'Bookings that are available to you.'}</p></div></div>}
   </div>)
 }

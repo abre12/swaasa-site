@@ -1,4 +1,5 @@
 'use client'
+import PrivatePhoto from './PrivatePhoto'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, inr, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
@@ -49,7 +50,7 @@ const riskOf = (ctx: any, r: any) => {
 export async function dispatchToCleaner(ctx: any, rs: any[]): Promise<boolean> {
   const today = todayIST()
   const first = ctx.dmap[rs[0].dress_id], multi = rs.length > 1
-  const v = await ctx.ask(multi ? `Send ${rs.length} dresses to cleaner` : 'Send to Cleaner', [{ name: 'vendor', label: 'Cleaner / vendor name', required: true }, { name: 'sent', label: 'Date sent', type: 'date', value: today, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(today, 3), required: true }, { name: 'cost', label: multi ? 'Estimated cost per dress (₹)' : 'Estimated cleaning cost (₹)', type: 'number', value: String(first?.dry_clean_charge || 0) }, { name: 'notes', label: 'Dispatch notes' }],
+  const v = await ctx.ask(multi ? `Send ${rs.length} dresses to cleaner` : 'Send to Cleaner', [{ name: 'vendor', label: 'Cleaner / vendor name', required: true, suggestions: Array.from(new Set<string>((ctx.CR || []).map((x: any) => String(x.vendor || '').trim()).filter(Boolean))).sort() }, { name: 'sent', label: 'Date sent', type: 'date', value: today, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(today, 3), required: true }, { name: 'cost', label: multi ? 'Estimated cost per dress (₹)' : 'Estimated cleaning cost (₹)', type: 'number', value: String(first?.dry_clean_charge || 0) }, { name: 'notes', label: 'Dispatch notes' }],
     { ok: 'Confirm dispatch', note: `Once confirmed, ${multi ? 'these dresses' : 'this dress'} will be marked as Out for Dry Cleaning and will be unavailable for booking until ${multi ? 'they return' : 'it returns'} and pass${multi ? '' : 'es'} final confirmation.` }); if (!v) return false
   if (v.expected < v.sent) { ctx.say('Expected return cannot be before the date sent.'); return false }
   const actor = (await ctx.sb.auth.getUser()).data.user?.id; const done: string[] = []; const failed: string[] = []
@@ -85,27 +86,28 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
   const priority = (d: number | null) => d !== null && d <= 3 ? ['High', 'var(--red)'] : d !== null && d <= 7 ? ['Medium', 'var(--amber)'] : ['Normal', 'var(--mut)']
 
   const dispatch = async (rs: any[]) => { if (await dispatchToCleaner(ctx, rs)) setSel([]) }
-  // One step: the dress is back from the cleaner -> record the return, close the cleaning record and make the dress available.
-  async function complete(r: any, f: { date: string; cost: number; notes: string }) {
-    const d = ctx.dmap[r.dress_id], actor = (await ctx.sb.auth.getUser()).data.user?.id || null, now = new Date().toISOString()
-    const dcu = await ctx.sb.from('dry_cleanings').update({ charge: f.cost, returned_on: f.date, notes: [r.notes, f.notes].filter(Boolean).join(' · ') || null }).eq('id', r.dry_cleaning_id)
-    if (dcu.error) return ctx.say(ERR(dcu.error.message))
-    const up = await ctx.sb.from('dry_clean_requests').update({ status: 'complete', returned_on: f.date, returned_by: actor, final_charge: f.cost, returned_condition: 'Ready', return_notes: f.notes || null, completed_at: now, completed_by: actor }).eq('id', r.id)
-    if (up.error) return ctx.say('The dress is back, but the cleaning record could not be closed: ' + up.error.message)
-    await ctx.sb.from('dresses').update({ condition: f.notes || 'Ready after dry cleaning' }).eq('id', r.dress_id)   // cleaning never changes the stock status, so a Damaged dress stays Damaged
+  // The dress is back from the cleaner. FINAL CHECK: staff confirm it is clean and ready, send it back, or mark it damaged.
+  // It is one database call (finish_dry_clean), so the cleaning record, the dress and any repair job change together or not at all.
+  const RESULTS: [string, string][] = [['ok', 'Clean and ready'], ['reclean', 'Not satisfactory: send to the cleaner again'], ['damaged', 'Damaged at the cleaner']]
+  async function complete(r: any, f: { date: string; cost: number; notes: string; result: string }) {
+    const d = ctx.dmap[r.dress_id]
+    const { data, error } = await ctx.sb.rpc('finish_dry_clean', { p_request: r.id, p_date: f.date, p_cost: f.cost, p_notes: f.notes, p_result: f.result })
+    if (error) { const m = error.message || ''; return ctx.say(m.includes('NOTE_REQUIRED') ? 'Please add a note saying what is wrong.' : m.includes('BAD_STATUS') ? 'This cleaning record has already been closed. Please refresh.' : m.includes('BAD_DATES') ? 'Return date cannot be before the date sent.' : /Could not find the function|PGRST202/i.test(m) ? 'The cleaning update (migration-v20) has not been applied yet, so nothing was changed.' : 'Could not save, so nothing was changed. Please try again.') }
     const paid = await ctx.sb.from('cash_expenses').select('id').eq('dry_cleaning_id', r.dry_cleaning_id).is('voided_at', null).maybeSingle()
     if (!paid.data && f.cost > 0) { const pay = await ctx.ask('Record cleaner payment?', [{ name: 'mode', label: 'Payment mode', options: ['Cash', 'GPay / UPI', 'Card', 'Bank transfer', 'Not paid yet'], value: 'Cash' }], { ok: 'Continue', note: `Final charge ${inr(f.cost)}. If already paid, select the payment mode used.` }); if (pay && pay.mode !== 'Not paid yet') await ctx.sb.rpc('record_wash_payment', { p_wash: r.dry_cleaning_id, p_mode: pay.mode }) }
-    ctx.say(`${d?.code || 'Dress'} is back and available.`); ctx.load()
+    ctx.say(f.result === 'ok' ? `${d?.code || 'Dress'} is back and available.` : f.result === 'reclean' ? `${d?.code || 'Dress'} is back in To Be Sent, to go to the cleaner again.` : `${d?.code || 'Dress'} marked damaged${data?.repair_job ? ' and a repair was added to the Damaged Queue' : '. Add the repair from Alterations if needed'}.`); ctx.load()
   }
   async function markReturned(r: any) {
-    const v = await ctx.ask('Returned from Cleaner', [{ name: 'date', label: 'Actual return date', type: 'date', value: today, required: true }, { name: 'cost', label: 'Final cleaning cost (₹)', type: 'number', value: String(r.estimated_charge || 0), required: true }, { name: 'notes', label: 'Notes (optional)' }], { ok: 'Confirm & Make Available', note: 'The dress is back at the shop. Confirming closes the cleaning record and makes the dress available.' }); if (!v) return
+    const v = await ctx.ask('Returned from Cleaner', [{ name: 'res', label: 'Check the dress. What is its condition?', options: RESULTS.map(x => x[1]), value: RESULTS[0][1] }, { name: 'date', label: 'Actual return date', type: 'date', value: today, required: true }, { name: 'cost', label: 'Final cleaning cost (₹)', type: 'number', value: String(r.estimated_charge || 0), required: true }, { name: 'notes', label: 'Notes (required if it is not clean and ready)' }], { ok: 'Confirm', note: 'Look at the dress before confirming. Only "Clean and ready" makes it available again.' }); if (!v) return
     if (v.date < r.sent_on) return ctx.say('Return date cannot be before the date sent.')
-    await complete(r, { date: v.date, cost: +v.cost || 0, notes: String(v.notes || '').trim() })
+    const result = RESULTS.find(x => x[1] === v.res)?.[0] || 'ok', notes = String(v.notes || '').trim()
+    if (result !== 'ok' && !notes) return ctx.say('Please add a note saying what is wrong.')
+    await complete(r, { date: v.date, cost: +v.cost || 0, notes, result })
   }
   // Older records that were left waiting for a separate confirmation (from before this step was removed).
   async function confirmOlder(r: any) {
     if (!(await ctx.askYes('Make dress available?', `${ctx.dmap[r.dress_id]?.code || 'This dress'} is back from the cleaner. This closes the cleaning record and makes it available.`, 'Make available'))) return
-    await complete(r, { date: r.returned_on || today, cost: r.final_charge ?? r.estimated_charge ?? 0, notes: r.return_notes || '' })
+    await complete(r, { date: r.returned_on || today, cost: r.final_charge ?? r.estimated_charge ?? 0, notes: r.return_notes || '', result: 'ok' })
   }
   async function editNotes(r: any) { const v = await ctx.ask('Edit cleaning notes', [{ name: 'n', label: 'Condition notes', value: r.condition_notes || '', required: true }], { ok: 'Save notes' }); if (!v) return; const { error } = await ctx.sb.from('dry_clean_requests').update({ condition_notes: v.n.trim() }).eq('id', r.id); ctx.say(error ? error.message : 'Notes updated.'); ctx.load() }
   async function remove(r: any) { if (!(await ctx.askYes('Remove from cleaning list?', `${ctx.dmap[r.dress_id]?.code} is still at the shop. This cancels the cleaning record; the history of the return is kept.`, 'Remove'))) return; const { error } = await ctx.sb.from('dry_clean_requests').update({ status: 'cancelled' }).eq('id', r.id); ctx.say(error ? error.message : 'Removed from the cleaning list.'); setSel(s => s.filter(x => x !== r.id)); ctx.load() }
@@ -176,7 +178,7 @@ export default function DryCleaning({ ctx }: { ctx: any }) {
 
     {view && <div className="dry-modal" onClick={() => setView(null)}><div className="box" onClick={e => e.stopPropagation()}>
       <div className="dry-mh"><b>{view.type === 'photos' ? 'Return photos' : 'Cleaning record'} · {ctx.dmap[view.r.dress_id]?.code}</b><button onClick={() => setView(null)} aria-label="Close">✕</button></div>
-      {view.type === 'photos' ? <><div className="dry-ph">{view.data.photos.map((u: string) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="Return condition" /></a>)}</div>{view.data.notes && <p className="mut">{view.data.notes}</p>}<small className="mut">Inspected {dmy(view.data.inspected_at.slice(0, 10))} by {staff(view.data.inspected_by)}</small></>
+      {view.type === 'photos' ? <><div className="dry-ph">{view.data.photos.map((u: string) => <PrivatePhoto key={u} sb={ctx.sb} url={u} alt="Return condition" />)}</div>{view.data.notes && <p className="mut">{view.data.notes}</p>}<small className="mut">Inspected {dmy(view.data.inspected_at.slice(0, 10))} by {staff(view.data.inspected_by)}</small></>
         : <dl className="dry-rec">{([['Stage', STAGE[view.r.status] || view.r.status], ['Condition at return', (COND[view.r.condition] || COND.needs_cleaning)[0]], ['Notes', view.r.condition_notes || '—'], ['Added', `${dmy(view.r.added_at.slice(0, 10))} by ${staff(view.r.added_by)}`], ['Booking', view.r.booking_id || 'Added manually'], ['Cleaner', view.r.vendor || '—'], ['Sent', view.r.sent_on ? dmy(view.r.sent_on) : '—'], ['Expected return', view.r.expected_back ? dmy(view.r.expected_back) : '—'], ['Estimated cost', inr(view.r.estimated_charge || 0)]] as [string, string][]).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
     </div></div>}
   </div>

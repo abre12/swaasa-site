@@ -1,6 +1,7 @@
 import React from 'react'
 // Outline icons (24x24, stroke 1.7) used by the admin sidebar, dashboard and bookings page.
 const P: Record<string, React.ReactNode> = {
+  camera: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
   pin: <><path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
   home: <path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" /></>,

@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
 import { altStatus } from '@/lib/bookingAction'
+import { computeAlerts } from '@/lib/alerts'
 import { ALT_OPEN, bookingReadiness } from '@/lib/readiness'
 import { Ic } from './icons'
 import PageHead from './PageHead'
@@ -101,11 +102,26 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const altBadge = (r: any) => { const st = altStatus(r.job), [c, ic] = JT[st.tone] || JT.off; return <span className="bdg" style={tint(c)} title={st.hint}><Ic n={ic} s={15} />{st.label}</span> }
   return (<div>
     <PageHead icon="home" title="Dashboard" sub="Daily operations, deliveries, alterations and business overview"><div className="pg-tools"><MonthPick value={mon} onChange={v => v && setMon(v)} max={today.slice(0, 7)} title="Controls monthly cards and staff booking analytics" compact /></div></PageHead>
-    <div className="k6">
+    {ctx.owner && (() => {
+      // Owner only: what has gone wrong or is stuck, in one line each, so nothing has to be hunted for. Counts come from the same rules as the bell.
+      const { alerts: al } = computeAlerts({ B, D: ctx.D, AJ: ctx.AJ, CR: ctx.CR, DC: ctx.DC, st: ctx.st }, today, 0)
+      const n = (...p: string[]) => al.filter(a => p.some(x => a.key.startsWith(x))).length
+      const items: [number, string, () => void][] = [
+        [(ctx.APPR || []).filter((a: any) => a.status === 'pending').length, 'approval(s) waiting for you', () => ctx.go('approvals')],
+        [odRet.length, 'overdue return(s)', () => setPop('over')],
+        [n('missed:'), 'delivery date(s) passed, not delivered', () => setPop('over')],
+        [n('vendor:clean', 'vendor:tbs'), 'dress(es) stuck with or waiting for the cleaner', () => ctx.go('drycleaning')],
+        [n('vendor:rep'), 'damaged dress(es) waiting on a repair', () => ctx.go('alterations')],
+        [n('altopen:'), 'alteration(s) left open on a delivered dress', () => ctx.go('alterations')],
+        [(ctx.D || []).filter((d: any) => d.status === 'maintenance').length, 'dress(es) marked damaged', () => ctx.go('dresses')]].filter(x => x[0] > 0) as [number, string, () => void][]
+      return items.length ? <div className="alsobar" style={{ marginBottom: 10 }}><b style={{ marginRight: 8 }}>Needs your attention</b>{items.map(([c, l, go]) => <button key={l} className="hot" onClick={go}>{c} {l}</button>)}</div>
+        : <p className="mut" style={{ margin: '0 0 10px' }}>Nothing needs your attention. No overdue items, stuck vendor work or waiting approvals.</p>
+    })()}
+    <div className="k6" style={ctx.owner ? undefined : { gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>
       <KC ic="calcheck" c="var(--wine)" v={mb.length} l="Bookings This Month" sub={`delivering in ${monName.split(' ')[0]}`} on={() => ctx.go('bookings')} />
       <KC ic="truck" c="var(--blue)" v={delToday.length} l="Today's Deliveries" on={() => setPop('del')} />
       <KC ic="ret" c="var(--purple)" v={retToday.length} l="Today's Returns" on={() => setPop('ret')} />
-      <KC ic="wallet" c="var(--green)" v={inr(sum(b => Math.max(0, b.paid)))} l="Total Received" sub={`rent, ${monName.split(' ')[0]} bookings`} on={() => ctx.go('cash')} />
+      {ctx.owner && <KC ic="wallet" c="var(--green)" v={inr(sum(b => Math.max(0, b.paid)))} l="Total Received" sub={`rent, ${monName.split(' ')[0]} bookings`} on={() => ctx.go('cash')} />}
       <KC ic="hourglass" c="var(--amber)" v={inr(sum(owe))} l="Due Pending" sub={`${monName.split(' ')[0]} bookings`} on={() => ctx.go('bookings', { flt: 'owing' })} />
       <KC ic="warn" c="var(--red)" v={odRet.length} l="Overdue Returns" on={() => setPop('over')} /></div>
     {(pending.length > 0 || odDel.length > 0) && <div className="alsobar">

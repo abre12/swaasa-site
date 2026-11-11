@@ -25,7 +25,19 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const [rejecting, setRejecting] = useState<string | null>(null), [confirming, setConfirming] = useState<string | null>(null), [reason, setReason] = useState(''), [busy, setBusy] = useState<string | null>(null)
   const storeKey = `swaasa.actioncenter.read.${ctx.name || 'staff'}`
 
-  useEffect(() => { try { setRead(JSON.parse(localStorage.getItem(storeKey) || '{}')) } catch { setRead({}) } }, [storeKey])
+  // Read marks belong to the PERSON, not the browser: they are kept in the database (alert_reads) and the browser keeps a copy so the bell
+  // is right instantly. If the table is not there yet (migration-v21 not run) it quietly falls back to this browser only.
+  const uid = useRef<string | null>(null)
+  useEffect(() => {
+    let local: Record<string, number> = {}; try { local = JSON.parse(localStorage.getItem(storeKey) || '{}') } catch { local = {} }
+    setRead(local)
+    ;(async () => {
+      uid.current = (await ctx.sb.auth.getUser()).data.user?.id || null
+      const { data, error } = await ctx.sb.from('alert_reads').select('alert_key,rank')
+      if (!error && data) { const merged = { ...local }; for (const r of data) merged[r.alert_key] = Math.max(merged[r.alert_key] || 0, r.rank); setRead(merged) }
+      ctx.sb.from('alert_reads').delete().lt('updated_at', new Date(Date.now() - 30 * 864e5).toISOString()).then(() => {})   // tidy: marks for alerts long gone
+    })()
+  }, [storeKey, ctx.sb])
   useEffect(() => { const t = setInterval(() => setNow(n => n + 1), 60000); return () => clearInterval(t) }, [])   // keeps "5 minutes ago", the 5 PM summary and the date current
   useEffect(() => {
     const click = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
@@ -55,7 +67,11 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
     if (!open) { setTab(owner ? (pending.length > 0 || total === 0 ? 'approvals' : 'alerts') : 'alerts'); setRejecting(null); setConfirming(null); setReason('') }
     setOpen(!open)
   }
-  function save(next: Record<string, number>) { setRead(next); try { localStorage.setItem(storeKey, JSON.stringify(next)) } catch { /* private mode: marks last for this visit only */ } }
+  function save(next: Record<string, number>) {
+    const changed = Object.entries(next).filter(([k, v]) => read[k] !== v).map(([alert_key, rank]) => ({ user_id: uid.current, alert_key, rank, updated_at: new Date().toISOString() }))
+    setRead(next); try { localStorage.setItem(storeKey, JSON.stringify(next)) } catch { /* private mode: marks last for this visit only */ }
+    if (changed.length && uid.current) ctx.sb.from('alert_reads').upsert(changed, { onConflict: 'user_id,alert_key' }).then(() => {})
+  }
   const markRead = (a: Alert) => { if (!isRead(a)) save({ ...read, [a.key]: a.rank }) }
   const markAll = () => { const next: Record<string, number> = {}; for (const a of alerts) next[a.key] = a.rank; save(next) }
   function run(a: Alert) {
@@ -154,12 +170,14 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
             </section> })}
           {summary && <section className="ac-group lvl-summary"><div className="ac-sum">
             <span className="ac-gic"><Ic n="truck" s={18} /></span>
-            <div className="ac-main"><span className="ac-tag">TOMORROW'S DELIVERIES</span>
-              <b>{summary.total} deliver{summary.total === 1 ? 'y' : 'ies'} scheduled for {dmy(summary.date)}</b>
-              {summary.ready === summary.total ? <p>All scheduled and ready for tomorrow.</p> : <ul>
+            <div className="ac-main"><span className="ac-tag">TOMORROW</span>
+              <b>{summary.total ? `${summary.total} deliver${summary.total === 1 ? 'y' : 'ies'} scheduled for ${dmy(summary.date)}` : `No deliveries scheduled for ${dmy(summary.date)}`}</b>
+              {summary.total > 0 && (summary.ready === summary.total ? <p>All scheduled and ready for tomorrow.</p> : <ul>
                 {summary.ready > 0 && <li className="ok">{summary.ready} ready for delivery</li>}
                 {summary.alteration > 0 && <li className="warn">{summary.alteration} requires alteration</li>}
-                {summary.prep > 0 && <li className="warn">{summary.prep} requires preparation</li>}</ul>}</div>
+                {summary.prep > 0 && <li className="warn">{summary.prep} requires preparation</li>}
+                {summary.notBack > 0 && <li className="warn">{summary.notBack} not yet returned by the previous customer</li>}</ul>)}
+              {summary.returns > 0 && <p>{summary.returns} return{summary.returns === 1 ? '' : 's'} due tomorrow.</p>}</div>
             <button type="button" className="ac-act" onClick={() => { setOpen(false); ctx.showDay(summary.date) }}>{summary.ready === summary.total ? 'View Schedule' : "View Tomorrow's Schedule"}</button>
           </div></section>}
         </>}

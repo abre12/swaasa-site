@@ -1,4 +1,5 @@
 'use client'
+import PrivatePhoto from './PrivatePhoto'
 import { useEffect, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import { Ic } from './icons'
@@ -64,7 +65,7 @@ export default function AlterationDrawer({ ctx, job, onClose, onDispatch, onRece
 
       <h3>Alterations Required</h3>
       {job.requirements && <p className="ad-bn"><b>{dmg ? 'Damage notes' : 'Booking notes'}:</b> {job.requirements}</p>}
-      {dmg && insp && <div className="ad-insp"><b>Return inspection · {dmy(insp.inspected_at.slice(0, 10))}</b>{insp.notes && <p>{insp.notes}</p>}{(insp.photos || []).length > 0 ? <div className="ad-ph">{insp.photos.map((u: string) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="Return condition" /></a>)}</div> : <small className="mut">No photos were attached.</small>}</div>}
+      {dmg && insp && <div className="ad-insp"><b>Return inspection · {dmy(insp.inspected_at.slice(0, 10))}</b>{insp.notes && <p>{insp.notes}</p>}{(insp.photos || []).length > 0 ? <div className="ad-ph">{insp.photos.map((u: string) => <PrivatePhoto key={u} sb={ctx.sb} url={u} alt="Return condition" />)}</div> : <small className="mut">No photos were attached.</small>}</div>}
       {GROUPS.map(g => <div key={g.title} className="ad-g"><h4>{g.title}</h4>{g.items.map(([k, l]) => <div key={k} className="ad-it"><label><input type="checkbox" disabled={locked} checked={k in list} onChange={() => toggle(k)} />{l}</label>{k in list && <input className="ad-note" disabled={locked} value={list[k]} onChange={e => setList({ ...list, [k]: e.target.value })} placeholder="Add notes…" />}</div>)}</div>)}
 
       <details className="ad-meas" open={Object.values(meas).some(Boolean)}><summary>Measurements (optional)</summary>

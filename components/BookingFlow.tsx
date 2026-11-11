@@ -7,7 +7,7 @@ import { GROUPS } from '@/components/admin/AlterationDrawer'
 const GAP = 'Check dates for Cleaning & Preparation Period'
 const ERR: Record<string, string> = {
   GAP_CLASH: GAP, DATES_TAKEN: 'Those dates are already booked or blocked for this dress.', OWNER_ONLY: 'Only the owner can give discounts.',
-  BAD_CONTACT: 'Please enter the name and a valid 10-digit mobile number.', BAD_DATES: 'Please choose valid dates.', NOT_AVAILABLE: 'This dress is not available for booking.', FORBIDDEN: 'Please sign in as staff.',
+  PAST_START: 'The delivery date cannot be in the past.', BAD_CONTACT: 'Please enter the name and a valid 10-digit mobile number.', BAD_DATES: 'Please choose valid dates.', NOT_AVAILABLE: 'This dress is not available for booking.', FORBIDDEN: 'Please sign in as staff.',
 }
 const EVENTS = ['Wedding', 'Engagement', 'Reception', 'Sangeet / Mehendi', 'Haldi', 'Pre-wedding shoot', 'Party / Other']
 const MEAS: [string, string][] = [['bust', 'Bust'], ['waist', 'Waist'], ['hip', 'Hip'], ['length', 'Length'], ['other', 'Other']]
@@ -26,6 +26,18 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
   const [known, setKnown] = useState<{ name: string; email: string; n: number } | null>(null), [showDisc, setShowDisc] = useState(false)
 
   useEffect(() => { supa().rpc('dress_busy', { p_dress: dress.id }).then(({ data }) => setBusy(data || [])) }, [dress.id])
+  // What is happening with this dress RIGHT NOW (not just which dates are taken). Shown as a heads-up; it never blocks the booking.
+  const [now, setNow] = useState<{ out: any | null; clean: any | null }>({ out: null, clean: null })
+  useEffect(() => {
+    const sb = supa()
+    Promise.all([
+      sb.from('bookings').select('id,end_date,customer_name').eq('dress_id', dress.id).eq('status', 'out').limit(1),
+      sb.from('dry_clean_requests').select('status').eq('dress_id', dress.id).in('status', ['to_be_sent', 'sent', 'returned_pending_check']).limit(1)])
+      .then(([o, c]) => setNow({ out: o.data?.[0] || null, clean: c.data?.[0] || null }))
+  }, [dress.id])
+  const heads: string[] = []
+  if (now.out) { const late = now.out.end_date < todayIST(); if (late || (s && now.out.end_date >= addDays(s, -2))) heads.push(`This dress is still with ${now.out.customer_name || 'another customer'}, due back ${dmy(now.out.end_date)}${late ? ' (overdue)' : ''}. It may not be back in time for the new booking.`) }
+  if (now.clean && s && s <= addDays(todayIST(), 7)) heads.push(`This dress is in the cleaning workflow (${now.clean.status === 'to_be_sent' ? 'waiting to be sent to the cleaner' : now.clean.status === 'sent' ? 'with the cleaner' : 'back from the cleaner, to be checked'}). Check it will be ready by the delivery date.`)
   const valid = !!(s && e && e >= s)
   const clash = valid ? busy.filter(b => s <= b.hold_end && e >= b.start_date) : []
   const realClash = clash.some(b => !b.end_date || (s <= b.end_date && e >= b.start_date))
@@ -99,7 +111,8 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
     {valid && avail && gapOnly && <><div className="bk-avail no"><div><b>{GAP}</b><span>Each dress needs a day for cleaning and preparation between rentals.</span></div></div>
       <label className="bf-check"><input type="checkbox" checked={checked} onChange={x => setChecked(x.target.checked)} />I have checked and confirmed availability. Book inside the cleaning period.</label></>}
     {free && <div className="bk-avail"><div><b>Available</b><span>Free on the selected dates</span></div></div>}
-    {e && s && e < s && <div className="bk-avail no"><div><b>Return is before delivery</b><span>Choose a return date on or after the delivery date.</span></div></div>}</>
+    {e && s && e < s && <div className="bk-avail no"><div><b>Return is before delivery</b><span>Choose a return date on or after the delivery date.</span></div></div>}
+    {valid && avail && !realClash && heads.length > 0 && <div className="bk-avail no" style={{ borderColor: '#c58a2b', background: '#c58a2b14' }}><div><b>Check before confirming</b>{heads.map(h => <span key={h} style={{ display: 'block' }}>{h}</span>)}</div></div>}</>
   const datePair = (min: boolean) => <div className="bk-g2">
     <label className="bk-f">Delivery / pickup date *<input type="date" min={todayIST()} value={s} onChange={setDates(setS)} /></label>
     <label className="bk-f">Return date *<input type="date" min={s || todayIST()} value={e} onChange={setDates(setE)} /></label>
@@ -144,7 +157,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
           <label className="bk-f">Delivery<select value={f.dMode} onChange={x => set('dMode', x.target.value)}><option value="">Customer collects from store</option><option value="courier">We deliver to the customer</option></select></label>
         </div>
         {f.dMode === 'courier' && <label className="bk-f" style={{ marginTop: 8 }}>Delivery address *<textarea rows={2} value={f.dAddr} onChange={x => set('dAddr', x.target.value)} /></label>}
-        <label className="bk-f" style={{ marginTop: 10 }}>Booking notes (optional)<textarea rows={2} placeholder="Notes for this booking" value={f.notes} onChange={x => set('notes', x.target.value)} /></label>
+        <label className="bk-f" style={{ marginTop: 10 }}>Booking notes (optional, internal)<textarea rows={2} placeholder="For the team only. The tailor does not see this. Alteration details are entered above." value={f.notes} onChange={x => set('notes', x.target.value)} /></label>
         {msg && <p className="bad">{msg}</p>}
         <div className="bk-act"><button className="btn alt" onClick={() => { setMsg(''); setStep('check') }}>Back</button>
           <button className="btn alt" onClick={() => { if (step1ok()) { setAlt('none'); setStep(3) } }}>No alterations needed</button>

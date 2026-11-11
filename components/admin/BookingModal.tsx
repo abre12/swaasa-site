@@ -1,9 +1,11 @@
 'use client'
+import PrivatePhoto from './PrivatePhoto'
 import { useEffect, useMemo, useState } from 'react'
 import PaymentSummary from './PaymentSummary'
 import { buildPaymentSummary } from '@/lib/payments'
 import { dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
+import { uploadPhotos } from '@/lib/photos'
 import { bookingReadiness } from '@/lib/readiness'
 import DeliveryEdit from './DeliveryEdit'
 import { dispatchAlteration } from './Alterations'
@@ -75,7 +77,16 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const prepInfo = prepJob ? altStatus(prepJob) : { label: 'No alterations', hint: '', tone: 'off' as const }
   const altHistory = (ctx.AJ || []).filter((a: any) => a.dress_id === b.dress_id).slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
 
-  const [dlv, setDlv] = useState(false)
+  const [dlv, setDlv] = useState(false), [ho, setHo] = useState(false)
+  // Optional: a photo of the dress as it leaves the shop, so any later damage claim has something to compare with.
+  async function addHandover(files: FileList | null) {
+    if (!files?.length) return; setHo(true)
+    const up = await uploadPhotos(ctx.sb, `handover/${b.id}`, Array.from(files))
+    if (!up.urls.length) { setHo(false); return ctx.say('The photo could not be uploaded. Please try again.') }
+    const { error } = await ctx.sb.rpc('add_handover_photos', { p_id: b.id, p_urls: up.urls })
+    if (error) await ctx.sb.storage.from('return-inspection-photos').remove(up.paths)
+    setHo(false); ctx.say(error ? 'Could not save the photo. Run migration-v20.' : up.failed ? `Saved. ${up.failed} photo(s) could not be uploaded.` : 'Handover photo saved'); ctx.load()
+  }
   const saveDelivery = async (v: { mode: string; address: string } | null) => {
     setDlv(false); if (!v) return
     const { error } = await ctx.sb.rpc('set_delivery_details', { p_id: b.id, p_mode: v.mode, p_address: v.address, p_slot: '', p_assignee: '' })
@@ -174,7 +185,10 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
                   {hint && <small>{hint}</small>}
                 </div></div>
             })()}
-            <div className="bd-prep-row"><Ic n="pin" s={20} /><b>Delivery</b><div className="bd-prep-val"><span className="bd-prep-value">{b.delivery_mode === 'courier' ? `Deliver to customer${b.delivery_address ? ': ' + b.delivery_address : ''}` : 'Collect from store'}</span>{['pending', 'confirmed'].includes(b.status) && <button className="btn alt sm" type="button" onClick={() => setDlv(true)}><Ic n="pencil" s={15} />Edit</button>}</div></div>
+            {/* Before delivery: how it WILL reach the customer (editable). After delivery: how it DID. */}
+            {(() => { const gone = ['out', 'returned'].includes(b.status), courier = b.delivery_mode === 'courier', addr = courier && b.delivery_address ? `: ${b.delivery_address}` : ''
+              const text = gone ? (courier ? `Delivered to customer${addr}` : 'Collected from store') : (courier ? `Deliver to customer${addr}` : 'Collect from store')
+              return <div className="bd-prep-row"><Ic n="pin" s={20} /><b>Delivery</b><div className="bd-prep-val"><span className="bd-prep-value">{text}{['pending', 'confirmed'].includes(b.status) && <button className="bd-inline-edit" type="button" onClick={() => setDlv(true)}><Ic n="pencil" s={13} />Edit</button>}</span></div></div> })()}
 
             {wf.length > 0 && <div className="bd-wf"><b>Dry cleaning</b><div>{wf.map(w => <button key={w.id} type="button" className="bd-wf-chip" onClick={() => ctx.focusWorkflow(w.module, w.id)} title="Open this record">In queue to be sent</button>)}</div></div>}
 
@@ -203,11 +217,15 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             {!limited && <>
           {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
             {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
+          {(['pending', 'confirmed', 'out'].includes(b.status) || b.handover_photos?.length > 0) && <section className="bd-card bd-extra-card"><h3><Ic n="camera" s={19} />Handover photos</h3>
+            {b.handover_photos?.length > 0 ? <div className="inspection-photos">{b.handover_photos.map((u: string, i: number) => <PrivatePhoto key={i} sb={ctx.sb} url={u} alt={`Handover ${i + 1}`} />)}</div> : <small className="mut">Optional. A photo of the dress as it leaves the shop helps settle any later damage question.</small>}
+            {['pending', 'confirmed', 'out'].includes(b.status) && <label className="btn alt sm" style={{ marginTop: 8, display: 'inline-flex', cursor: 'pointer' }}>{ho ? 'Uploading…' : 'Add photo'}<input type="file" accept="image/*" capture="environment" multiple hidden disabled={ho} onChange={e => { addHandover(e.target.files); e.target.value = '' }} /></label>}
+          </section>}
           {(b.return_notes || inspection) && <section className="bd-card bd-extra-card"><h3><Ic n="ret" s={19} />Return Condition</h3>
             {b.return_notes && <p className="bd-return-note">{b.return_notes}</p>}
             {inspection && <><div className="bd-inspection-condition"><span>Inspection</span><b>{({ good: 'Good', minor_marks: 'Minor Marks', needs_cleaning: 'Needs Cleaning', damage_repair: 'Damage / Repair Required' } as any)[inspection.condition] || inspection.condition}</b></div>
               {inspection.notes && <p className="bd-return-note">{inspection.notes}</p>}
-              {inspection.photos?.length > 0 && <div className="inspection-photos">{inspection.photos.map((src: string, i: number) => <a key={i} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`Return condition ${i + 1}`} loading="lazy" /></a>)}</div>}
+              {inspection.photos?.length > 0 && <div className="inspection-photos">{inspection.photos.map((src: string, i: number) => <PrivatePhoto key={i} sb={ctx.sb} url={src} alt={`Return condition ${i + 1}`} />)}</div>}
               <small className="mut">Inspected {istTime(inspection.inspected_at)}</small></>}
           </section>}
             </>}

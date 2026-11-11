@@ -27,6 +27,8 @@ export default function ReturnForm({ ctx, b, owing, late, lateFee, onClose }: { 
 
   function submit() {
     if (cond === 'Minor Marks' && !minor) return setErr('Choose what happens to this dress: ready and available, or the cleaning list.')
+    if (cond === 'Damage / Repair Required' && !notes.trim()) return setErr('Please describe the damage, so the repair team knows what to fix.')
+    if (cond === 'Damage / Repair Required' && !files.length) return setErr('Please add at least one photo of the damage.')
     onClose({ condition: cond, clean: cleaning ? CLEAN : READY, n: notes.trim(), photos: files, lf, dc, rm })
   }
   const outcome = () => {
@@ -59,8 +61,8 @@ export default function ReturnForm({ ctx, b, owing, late, lateFee, onClose }: { 
       </div>
       <p className="rw-note">{late > 0 && lateFee > 0 ? `${late} day${late > 1 ? 's' : ''} late — suggested late fee ${inr(lateFee)}. ` : ''}Deposit held {inr(b.deposit_held)}{owing > 0 ? `. Unpaid rent ${inr(owing)} is settled from the deposit.` : '.'}</p>
 
-      <label className="rf-l">Condition notes <small>(optional)</small><textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add a note for the team…" /></label>
-      <details className="rf-photos"><summary>Photos <small>(optional){files.length ? ` · ${files.length} attached` : ''}</small></summary>
+      <label className="rf-l">Condition notes <small>{cond === 'Damage / Repair Required' ? '(required for damage)' : '(optional)'}</small><textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add a note for the team…" /></label>
+      <details key={cond === 'Damage / Repair Required' ? 'dmg' : 'ok'} className="rf-photos" open={cond === 'Damage / Repair Required' || undefined}><summary>Photos <small>{cond === 'Damage / Repair Required' ? '(at least one required for damage)' : '(optional)'}{files.length ? ` · ${files.length} attached` : ''}</small></summary>
         <div className="rw-ph"><label className="rw-add"><Ic n="plus" s={16} />Add photos<input type="file" accept="image/*" multiple hidden onChange={e => { if (e.target.files) setFiles(f => [...f, ...Array.from(e.target.files!).filter(x => x.type.startsWith('image/'))]); e.target.value = '' }} /></label>
           {urls.map((u, i) => <span key={u} className="rw-t"><img src={u} alt={`Condition photo ${i + 1}`} /><button aria-label="Remove photo" onClick={() => setFiles(f => f.filter((_, j) => j !== i))}>✕</button></span>)}</div></details>
       {err && <p className="rw-err" role="alert">{err}</p>}

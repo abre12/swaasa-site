@@ -929,3 +929,17 @@ html:has(.adm){background:var(--bg)}
 /* the sidebar (and the notification panel that opens from it) must sit above the page content, but below pop-up windows (75+) */
 @media(min-width:861px){.adm-side{z-index:40}}
 .notif-pop{z-index:60}
+
+.bd-inline-edit{display:inline-flex;align-items:center;gap:4px;margin-left:10px;padding:0;border:0;background:none;color:var(--wine);font:600 12px Inter,system-ui,sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px;vertical-align:baseline}.bd-inline-edit:hover{filter:brightness(.8)}
+
+/* Today view */
+.td-sec{margin:0 0 18px}.td-sec h3{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:15px;color:var(--wine)}.td-n{margin-left:4px;background:var(--blush,#f4e6e8);color:var(--wine);border-radius:999px;padding:1px 9px;font-size:12px}
+.td-row{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:8px;background:var(--card,#fff);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;cursor:pointer}
+.td-row.bad{border-left-color:var(--red,#b4493f)}.td-row.warn{border-left-color:#c58a2b}.td-row.ok{border-left-color:var(--green,#3f7d4f)}.td-row.info{border-left-color:var(--blue,#3d6aa5)}
+.td-main{flex:1;min-width:0}.td-top{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}.td-top span{color:var(--ink)}.td-top em{font-style:normal;color:var(--mut);font-size:13px}
+.td-chip{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;margin-top:4px}.td-chip small{color:var(--mut);font-size:12px;white-space:pre-line}
+.td-tag{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:#c58a2b22;color:#8a5d12}.td-tag.bad{background:#b4493f1f;color:var(--red,#b4493f)}.td-tag.ok{background:#3f7d4f1f;color:var(--green,#3f7d4f)}.td-tag.info{background:#3d6aa51f;color:var(--blue,#3d6aa5)}
+.td-clear{display:grid;justify-items:center;gap:4px;padding:40px 10px;color:var(--green,#3f7d4f);text-align:center}.td-clear p{margin:0;color:var(--mut)}.td-foot{margin-top:6px;font-size:13px}
+@media(max-width:600px){.td-row{flex-wrap:wrap}.td-row>.btn{width:100%}}
+
+.adm-bot button{position:relative}.adm-bot .bn{position:absolute;top:3px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--wine);color:#fff;font:700 11px/18px Inter,system-ui,sans-serif;font-style:normal;text-align:center}
