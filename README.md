@@ -2,6 +2,49 @@
 
 Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 
+## What is new in v25 (Phase 1 of the audit)
+
+**Do these in this order.** The order matters because the website and the database must change together.
+
+1. **Supabase SQL editor: run `supabase/migration-v25-phase1.sql`.** It only adds things, so the current website keeps working.
+2. **Upload the v25 files and let Vercel build.** Then **delete the files listed under "Delete these" below.**
+3. **Add the settings in Vercel and GitHub** (the "One-time setup" list below), then run the test list.
+4. **Only when the test list passes: run `supabase/migration-v25b-lockdown.sql`.** This is the step that stops staff browsers writing to bookings and payments directly. (If you run it before step 2 the old website stops confirming, delivering and rescheduling.)
+5. `migration-v22-cleanup.sql` still comes last, after v25b, and only once the old files are deleted.
+
+| Audit item | What changed |
+| --- | --- |
+| MR-2 payments | Database rule: an amount must be above zero. The database stamps who recorded a payment and when (a browser can no longer back-date it or use another person's name). The "Record payment" box no longer says "recorded" for a zero or negative amount. |
+| MR-5, MR-1 booking edits and history | Confirm, Mark delivered and Reschedule now go through database functions that check the rules and **write the history line themselves** (`confirm_booking`, `mark_delivered`, `reschedule_booking`). After v25b the browser cannot write to the bookings table at all, so status, history and the cleaning-gap flag cannot be changed by hand. |
+| OP-1 backups (free) | `.github/workflows/db-backup.yml`: a nightly encrypted copy of the database kept for 90 days, plus a current `schema-current.sql`. Setup and the restore test are in `supabase/BACKUP-AND-RESTORE.md`. |
+| DA-1 reminders | `.github/workflows/reminders.yml` calls `/api/cron/digest` at 8:00, 9:00, 11:00, 16:00 and 17:00 IST. It uses the same alert rules as the app and posts to Telegram, so people are told even when nobody has the app open. |
+| SA-1 sign-in | Owner two-step login (authenticator app): Settings > Two-step login. Staff passwords now need 10 characters. The app signs out after 60 minutes of no activity (`IDLE_MINUTES` in `AdminApp.tsx`). |
+| N-1, N-2 | The leftover try-on and public-booking code is removed (list below). |
+| DA-2, DA-3 | Settings > "Checkpoints": measurements by D-5, with the tailor by D-4, usual turnaround 3 days (all editable). The bell and Today warn when a step is late or when the tailor will return the dress less than two days before delivery. A booking with too little time for its alterations shows a warning on the Alterations step. |
+| DA-6 | Packed-and-checked step: Today shows tomorrow's ready deliveries with **Mark packed**; Mark delivered warns if it was not done; the booking shows who packed it. |
+| DA-7 | The delivery box now has a **time slot** and **who is delivering**. Today shows them with the balance to collect, and sorts by slot. |
+
+### Delete these (they are dead code, and two of them use the server key)
+`app/booking/page.tsx`, `app/api/book/route.ts`, `app/api/tryon/route.ts`, `components/Booking.tsx`, `components/TryOn.tsx`, `tsconfig.tsbuildinfo`.
+**Keep** `components/admin/PrepBoard.tsx`: the preparation-only role still uses it. Remove the Vercel variables `FASHN_API_KEY` and `TRYON_SALT` if you set them.
+
+### One-time setup
+* **Vercel > Settings > Environment Variables:** `CRON_SECRET` (a long random string), `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`, optionally `TELEGRAM_STAFF_CHAT_ID`. Redeploy after adding them.
+* **GitHub > Settings > Secrets and variables > Actions:** `SITE_URL` (`https://swaasa-site.vercel.app`), `CRON_SECRET` (the same value), `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE`.
+* **Telegram:** in Telegram open @BotFather, send `/newbot`, copy the token. Send any message to your new bot (or add it to a group), then open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy the `chat` `id` (a group id starts with a minus sign).
+* **Workflow files live in a hidden folder.** If your upload skips `.github`, in GitHub use Add file > Create new file, type `.github/workflows/reminders.yml` as the name, paste the contents, and repeat for `db-backup.yml`.
+
+### Test list (before running v25b)
+1. As **staff**: take a booking, **Confirm** it, **Reschedule** it (give a reason), record a payment, and **Mark delivered** a booking that is ready. Open the booking and check the history shows each step with the right name.
+2. Try to record a payment of 0 or a negative amount: it must say "Enter an amount above zero".
+3. Open Settings as the owner: the new "Checkpoints" fields show and save. Turn on two-step login, sign out, sign in: it asks for the code.
+4. See a reminder without waiting: `curl -H "Authorization: Bearer YOUR_CRON_SECRET" "https://swaasa-site.vercel.app/api/cron/digest?slot=morning&dry=1"` shows the text; without `&dry=1` it sends it to Telegram. In GitHub > Actions > Reminders > Run workflow also works.
+5. Run the "Database backup" workflow once and download the result (see `supabase/BACKUP-AND-RESTORE.md`).
+6. Only then run `migration-v25b-lockdown.sql` and repeat test 1.
+
+### Known limits of this step (planned next)
+Payments can still be added from the browser (the new rules apply to every one); moving payment recording into one function that also delivers in a single step is MR-3. "Deliver anyway" and the cleaning-gap confirmation still work without owner approval (SA-3). The reminder times can be up to about 15 minutes late because GitHub schedules them on a shared timer.
+
 ## 1. Database and logins (Supabase)
 1. Create a free project at supabase.com (choose the Mumbai region).
 2. SQL Editor > paste all of `supabase/schema.sql` > Run. This creates every table, the double-booking rule, access rules and the photo bucket.

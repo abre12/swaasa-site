@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { supa } from '@/lib/supabase/client'
-import { dmy, inr, PAY_MODES, price, todayIST } from '@/lib/util'
+import { addD, dmy, inr, PAY_MODES, price, todayIST } from '@/lib/util'
 import { GROUPS } from '@/components/admin/AlterationDrawer'
 
 const GAP = 'Check dates for Cleaning & Preparation Period'
@@ -16,7 +16,7 @@ const STEPS = ['Booking', 'Alterations (optional)', 'Payment']
 type Alt = 'none' | 'now' | 'later'
 const addDays = (d: string, n: number) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
 
-export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staff, initialFrom, initialTo, left, info }: { dress: any; advancePct: number; advanceMin?: number; staff: string; initialFrom?: string; initialTo?: string; left: React.ReactNode; info: React.ReactNode }) {
+export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tailorDays = 3, staff, initialFrom, initialTo, left, info }: { dress: any; advancePct: number; advanceMin?: number; tailorDays?: number; staff: string; initialFrom?: string; initialTo?: string; left: React.ReactNode; info: React.ReactNode }) {
   const [step, setStep] = useState<'check' | 1 | 2 | 3 | 'done'>('check')
   const [s, setS] = useState(initialFrom || ''), [e, setE] = useState(initialTo || ''), [busy, setBusy] = useState<any[]>([]), [checked, setChecked] = useState(false)
   const [f, setF] = useState({ name: '', phone: '', email: '', notes: '', eventType: 'Wedding', eventDate: '', dMode: '', dAddr: '', advance: '', mode: '', ref: '', discount: '', custom: '' })
@@ -48,6 +48,13 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
   const p = valid ? price(dress, s, e) : null
   const net = p ? Math.max(0, p.rent - (+f.discount || 0)) : 0
   const depDue = p ? Math.max(Math.round(net * advancePct / 100), advanceMin) : 0
+  // Is there enough time for the alterations? One day to measure and send, the tailor's usual turnaround, then a quality check the day before delivery.
+  // A warning only (the owner sees such bookings on the dashboard alerts); it never blocks the booking.
+  const feasibility = useMemo(() => {
+    if (alt === 'none' || !s) return ''
+    const t = todayIST(), need = tailorDays + 3, have = Math.round((Date.parse(s) - Date.parse(t)) / 864e5)
+    return have >= need ? '' : `Alterations usually need about ${need} days from today (measure and send, about ${tailorDays} at the tailor, quality check the day before). Delivery on ${dmy(s)} leaves ${Math.max(0, have)}. The earliest safe delivery is ${dmy(addD(t, need))}. Tell the customer, or choose a later date, before you continue.`
+  }, [alt, s, tailorDays])
   const cust = Math.max(0, Math.round(+f.custom || 0))
   const total = net + cust, received = +f.advance || 0, balance = Math.max(0, total - Math.max(0, received - depDue))
   const set = (k: string, v: string) => setF(x => ({ ...x, [k]: v }))
@@ -164,6 +171,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, staf
           <button className="btn wine" onClick={() => { if (step1ok()) { if (alt === 'none') setAlt('now'); setStep(2) } }}>Continue to alterations →</button></div></div>}
 
       {step === 2 && <div className="bf-panel"><h3>Alterations</h3>
+        {feasibility && <p className="bf-note" role="alert" style={{ background: '#fff4e0', border: '1px solid #f0c36d', borderRadius: 8, padding: '8px 10px', fontSize: 13 }}><b>Not enough time:</b> {feasibility}</p>}
         {f.notes.trim() && <p className="bf-note"><b>Booking notes:</b> {f.notes}</p>}
         <div className="bf-modes" role="radiogroup" aria-label="Alterations">{([['now', 'Alterations needed', 'Add the details now'], ['later', 'Measurements to be taken later', 'Book now; measurements are added before dispatch'], ['none', 'No alterations needed', 'Skip this step']] as [Alt, string, string][]).map(([k, t, sub]) =>
           <button key={k} role="radio" aria-checked={alt === k} className={'bf-mode' + (alt === k ? ' on' : '')} onClick={() => { setAlt(k); setMsg('') }}><i /><span><b>{t}</b><small>{sub}</small></span></button>)}</div>

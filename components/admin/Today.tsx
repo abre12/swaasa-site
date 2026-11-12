@@ -29,10 +29,11 @@ export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: 
       go: () => a.action.kind === 'booking' ? ctx.openBooking(a.action.bookingId) : a.action.kind === 'workflow' ? ctx.focusWorkflow(a.action.module, a.action.id) : ctx.showDay(a.action.date) })) })
 
     // 2. deliveries today
-    out.push({ id: 'deliver', title: 'Deliveries today', icon: 'truck', rows: live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === today).sort((a, b) => a.dress_code.localeCompare(b.dress_code)).map(b => {
-      const rd = bookingReadiness(ctx, b), how = b.delivery_mode === 'courier' ? `We deliver${b.delivery_address ? ': ' + b.delivery_address : ''}` : 'Customer collects from store'
-      return rd.ready ? bk(b, { chip: 'Ready', tone: 'ok', hint: how, label: 'Mark delivered', primary: true, go: () => ctx.pickup(b) })
-        : bk(b, { chip: 'Not ready', tone: 'warn', hint: `${rd.reasons.map(r => r.label).join(' · ')}\n${how}`, label: 'Open', go: open(b) }) }) })
+    out.push({ id: 'deliver', title: 'Deliveries today', icon: 'truck', rows: live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === today).sort((a, b) => (a.delivery_slot || '~').localeCompare(b.delivery_slot || '~') || a.dress_code.localeCompare(b.dress_code)).map(b => {
+      const rd = bookingReadiness(ctx, b), how = (b.delivery_mode === 'courier' ? `We deliver${b.delivery_address ? ': ' + b.delivery_address : ''}` : 'Customer collects from store') + (b.delivery_slot ? ` · ${b.delivery_slot}` : ' · no time slot set') + (b.delivery_assignee ? ` · ${b.delivery_assignee}` : '')
+      const due = Math.max(0, (b.rent || 0) + (b.charges || 0) - (b.paid || 0)), bal = due > 0 ? ` · balance ₹${due.toLocaleString('en-IN')}` : ''
+      return rd.ready ? bk(b, { chip: b.packed_at ? 'Ready · packed' : 'Ready · not packed', tone: b.packed_at ? 'ok' : 'warn', hint: how + bal, label: 'Mark delivered', primary: true, go: () => ctx.pickup(b) })
+        : bk(b, { chip: 'Not ready', tone: 'warn', hint: `${rd.reasons.map(r => r.label).join(' · ')}\n${how}${bal}`, label: 'Open', go: open(b) }) }) })
 
     // 3. deliveries that were due earlier and never recorded
     out.push({ id: 'missed', title: 'Deliveries missed', icon: 'warn', rows: live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date < today).sort((a, b) => a.start_date.localeCompare(b.start_date)).map(b =>
@@ -66,8 +67,11 @@ export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: 
     out.push({ id: 'clean', title: 'Dry cleaning', icon: 'sparkle', rows: clRows })
 
     // 7. tomorrow's deliveries that are not ready yet (so there is time to fix them)
-    out.push({ id: 'tmr', title: "Tomorrow's deliveries not ready", icon: 'calendar', rows: live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === tmr).flatMap(b => {
-      const rd = bookingReadiness(ctx, b); return rd.ready ? [] : [bk(b, { chip: 'Not ready', tone: 'warn', hint: rd.reasons.map(r => r.label).join(' · '), label: 'See what\'s pending', go: open(b) })] }) })
+    out.push({ id: 'tmr', title: "Tomorrow's deliveries: get them ready", icon: 'calendar', rows: live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === tmr).flatMap(b => {
+      const rd = bookingReadiness(ctx, b), slot = b.delivery_slot ? ` · ${b.delivery_slot}` : ''
+      if (!rd.ready) return [bk(b, { chip: 'Not ready', tone: 'warn', hint: rd.reasons.map(r => r.label).join(' · ') + slot, label: 'See what\'s pending', go: open(b) })]
+      if (!b.packed_at && b.status === 'confirmed') return [bk(b, { chip: 'Ready · pack and check', tone: 'info', hint: 'Check, steam and pack it with its accessories, then mark it packed.' + slot, label: 'Mark packed', primary: true, go: () => ctx.markPacked(b) })]
+      return [] }) })
     // A dress should appear once in Today. Keep the highest-priority issue; the row itself is the single place to open the work.
     const seen = new Set<string>()
     return out.map(s => ({ ...s, rows: s.rows.filter(r => { const k = r.dressId || r.key; if (seen.has(k)) return false; seen.add(k); return true }) })).filter(s => s.rows.length)

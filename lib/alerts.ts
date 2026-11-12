@@ -25,9 +25,9 @@ const ALT_ACTIVE = ['pending_dispatch', 'at_unit', 'quality_check']
 const CLEAN_ACTIVE = ['to_be_sent', 'sent', 'returned_pending_check']
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
 // Timing that used to be fixed in the code. The owner changes it under Settings (settings.alert_*_days); these are the defaults.
-export type AlertCfg = { horizon: number; idle: number; cleanLead: number; altSoon: number }
+export type AlertCfg = { horizon: number; idle: number; cleanLead: number; altSoon: number; measureBy: number; sendBy: number }
 const num = (v: any, d: number) => Number.isFinite(+v) && +v >= 1 ? Math.round(+v) : d
-export const alertCfg = (st?: any): AlertCfg => ({ horizon: num(st?.alert_horizon_days, 7), idle: num(st?.alert_idle_days, 3), cleanLead: num(st?.clean_lead_days, 3), altSoon: num(st?.alt_soon_days, 2) })
+export const alertCfg = (st?: any): AlertCfg => ({ horizon: num(st?.alert_horizon_days, 7), idle: num(st?.alert_idle_days, 3), cleanLead: num(st?.clean_lead_days, 3), altSoon: num(st?.alt_soon_days, 2), measureBy: num(st?.measure_by_days, 5), sendBy: num(st?.send_by_days, 4) })
 
 export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[]; DC?: any[]; st?: any }, today: string, hourIST: number): { alerts: Alert[]; summary: Summary | null } {
   const dm = new Map<string, any>((ctx.D || []).map(d => [d.id, d]))
@@ -83,6 +83,33 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
     else if (a.status === 'at_unit' && a.expected_return && a.expected_return < today) out.push({ ...base, key: `altover:${a.id}`, level: 'critical', rank: 64, short: 'Overdue alteration', tag: 'ALTERATION OVERDUE', body: `Expected back from the tailor on ${dmy(a.expected_return)} and is not back yet.` })
     else if (dleft <= 0) out.push({ ...base, key: `altover:${a.id}`, level: 'critical', rank: 62, short: 'Overdue alteration', tag: 'ALTERATION DUE TODAY', body: `Alteration must be completed today, one day before delivery.${pend}` })
     else if (dleft <= C.altSoon) out.push({ ...base, key: `altsoon:${a.id}`, level: 'high', rank: 40, short: 'Alteration due soon', tag: 'ALTERATION DUE SOON', body: `Alteration must be completed by ${dmy(due)} for delivery on ${dmy(b.start_date)}.${pend}` })
+  }
+
+  // ---- C3: checkpoints for a dress with an alteration (days set under Settings): measured, with the tailor, back in time ----
+  // These raise the warning EARLIER than the "due soon" window above, while there is still time to fix it.
+  for (const a of (ctx.AJ || []).filter(j => ALT_ACTIVE.includes(j.status) && j.source !== 'damage')) {
+    const b = live.find(x => x.id === a.booking_id); if (!b || !upcoming(b)) continue
+    const left = days(today, b.start_date); if (left < 1) continue          // delivery day and later are handled above
+    const base = { dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [] as string[], meta: `Delivery ${dmy(b.start_date)}`, action: { label: 'View Workflow', kind: 'workflow', module: 'alteration', id: a.id } as AlertAction }
+    const soon = left <= 3
+    if (a.measurements_pending && left <= C.measureBy)
+      out.push({ ...base, key: `chkmeasure:${a.id}`, level: soon ? 'critical' : 'high', rank: soon ? 63 : 44, short: 'Measurements pending', tag: `MEASUREMENTS NOT TAKEN · ${left} DAY${left === 1 ? '' : 'S'} TO DELIVERY`,
+        body: `Measurements should be taken by ${dmy(addD(b.start_date, -C.measureBy))}. Delivery is on ${dmy(b.start_date)}.` })
+    if (a.status === 'pending_dispatch' && left <= C.sendBy)
+      out.push({ ...base, key: `chksend:${a.id}`, level: soon ? 'critical' : 'high', rank: soon ? 61 : 43, short: 'Not sent to tailor', tag: `NOT YET SENT TO THE TAILOR · ${left} DAY${left === 1 ? '' : 'S'} TO DELIVERY`,
+        body: `The dress should be with the tailor by ${dmy(addD(b.start_date, -C.sendBy))}. Delivery is on ${dmy(b.start_date)}.` })
+    if (a.status === 'at_unit' && a.expected_return && a.expected_return > addD(b.start_date, -2))
+      out.push({ ...base, key: `chklate:${a.id}`, level: soon ? 'critical' : 'high', rank: soon ? 62 : 46, short: 'Tailor return too late', tag: 'TAILOR RETURN TOO LATE FOR DELIVERY',
+        body: `Expected back on ${dmy(a.expected_return)}, less than two days before delivery on ${dmy(b.start_date)}. Ask the tailor for an earlier date.` })
+  }
+
+  // ---- C4: the packed-and-checked step (Today shows it the day before delivery) ----
+  for (const b of live.filter(x => x.status === 'confirmed' && !x.packed_at)) {
+    const left = days(today, b.start_date)
+    if (left === 0) out.push({ key: `packed:${b.id}`, level: 'high', rank: 48, short: 'Not packed', tag: 'NOT MARKED AS PACKED · DELIVERY TODAY', dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [],
+      body: 'Delivery is today and nobody has marked the dress as packed and checked.', meta: `Delivery ${dmy(b.start_date)}`, action: { label: 'View Booking', kind: 'booking', bookingId: b.id } })
+    else if (left === 1 && hourIST >= 15) out.push({ key: `packed:${b.id}`, level: 'high', rank: 38, short: 'Not packed', tag: 'PACK AND CHECK · DELIVERY TOMORROW', dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [],
+      body: 'Delivery is tomorrow. Check, steam and pack the dress with its accessories, then mark it packed.', meta: `Delivery ${dmy(b.start_date)}`, action: { label: 'View Booking', kind: 'booking', bookingId: b.id } })
   }
 
   // ---- D: delivery preparation (dry cleaning, damage) for the next confirmed booking ----

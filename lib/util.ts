@@ -29,3 +29,14 @@ export const COLOURS: { label: string; css: string }[] = [
 ]
 export const PAY_MODES = ['Cash', 'GPay / UPI', 'Card']
 export const modeGroup = (m?: string | null) => /cash/i.test(m || '') ? 'Cash' : /upi|gpay|google/i.test(m || '') ? 'GPay / UPI' : /card/i.test(m || '') ? 'Card' : 'Other'
+
+// Turns a raw database error into a sentence a person can act on. Unknown messages are shown as they are.
+export const dbMsg = (m?: string): string => {
+  const t = m || ''
+  if (/payments_amount_positive/.test(t)) return 'The amount must be above zero.'
+  if (/BAD_STATUS/.test(t)) return 'This booking has already moved on. Refresh the page and check its status.'
+  if (/REASON_REQUIRED/.test(t)) return 'Please give the reason.'
+  if (/FORBIDDEN|row-level security|permission denied/i.test(t)) return 'Your login is not allowed to do that. Ask the owner.'
+  if (/NOT_FOUND/.test(t)) return 'That booking could not be found. Refresh the page.'
+  return t
+}

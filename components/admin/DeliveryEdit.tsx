@@ -1,15 +1,15 @@
 'use client'
 import { useState } from 'react'
 
-export type DeliveryResult = { mode: 'pickup' | 'courier'; address: string }
+export type DeliveryResult = { mode: 'pickup' | 'courier'; address: string; slot: string; assignee: string }
 
 // One choice, and an address only when we deliver. Nothing set = the customer collects from the store.
 export default function DeliveryEdit({ b, onClose }: { b: any; onClose: (v: DeliveryResult | null) => void }) {
-  const [mode, setMode] = useState<'pickup' | 'courier'>(b.delivery_mode === 'courier' ? 'courier' : 'pickup'), [addr, setAddr] = useState(b.delivery_address || ''), [err, setErr] = useState('')
+  const [mode, setMode] = useState<'pickup' | 'courier'>(b.delivery_mode === 'courier' ? 'courier' : 'pickup'), [addr, setAddr] = useState(b.delivery_address || ''), [slot, setSlot] = useState(b.delivery_slot || ''), [who, setWho] = useState(b.delivery_assignee || ''), [err, setErr] = useState('')
   function submit(e: React.FormEvent) {
     e.preventDefault(); setErr('')
     if (mode === 'courier' && !addr.trim()) return setErr('Please enter the delivery address.')
-    onClose({ mode, address: mode === 'courier' ? addr.trim() : '' })
+    onClose({ mode, address: mode === 'courier' ? addr.trim() : '', slot: slot.trim(), assignee: who.trim() })
   }
   return <div className="cxl-back" role="dialog" aria-modal="true" aria-labelledby="dlv-title">
     <form className="box cxl" onSubmit={submit}>
@@ -19,6 +19,8 @@ export default function DeliveryEdit({ b, onClose }: { b: any; onClose: (v: Deli
         <label className={'cxl-opt' + (mode === 'courier' ? ' on' : '')}><input type="radio" name="dm" checked={mode === 'courier'} onChange={() => setMode('courier')} /><span><b>Deliver to the customer</b></span></label>
       </fieldset>
       {mode === 'courier' && <label>Delivery address<textarea rows={3} value={addr} onChange={e => setAddr(e.target.value)} autoFocus /></label>}
+      <label>Time slot<input value={slot} placeholder="e.g. 10am to 12pm" maxLength={60} onChange={e => setSlot(e.target.value)} /></label>
+      <label>{mode === 'courier' ? 'Who is delivering' : 'Who is handing it over'}<input value={who} placeholder="Staff name" maxLength={60} onChange={e => setWho(e.target.value)} /></label>
       {err && <p className="cxl-err" role="alert">{err}</p>}
       <div style={{ display: 'flex', gap: 8 }}><button className="btn">Save</button><button type="button" className="btn alt" onClick={() => onClose(null)}>Cancel</button></div>
     </form>

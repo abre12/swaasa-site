@@ -5,7 +5,7 @@ const ROLE: Record<string, string> = { owner: 'Owner', manager: 'Salesperson', p
 export default function StaffAdmin({ ctx }: { ctx: any }) {
   const [f, setF] = useState({ name: '', email: '', password: '', role: 'manager' }); const [busy, setBusy] = useState(false)
   async function add() {
-    if (!f.name.trim() || !/^\S+@\S+\.\S+$/.test(f.email) || f.password.length < 8) return ctx.say('Enter a name, an email and a password of at least 8 characters.')
+    if (!f.name.trim() || !/^\S+@\S+\.\S+$/.test(f.email) || f.password.length < 10) return ctx.say('Enter a name, an email and a password of at least 10 characters.')
     setBusy(true); const r = await fetch('/api/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) }); const j = await r.json().catch(() => ({})); setBusy(false)
     if (r.ok) { ctx.say(`${f.name} can now sign in with ${f.email}`); setF({ ...f, name: '', email: '', password: '' }); ctx.load() } else ctx.say(j.error || 'Could not create the login.')
   }
@@ -23,7 +23,7 @@ export default function StaffAdmin({ ctx }: { ctx: any }) {
     ctx.say(r.ok ? `${s.name} deleted. Their records are kept.` : j.error || 'Could not delete.'); ctx.load()
   }
   async function reset(s: any) {
-    const v = await ctx.ask(`New password for ${s.name}`, [{ name: 'p', label: 'New password (at least 8 characters)', required: true }], { ok: 'Set password' }); if (!v) return
+    const v = await ctx.ask(`New password for ${s.name}`, [{ name: 'p', label: 'New password (at least 10 characters)', required: true }], { ok: 'Set password' }); if (!v) return
     const r = await fetch('/api/staff', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: s.user_id, password: v.p }) }); const j = await r.json().catch(() => ({}))
     ctx.say(r.ok ? `Password changed for ${s.name}` : j.error || 'Could not change the password.')
   }

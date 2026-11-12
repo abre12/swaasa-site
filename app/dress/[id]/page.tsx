@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export default async function DressPage({ params, searchParams }: { params: { id: string }; searchParams: Record<string, string | undefined> }) {
   const sb = supaServer()
   // Fetch everything at the same time instead of one after another (each call has a round trip to the database).
-  const [{ data: d }, { data: s }, { data: { user } }] = await Promise.all([sb.from('dresses').select('*').eq('id', params.id).maybeSingle(), sb.from('settings').select('advance_pct,advance_min').single(), sb.auth.getUser()])
+  const [{ data: d }, { data: s }, { data: { user } }] = await Promise.all([sb.from('dresses').select('*').eq('id', params.id).maybeSingle(), sb.from('settings').select('advance_pct,advance_min,tailor_days').single(), sb.auth.getUser()])
   if (!d) notFound()
   const { data: st } = user ? await sb.from('staff').select('role').eq('user_id', user.id).maybeSingle() : { data: null }
   const viewOnly = st?.role === 'preparation'           // preparation staff can look, not book
@@ -23,5 +23,5 @@ export default async function DressPage({ params, searchParams }: { params: { id
   const info = <details className="bf-dd" open><summary>Dress details</summary>{d.description && <p>{d.description}</p>}
     <dl><div><dt>Colour</dt><dd>{d.colour}</dd></div><div><dt>Sizes</dt><dd>{d.sizes?.join(', ')}</dd></div><div><dt>Alterations</dt><dd>{d.alterations || 'On request'}</dd></div></dl></details>
   if (viewOnly || !st) return (<section className="sec"><div className="bk-top"><h1>{d.name}</h1><span className="chip-id">Dress ID: {d.code}</span></div><div className="bk-page"><div>{left}</div><div><p className="mut">Your login can view dresses but not make bookings.</p></div></div></section>)
-  return <BookingFlow dress={d} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} staff={st.role} initialFrom={searchParams.from} initialTo={searchParams.to} left={left} info={info} />
+  return <BookingFlow dress={d} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} tailorDays={s?.tailor_days ?? 3} staff={st.role} initialFrom={searchParams.from} initialTo={searchParams.to} left={left} info={info} />
 }

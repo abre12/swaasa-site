@@ -87,9 +87,9 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
     if (error) await ctx.sb.storage.from('return-inspection-photos').remove(up.paths)
     setHo(false); ctx.say(error ? 'Could not save the photo. Run migration-v20.' : up.failed ? `Saved. ${up.failed} photo(s) could not be uploaded.` : 'Handover photo saved'); ctx.load()
   }
-  const saveDelivery = async (v: { mode: string; address: string } | null) => {
+  const saveDelivery = async (v: { mode: string; address: string; slot: string; assignee: string } | null) => {
     setDlv(false); if (!v) return
-    const { error } = await ctx.sb.rpc('set_delivery_details', { p_id: b.id, p_mode: v.mode, p_address: v.address, p_slot: '', p_assignee: '' })
+    const { error } = await ctx.sb.rpc('set_delivery_details', { p_id: b.id, p_mode: v.mode, p_address: v.address, p_slot: v.slot, p_assignee: v.assignee })
     ctx.say(error ? 'Could not save the delivery details. Run migration-v17.' : 'Delivery saved'); ctx.load()
   }
   async function saveNotes() {
@@ -105,6 +105,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const handled = [
     ['Booking taken by', b.taken_by ? who(b.taken_by, b.created_at) : b.log?.[0]?.m === 'Requested online' ? 'Online (customer)' : '—'],
     ['Prepared by', who(b.prepared_by, b.prepared_at)],
+    ['Packed and checked', who(b.packed_by, b.packed_at)],
     ['Delivered by', who(b.delivered_by, b.picked_up_at)],
     ['Return processed by', who(b.returned_by, b.returned_at)],
   ] as [string, string][]
