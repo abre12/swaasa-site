@@ -1,9 +1,9 @@
 // Shared wording for approval requests: used by the notification bell and the Approvals page.
 import { inr } from './util'
 
-export type ApprovalKind = 'discount' | 'refund' | 'booking_cancellation' | 'shortfall'
-export const approvalIcon = (t: string) => t === 'discount' ? 'percent' : t === 'refund' ? 'ret' : t === 'booking_cancellation' ? 'xc' : 'wallet'
-export const approvalName = (t: string) => t === 'discount' ? 'Discount' : t === 'refund' ? 'Refund' : t === 'booking_cancellation' ? 'Booking Cancellation' : 'Short Payment'
+export type ApprovalKind = 'discount' | 'refund' | 'booking_cancellation' | 'shortfall' | 'gap_override'
+export const approvalIcon = (t: string) => t === 'discount' ? 'percent' : t === 'refund' ? 'ret' : t === 'booking_cancellation' ? 'xc' : t === 'gap_override' ? 'clock' : 'wallet'
+export const approvalName = (t: string) => t === 'discount' ? 'Discount' : t === 'refund' ? 'Refund' : t === 'booking_cancellation' ? 'Booking Cancellation' : t === 'gap_override' ? 'Cleaning-Gap Override' : 'Short Payment'
 export const approvalTitle = (t: string) => `${approvalName(t)} Approval Required`
 // money going out or a booking being cancelled cannot be undone, so the bell asks for a second tap there
 export const needsConfirm = (t: string) => t === 'refund'   // approving a cancellation opens its own decision screen, which is the confirmation
@@ -18,8 +18,11 @@ export function approvalDetail(a: any, bookings: any[] = []): string {
     const r = Math.round(d.rent_refund ?? d.refund_amount ?? 0), dp = Math.round(d.deposit_refund ?? 0)
     return ['Cancel booking', r + dp > 0 ? `staff recommend refund: ${[r > 0 ? `rent ${inr(r)}` : '', dp > 0 ? `deposit ${inr(dp)}` : ''].filter(Boolean).join(' + ')}` : 'no refund recommended (policy)'].join(' · ')
   }
+  if (a.action_type === 'gap_override') return `Book ${d.dress_code || 'the dress'} on ${d.start || ''} → ${d.end || ''}, inside the cleaning period`
   return 'Review requested'
 }
+/** The booking an approval is about, or (for a booking that does not exist yet) the dress. */
+export const approvalRef = (a: any, customer?: string) => a.booking_id ? `${a.booking_id}${customer ? ' · ' + customer : ''}` : `${a.request_details?.dress_code || 'New booking'}${a.request_details?.dress_name ? ' · ' + a.request_details.dress_name : ''}`
 export const approvalReason = (a: any) => String(a.reason || a.request_details?.reason || '').trim()
 
 export function ago(iso?: string | null, now = Date.now()): string {

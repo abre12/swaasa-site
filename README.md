@@ -2,6 +2,35 @@
 
 Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 
+## What is new in Phase 2, batch A (money and safety)
+
+**Order matters.** 1) Run `supabase/migration-v26-phase2-batchA.sql` in the Supabase SQL editor. 2) Deploy this website. 3) Test as a staff login: Mark delivered (with deposit and rent), Record payment (booking screen, Finance, Cash counter), Process return, and a cleaning-gap request. 4) Only then run `supabase/migration-v26b-lockdown.sql`. (Run v25b first if you have not.)
+
+| Item | What changed |
+| --- | --- |
+| MR-3 | "Mark delivered" is one database call (`deliver_booking`): deposit, rent and delivery are saved together or not at all. A repeated tap is ignored (a one-time key per tap, and the button logic ignores a second tap while one is running). If the rent is short and the owner has not approved yet, the payment is kept, the request goes to the owner, and delivery waits. Every payment now goes through `record_payment`; after v26b a browser can no longer insert payments directly. |
+| MR-4 | The late fee, the refund and what the deposit is kept against are worked out by the database (`return_preview`, `return_booking`). The return screen shows the database's answer and fills in the calculated late fee. A different late fee is allowed, is written to the booking history, and the owner is told. New Setting: free days after the return date before a late fee starts (default 0, so nothing changes until you set it). |
+| SA-2 | v26b removes access to every database function from signed-out users (except the few the public collection pages need) and closes new functions to them by default. The settings table was already staff-only (v6). |
+| SA-3 | "Deliver anyway" tells the owner (information only): a "For your information" list in the bell, and the owner-only part of the 9 AM Telegram message. Booking inside the cleaning period now needs the owner's approval for staff (new booking screen and Reschedule): staff send a request with a reason, the owner approves it in the bell, and the approval works once, for those dates, for 3 days. The owner can still override directly. |
+| SA-4 | The booking view hides customer phone and email from the Preparation role. NOT done: loading fewer bookings (open items plus the last 60 to 90 days) and closing the Preparation role's direct read of the bookings table. These touch every report and chart and need staging. |
+| Cleanup | The unused public booking page, `/api/book`, `/api/tryon`, `Booking.tsx` and `TryOn.tsx` are deleted (they would stop working after the lock-down). |
+
+## What is new in Phase 2, batch B (alerts)
+
+No database change. Upload the files and let Vercel build.
+
+| Item | What changed |
+| --- | --- |
+| DA-5 | "Dress still out" no longer fires just because a delivery is near. It fires only when the return is overdue, or the return day plus the cleaning days (Settings) runs into the next delivery. The day before delivery a quiet "Confirm return" note asks someone to call the customer. |
+| CH-1 | Dashboard: Today is the one "needs attention" list. The duplicate "overdue deliveries" button is gone (shortfall approvals stay). |
+| CH-2 | Alterations "Delivery Critical" now reads the same alerts as the bell and Today (lib/alerts.ts, Settings days). The bell also now uses the Settings days (it ignored them before). Added the missing rules: quality check pending, repair not complete. |
+| CH-3 | The at-risk card says who has the dress now and who is waiting for it. |
+| CH-5 | The bell shows separate chips: red = critical issues, amber = approvals waiting (owner), grey = other unread. Every issue counts, not one per dress. |
+| DA-4 | Sending a dress to the tailor warns when the return date is later than two days before delivery. If you continue, a note is saved on the job and the alert shows to the owner. |
+| DA-8 | Alerts show an event chip (e.g. "Wedding in 2 days"). Within 3 days of the event a High alert becomes Critical; within 7 days alerts rank higher. |
+| DA-11 | From 4 PM a delivery still not recorded today raises a Critical alert (no waiting for tomorrow). The 5 PM Telegram message also tells the owner only, "Not delivered today". The 11 AM and 4 PM checks already existed. |
+Not done by choice: DA-9 ("Take it" ownership), packed-and-checked, handover photos.
+
 ## What is new in v25 (Phase 1 of the audit)
 
 **Do these in this order.** The order matters because the website and the database must change together.
@@ -21,7 +50,7 @@ Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 | SA-1 sign-in | Owner two-step login (authenticator app): Settings > Two-step login. Staff passwords now need 10 characters. The app signs out after 60 minutes of no activity (`IDLE_MINUTES` in `AdminApp.tsx`). |
 | N-1, N-2 | The leftover try-on and public-booking code is removed (list below). |
 | DA-2, DA-3 | Settings > "Checkpoints": measurements by D-5, with the tailor by D-4, usual turnaround 3 days (all editable). The bell and Today warn when a step is late or when the tailor will return the dress less than two days before delivery. A booking with too little time for its alterations shows a warning on the Alterations step. |
-| DA-6 | Packed-and-checked step: Today shows tomorrow's ready deliveries with **Mark packed**; Mark delivered warns if it was not done; the booking shows who packed it. |
+| DA-6 | (Removed in Phase 2: the packed-and-checked step was dropped. Today still lists tomorrow's deliveries as "Check whether everything is ready to deliver".) |
 | DA-7 | The delivery box now has a **time slot** and **who is delivering**. Today shows them with the balance to collect, and sorts by slot. |
 
 ### Delete these (they are dead code, and two of them use the server key)

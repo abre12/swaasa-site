@@ -64,7 +64,7 @@ export async function GET(req: Request) {
   const who = (b: any) => `${b.customer_name || ''}${b.phone ? ' · ' + b.phone : ''}`
   const how = (b: any) => [b.delivery_slot || 'no time slot', b.delivery_assignee || null, b.delivery_mode === 'courier' ? 'we deliver' + (b.delivery_address ? ': ' + b.delivery_address : '') : 'customer collects'].filter(Boolean).join(' · ')
   const due = (b: any) => Math.max(0, (b.rent || 0) + (b.charges || 0) - (b.paid || 0))
-  const delivery = (b: any) => { const rd = bookingReadiness(rctx, b); return [`• ${name(b)}`, `  ${who(b)}`, `  ${how(b)}`, `  ${rd.ready ? 'Ready' : 'NOT READY: ' + rd.reasons.map(r => r.label).join('; ')}${b.packed_at ? ' · packed' : rd.ready ? ' · not packed yet' : ''}${due(b) > 0 ? ' · balance ' + money(due(b)) : ''}`].join('\n') }
+  const delivery = (b: any) => { const rd = bookingReadiness(rctx, b); return [`• ${name(b)}`, `  ${who(b)}`, `  ${how(b)}`, `  ${rd.ready ? 'Ready' : 'NOT READY: ' + rd.reasons.map(r => r.label).join('; ')}${due(b) > 0 ? ' · balance ' + money(due(b)) : ''}`].join('\n') }
   const ret = (b: any) => `• ${name(b)}\n  ${who(b)}\n  ${b.end_date < today ? 'overdue since ' + dmy(b.end_date) : 'due ' + dmy(b.end_date)}`
   const block = (title: string, rows: string[], cap = 12) => rows.length ? `${title} (${rows.length})\n${rows.slice(0, cap).join('\n')}${rows.length > cap ? `\n…and ${rows.length - cap} more. Open the app.` : ''}` : ''
   const alertLine = (a: any) => `• ${a.tag}\n  ${a.dress}\n  ${a.body}`
@@ -76,30 +76,37 @@ export async function GET(req: Request) {
       block('RETURNS DUE TODAY', retToday.map(ret)), block('OVERDUE RETURNS', overdue.map(ret)), block('NEEDS ATTENTION FIRST', urgent.map(alertLine), 8))
     if (!parts.some(Boolean)) parts.push('No deliveries or returns today and nothing urgent. All clear.')
   } else if (slot === 'dminus1') {
-    const notReady = delTmr.filter(b => { const rd = bookingReadiness(rctx, b); return !rd.ready || !b.packed_at })
+    const notReady = delTmr.filter(b => { const rd = bookingReadiness(rctx, b); return !rd.ready })
     const early = alerts.filter(a => /^(chk|altsoon|altover|prep)/.test(a.key))
-    parts.push(block('TOMORROW: NOT READY OR NOT PACKED', notReady.map(delivery)), block('STEPS RUNNING LATE', [...urgent, ...early.filter(a => !urgent.includes(a))].map(alertLine), 10))
+    parts.push(block('TOMORROW: NOT READY', notReady.map(delivery)), block('STEPS RUNNING LATE', [...urgent, ...early.filter(a => !urgent.includes(a))].map(alertLine), 10))
   } else if (slot === 'noon') {
     parts.push(block('TODAY: STILL NOT READY', delToday.filter(b => !bookingReadiness(rctx, b).ready).map(delivery)))
   } else if (slot === 'afternoon') {
     parts.push(block('NOT YET DELIVERED TODAY', delToday.map(delivery)), block('MISSED DELIVERIES', missed.map(b => `• ${name(b)} · ${who(b)} · was due ${dmy(b.start_date)}`)))
   } else {
     if (delTmr.length || retTmr.length) {
-      const packed = delTmr.filter(b => b.packed_at).length
-      parts.push(`TOMORROW (${dmy(tmr)})\n• ${delTmr.length} deliver${delTmr.length === 1 ? 'y' : 'ies'}${summary ? `: ${summary.ready} ready, ${summary.alteration} waiting on alteration, ${summary.prep} on cleaning or repair, ${summary.notBack} dress not back yet` : ''}\n• ${packed} of ${delTmr.length} packed and checked\n• ${retTmr.length} return${retTmr.length === 1 ? '' : 's'} due`)
-      parts.push(block('NOT READY FOR TOMORROW', delTmr.filter(b => !bookingReadiness(rctx, b).ready).map(delivery)), block('STILL TO PACK', delTmr.filter(b => bookingReadiness(rctx, b).ready && !b.packed_at).map(b => `• ${name(b)} · ${who(b)}`)))
+      parts.push(`TOMORROW (${dmy(tmr)})\n• ${delTmr.length} deliver${delTmr.length === 1 ? 'y' : 'ies'}${summary ? `: ${summary.ready} ready, ${summary.alteration} waiting on alteration, ${summary.prep} on cleaning or repair, ${summary.notBack} dress not back yet` : ''}\n• ${retTmr.length} return${retTmr.length === 1 ? '' : 's'} due`)
+      parts.push(block('NOT READY FOR TOMORROW', delTmr.filter(b => !bookingReadiness(rctx, b).ready).map(delivery)))
     }
     parts.push(block('OVERDUE RETURNS (call the customer)', overdue.map(ret)))
   }
   const body = parts.filter(Boolean).join('\n\n')
-  if (!body) return NextResponse.json({ ok: true, slot, sent: 0, note: 'Nothing to report, nothing sent.' })
+  // DA-11: at 5 PM the owner (only) is told which of today's deliveries are still not recorded.
+  let ownerOnly = slot === 'evening' ? block('NOT DELIVERED TODAY (owner only)', delToday.map(delivery)) : ''
+  if (slot === 'morning') {   // SA-3: yesterday's overrides, for the owner's information only
+    const { data: nt } = await sb.from('owner_notices').select('kind,message,created_by_name,booking_id').gte('created_at', new Date(Date.now() - 24 * 3600e3).toISOString()).order('created_at')
+    ownerOnly = block('FOR YOUR INFORMATION (owner only)', (nt || []).map((n: any) => `• ${n.booking_id ? n.booking_id + ' · ' : ''}${n.message}${n.created_by_name ? ' (' + n.created_by_name + ')' : ''}`))
+  }
+  if (!body && !ownerOnly) return NextResponse.json({ ok: true, slot, sent: 0, note: 'Nothing to report, nothing sent.' })
+  const head2 = `${head} · ${({ morning: 'Morning briefing', dminus1: 'Tomorrow check', noon: 'Midday check', afternoon: '4 PM check', evening: 'Evening summary' } as Record<Slot, string>)[slot]}`
+  const ownerText = `${head2}\n\n${[body, ownerOnly].filter(Boolean).join('\n\n')}`
   const text = `${head} · ${({ morning: 'Morning briefing', dminus1: 'Tomorrow check', noon: 'Midday check', afternoon: '4 PM check', evening: 'Evening summary' } as Record<Slot, string>)[slot]}\n\n${body}`
-  if (dry) return NextResponse.json({ ok: true, slot, dry: true, text })
+  if (dry) return NextResponse.json({ ok: true, slot, dry: true, text: body ? text : '(nothing for staff)', ownerText })
 
   if (!process.env.TELEGRAM_BOT_TOKEN) return NextResponse.json({ error: 'TELEGRAM_BOT_TOKEN is not set on the server.' }, { status: 503 })
   const owner = process.env.TELEGRAM_OWNER_CHAT_ID || process.env.TELEGRAM_STAFF_CHAT_ID, staff = process.env.TELEGRAM_STAFF_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID
   const to = [...new Set(AUDIENCE[slot] === 'owner' ? [owner] : [owner, staff])].filter(Boolean) as string[]
   if (!to.length) return NextResponse.json({ error: 'Set TELEGRAM_OWNER_CHAT_ID and/or TELEGRAM_STAFF_CHAT_ID.' }, { status: 503 })
-  try { for (const c of to) await send(c, text) } catch (e: any) { return NextResponse.json({ error: String(e?.message || e) }, { status: 502 }) }
+  try { for (const c of to) { const msg = c === owner ? ownerText : text; if (c === owner || body) await send(c, msg) } } catch (e: any) { return NextResponse.json({ error: String(e?.message || e) }, { status: 502 }) }
   return NextResponse.json({ ok: true, slot, sent: to.length })
 }

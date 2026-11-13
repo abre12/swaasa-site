@@ -37,6 +37,9 @@ export const dbMsg = (m?: string): string => {
   if (/BAD_STATUS/.test(t)) return 'This booking has already moved on. Refresh the page and check its status.'
   if (/REASON_REQUIRED/.test(t)) return 'Please give the reason.'
   if (/FORBIDDEN|row-level security|permission denied/i.test(t)) return 'Your login is not allowed to do that. Ask the owner.'
+  if (/BAD_AMOUNT/.test(t)) return 'That amount is not valid for this booking. Refresh and try again.'
+  if (/MODE_REQUIRED/.test(t)) return 'Select the payment mode.'
+  if (/Could not find the function|PGRST202/i.test(t)) return 'The database update for this version (migration-v26) has not been applied yet.'
   if (/NOT_FOUND/.test(t)) return 'That booking could not be found. Refresh the page.'
   return t
 }

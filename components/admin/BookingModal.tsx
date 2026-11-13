@@ -5,7 +5,6 @@ import PaymentSummary from './PaymentSummary'
 import { buildPaymentSummary } from '@/lib/payments'
 import { dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
-import { uploadPhotos } from '@/lib/photos'
 import { bookingReadiness } from '@/lib/readiness'
 import DeliveryEdit from './DeliveryEdit'
 import { dispatchAlteration } from './Alterations'
@@ -42,6 +41,12 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
     : finance.due > 0 ? `${inr(finance.due)} Due` : 'Fully Paid'
   const bookingDate = b.created_at ? dmy(istDate(b.created_at)) : null
 
+  // Escape closes the booking screen, unless a form (return, confirmation) is open on top of it.
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('.rw-back, [data-overlay]')) onClose() }
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
   useEffect(() => {
     if (limited) return
     ctx.sb.from('payments').select('kind,amount').eq('booking_id', b.id)
@@ -77,16 +82,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const prepInfo = prepJob ? altStatus(prepJob) : { label: 'No alterations', hint: '', tone: 'off' as const }
   const altHistory = (ctx.AJ || []).filter((a: any) => a.dress_id === b.dress_id).slice().sort((x: any, y: any) => String(y.created_at || '').localeCompare(String(x.created_at || '')))
 
-  const [dlv, setDlv] = useState(false), [ho, setHo] = useState(false)
-  // Optional: a photo of the dress as it leaves the shop, so any later damage claim has something to compare with.
-  async function addHandover(files: FileList | null) {
-    if (!files?.length) return; setHo(true)
-    const up = await uploadPhotos(ctx.sb, `handover/${b.id}`, Array.from(files))
-    if (!up.urls.length) { setHo(false); return ctx.say('The photo could not be uploaded. Please try again.') }
-    const { error } = await ctx.sb.rpc('add_handover_photos', { p_id: b.id, p_urls: up.urls })
-    if (error) await ctx.sb.storage.from('return-inspection-photos').remove(up.paths)
-    setHo(false); ctx.say(error ? 'Could not save the photo. Run migration-v20.' : up.failed ? `Saved. ${up.failed} photo(s) could not be uploaded.` : 'Handover photo saved'); ctx.load()
-  }
+  const [dlv, setDlv] = useState(false)
   const saveDelivery = async (v: { mode: string; address: string; slot: string; assignee: string } | null) => {
     setDlv(false); if (!v) return
     const { error } = await ctx.sb.rpc('set_delivery_details', { p_id: b.id, p_mode: v.mode, p_address: v.address, p_slot: v.slot, p_assignee: v.assignee })
@@ -105,7 +101,6 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const handled = [
     ['Booking taken by', b.taken_by ? who(b.taken_by, b.created_at) : b.log?.[0]?.m === 'Requested online' ? 'Online (customer)' : '—'],
     ['Prepared by', who(b.prepared_by, b.prepared_at)],
-    ['Packed and checked', who(b.packed_by, b.packed_at)],
     ['Delivered by', who(b.delivered_by, b.picked_up_at)],
     ['Return processed by', who(b.returned_by, b.returned_at)],
   ] as [string, string][]
@@ -218,10 +213,6 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             {!limited && <>
           {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
             {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
-          {(['pending', 'confirmed', 'out'].includes(b.status) || b.handover_photos?.length > 0) && <section className="bd-card bd-extra-card"><h3><Ic n="camera" s={19} />Handover photos</h3>
-            {b.handover_photos?.length > 0 ? <div className="inspection-photos">{b.handover_photos.map((u: string, i: number) => <PrivatePhoto key={i} sb={ctx.sb} url={u} alt={`Handover ${i + 1}`} />)}</div> : <small className="mut">Optional. A photo of the dress as it leaves the shop helps settle any later damage question.</small>}
-            {['pending', 'confirmed', 'out'].includes(b.status) && <label className="btn alt sm" style={{ marginTop: 8, display: 'inline-flex', cursor: 'pointer' }}>{ho ? 'Uploading…' : 'Add photo'}<input type="file" accept="image/*" capture="environment" multiple hidden disabled={ho} onChange={e => { addHandover(e.target.files); e.target.value = '' }} /></label>}
-          </section>}
           {(b.return_notes || inspection) && <section className="bd-card bd-extra-card"><h3><Ic n="ret" s={19} />Return Condition</h3>
             {b.return_notes && <p className="bd-return-note">{b.return_notes}</p>}
             {inspection && <><div className="bd-inspection-condition"><span>Inspection</span><b>{({ good: 'Good', minor_marks: 'Minor Marks', needs_cleaning: 'Needs Cleaning', damage_repair: 'Damage / Repair Required' } as any)[inspection.condition] || inspection.condition}</b></div>

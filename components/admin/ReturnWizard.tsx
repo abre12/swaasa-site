@@ -16,11 +16,21 @@ const CONDS: Opt[] = [
 export default function ReturnForm({ ctx, b, owing, late, lateFee, onClose }: { ctx: any; b: any; owing: number; late: number; lateFee: number; onClose: (v: Record<string, any> | null) => void }) {
   const d = ctx.dmap[b.dress_id]
   const [cond, setCond] = useState('Good'), [minor, setMinor] = useState<'' | 'ready' | 'clean'>('')
-  const [lf, setLf] = useState('0'), [dc, setDc] = useState('0'), [rm, setRm] = useState('Cash')
+  const [lf, setLf] = useState(String(lateFee || 0)), [dc, setDc] = useState('0'), [rm, setRm] = useState('Cash')
   const [notes, setNotes] = useState(''), [files, setFiles] = useState<File[]>([]), [err, setErr] = useState('')
   const urls = useMemo(() => files.map(f => URL.createObjectURL(f)), [files])
   useEffect(() => () => urls.forEach(u => URL.revokeObjectURL(u)), [urls])
-  useEffect(() => { const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose(null); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h) }, [onClose])
+  // Escape closes only this form (capture phase, so the booking screen underneath does not also react to the same key press).
+  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(null) } }; window.addEventListener('keydown', h, true); return () => window.removeEventListener('keydown', h, true) }, [onClose])
+  // MR-4: the database works out the refund and what the deposit is kept against; this form only shows its answer.
+  const [pv, setPv] = useState<any>(null), [pvErr, setPvErr] = useState(false)
+  useEffect(() => {
+    let live = true; const t = setTimeout(async () => {
+      const r = await ctx.sb.rpc('return_preview', { p_booking: b.id, p_late_fee: Math.max(0, Math.round(+lf || 0)), p_damage_charge: Math.max(0, Math.round(+dc || 0)) })
+      if (live) { setPvErr(!!r.error); setPv(r.error ? null : r.data) }
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [lf, dc, b.id])   // eslint-disable-line react-hooks/exhaustive-deps
   const cleaning = cond === 'Needs Cleaning' || (cond === 'Minor Marks' && minor === 'clean')
   const active = cleaning ? ctx.CR?.find((r: any) => r.dress_id === b.dress_id && ['to_be_sent', 'sent', 'returned_pending_check'].includes(r.status)) : null
   const STAGE: Record<string, string> = { to_be_sent: 'To Be Sent', sent: 'Sent to Cleaner', returned_pending_check: 'Returned from Cleaner' }
@@ -59,7 +69,9 @@ export default function ReturnForm({ ctx, b, owing, late, lateFee, onClose }: { 
         <label>Damage / repair (₹)<input type="number" min="0" inputMode="numeric" value={dc} onChange={e => setDc(e.target.value)} /></label>
         <label>Deposit hand-back<select value={rm} onChange={e => setRm(e.target.value)}>{PAY_MODES.map(m => <option key={m}>{m}</option>)}</select></label>
       </div>
-      <p className="rw-note">{late > 0 && lateFee > 0 ? `${late} day${late > 1 ? 's' : ''} late — suggested late fee ${inr(lateFee)}. ` : ''}Deposit held {inr(b.deposit_held)}{owing > 0 ? `. Unpaid rent ${inr(owing)} is settled from the deposit.` : '.'}</p>
+      <p className="rw-note">{late > 0 && lateFee > 0 ? `${late} day${late > 1 ? 's' : ''} late: calculated late fee ${inr(lateFee)}${+lf !== lateFee ? ` (you have changed it, the owner will be told)` : ''}. ` : ''}Deposit held {inr(pv?.deposit_held ?? b.deposit_held)}.
+        {pv && <> <b>Hand back {inr(pv.refund)}</b>{pv.kept > 0 ? `; ${inr(pv.kept)} kept: ${pv.applied.map((a: any) => `${a.why} ${inr(a.amt)}`).join(', ')}` : ''}.</>}
+        {pvErr && ' The amounts could not be calculated. Check your connection and the v26 database update.'}</p>
 
       <label className="rf-l">Condition notes <small>{cond === 'Damage / Repair Required' ? '(required for damage)' : '(optional)'}</small><textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add a note for the team…" /></label>
       <details key={cond === 'Damage / Repair Required' ? 'dmg' : 'ok'} className="rf-photos" open={cond === 'Damage / Repair Required' || undefined}><summary>Photos <small>{cond === 'Damage / Repair Required' ? '(at least one required for damage)' : '(optional)'}{files.length ? ` · ${files.length} attached` : ''}</small></summary>
@@ -67,6 +79,6 @@ export default function ReturnForm({ ctx, b, owing, late, lateFee, onClose }: { 
           {urls.map((u, i) => <span key={u} className="rw-t"><img src={u} alt={`Condition photo ${i + 1}`} /><button aria-label="Remove photo" onClick={() => setFiles(f => f.filter((_, j) => j !== i))}>✕</button></span>)}</div></details>
       {err && <p className="rw-err" role="alert">{err}</p>}
     </div>
-    <div className="rf-f"><button className="btn" onClick={submit}>Complete return</button><button className="btn alt" onClick={() => onClose(null)}>Cancel</button></div>
+    <div className="rf-f"><button className="btn" onClick={submit}>Complete return</button><button type="button" className="btn alt" onClick={e => { e.stopPropagation(); onClose(null) }}>Cancel</button></div>
   </div></div>
 }

@@ -40,7 +40,7 @@ const NAV: [string, string, string, string[]][] = [
 export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
   const [drawer, setDrawer] = useState(false); const [tab, setTab] = useState(initialTab && initialTab !== 'today' && (role === 'owner' || initialTab !== 'performance') ? initialTab : (ops ? 'dashboard' : 'prep')); const [B, setB] = useState<any[]>([]); const [K, setK] = useState<any[]>([]); const [D, setD] = useState<any[]>([]); const [ed, setEd] = useState<any>(null)
-  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [CR, setCR] = useState<any[]>([]); const [AJ, setAJ] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
+  const [prev, setPrev] = useState<any>(null); const [dlg, setDlg] = useState<any>(null); const [flt, setFlt] = useState('all'); const [DC, setDC] = useState<any[]>([]); const [CR, setCR] = useState<any[]>([]); const [AJ, setAJ] = useState<any[]>([]); const [STAFF, setSTAFF] = useState<any[]>([]); const [APPR, setAPPR] = useState<any[]>([]); const [NOTICES, setNOTICES] = useState<any[]>([]); const [ref, setRef] = useState(today().slice(0, 7))
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [calView,setCalView]=useState<'month'|'week'|'day'>('month'),[calFocus,setCalFocus]=useState(today()),[calFilters,setCalFilters]=useState({bookings:true,deliveries:true,returns:true,alterations:true,cleaning:true})
   const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
@@ -143,6 +143,12 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const ch = sb.channel('approvals-live').on('postgres_changes', { event: '*', schema: 'public', table: 'approvals' }, () => { clearTimeout(t); t = setTimeout(refreshApprovals, 400) }).subscribe()
     return () => { clearTimeout(t); sb.removeChannel(ch) }
   }, [sb, ops])
+  // SA-3: the owner is told (information only) when staff deliver a dress that was not ready, or change a calculated late fee. Last 7 days.
+  useEffect(() => {
+    if (!owner) return
+    const pull = async () => { const r = await sb.from('owner_notices').select('*').gte('created_at', new Date(Date.now() - 7 * 864e5).toISOString()).order('created_at', { ascending: false }).limit(100); if (!r.error) setNOTICES(r.data || []) }
+    pull(); const t = setInterval(pull, 30000); return () => clearInterval(t)
+  }, [sb, owner])
   const [showForm, setShowForm] = useState(false); const [dq, setDq] = useState(''); const [dcat, setDcat] = useState('')
   const tried = useRef<Set<string>>(new Set())
   // Dresses with no colours yet get them worked out automatically (colour words first, then the photo). They can be corrected in Edit.
@@ -170,13 +176,23 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const askYes = (title: string, note?: string, ok = 'Yes') => ask(title, [], { note, ok }).then(v => !!v)
   // Booking changes are made by database functions (migration v25): the database checks the rules, stamps the time and the person and
   // adds the history line itself, so nothing here writes to the bookings table directly. Only the three changes below exist.
+  const errText = (error: any): string => { const m: string = error?.message || ''
+    return m.includes('PAST_START') ? 'The delivery date cannot be in the past.' : m.includes('DRESS_ALREADY_OUT') ? 'This dress is still out with another customer. Process that return first.' : m.includes('OWNER_ONLY') ? 'Only the owner can change prices.'
+      : m.includes('GAP_APPROVAL_REQUIRED') ? 'The owner has not approved booking inside the cleaning period for these dates yet.' : m.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period'
+      : m.includes('DEPOSIT_FULL_REQUIRED') ? 'The full refundable deposit must be collected before delivery. Refresh and try again.' : m.includes('MODE_REQUIRED') ? 'Select the payment mode.' : m.includes('BAD_STATUS') ? 'This booking has already moved on. Refresh and check its status.'
+      : m.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : (m.includes('no_double') || m.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.'
+      : /Could not find the function|PGRST202/i.test(m) ? 'The database update for this version (migration-v26) has not been applied yet, so nothing was saved.' : dbMsg(m) }
+  const delivering = useRef<Set<string>>(new Set())      // MR-3: bookings whose delivery is being saved right now, so a second tap does nothing
+  async function recordRows(b: any, rows: any[]): Promise<string | null> {   // MR-3: every payment goes through one database function
+    const { error } = await sb.rpc('record_payment', { p_booking: b.id, p_rows: rows.map(r => ({ amount: r.amount, kind: r.kind, purpose: r.purpose, mode: r.mode, remarks: r.remarks })) }); return error ? errText(error) : null
+  }
   async function patch(b: any, p: any, msg: string): Promise<boolean> {
     const keys = Object.keys(p)
     const { error } = p.status === 'confirmed' && keys.length === 1 ? await sb.rpc('confirm_booking', { p_id: b.id })
       : p.status === 'out' ? await sb.rpc('mark_delivered', { p_id: b.id, p_note: msg })
       : 'start_date' in p && 'end_date' in p ? await sb.rpc('reschedule_booking', { p_id: b.id, p_start: p.start_date, p_end: p.end_date, p_override: !!p.gap_override, p_reason: p.reason || '' })
       : { error: { message: 'This change is not supported.' } as any }
-    say(error ? (error.message.includes('PAST_START') ? 'The delivery date cannot be in the past.' : error.message.includes('DRESS_ALREADY_OUT') ? 'This dress is still out with another customer. Process that return first.' : error.message.includes('OWNER_ONLY') ? 'Only the owner can change prices.' : error.message.includes('GAP_CLASH') ? 'Check dates for Cleaning & Preparation Period' : error.message.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : (error.message.includes('no_double') || error.message.includes('DATES_TAKEN')) ? 'Those dates are already booked or blocked for this dress.' : dbMsg(error.message)) : (p.start_date ? 'Rescheduled' : msg)); load(); return !error
+    say(error ? errText(error) : (p.start_date ? 'Rescheduled' : msg)); load(); return !error
   }
   // Deposit still to be handed back on return = deposit held, less any rent/charges still unpaid.
   const refundDue = (b: any, extra = 0) => Math.max(0, b.deposit_held - Math.max(0, b.rent + b.charges + extra - b.paid))
@@ -189,7 +205,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     const v = await ask('Record payment', [{ name: 'amt', label: 'Amount (₹)', type: 'number', value: String(Math.max(0, b.rent + b.charges - b.paid)), required: true }, { name: 'mode', label: 'Payment mode', options: PAY_MODES, required: true }])
     if (!v) return
     const a = Math.round(+(v.amt || 0)); if (!(a > 0)) return say('Enter an amount above zero.')
-    const { error } = await sb.from('payments').insert(rentRows(b, a, v.mode)); say(error ? dbMsg(error.message) : `${inr(a)} recorded`); load()
+    const er = await recordRows(b, rentRows(b, a, v.mode)); say(er || `${inr(a)} recorded`); load()
   }
   // The rental amount (plus any customization charge) must be received before a dress goes out or comes back.
   // If staff cannot collect all of it, the owner has to approve the shortfall. Returns true when it is fine to carry on.
@@ -216,7 +232,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       { ok: 'Continue', note: 'The rental amount must be received before this step. If you cannot collect all of it, the owner has to approve the shortfall.' }); if (!v) return false
     const a = Math.round(+(v.a || 0)); if (a < 0 || a > owing) { say(`Enter an amount from 0 to ${inr(owing)}.`); return false }
     if (a > 0) { if (!v.m) { say('Select the payment mode.'); return false }
-      const { error } = await sb.from('payments').insert(rentRows(b, a, v.m)); if (error) { say(dbMsg(error.message)); return false } }
+      const er = await recordRows(b, rentRows(b, a, v.m)); if (er) { say(er); return false } }
     return shortfallOk(b.id, owing - a)
   }
   async function pickup(b: any) {
@@ -233,8 +249,6 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       const pick = ALT_OPTS.find(x => x[1] === ov.alt)?.[0] || 'keep'
       if (altR?.id && pick !== 'keep') closeAlt = { id: altR.id, how: pick }
     }
-    // The packed-and-checked step (Today shows it the day before). A warning, not a block: the person delivering decides.
-    if (rd.applicable && !b.packed_at && !(await askYes('Not marked as packed and checked', 'Nobody has marked this dress as packed and checked yet (dress checked, steamed, accessories, bag and tag). Mark it packed first, or continue only if you have already checked it.', 'Continue to delivery'))) return
     const depPending = Math.max(0, b.deposit - b.deposit_held), owing = Math.max(0, b.rent + b.charges - b.paid)
     const fields: Fld[] = []
     if (depPending > 0) fields.push({ name: 'dep', label: `Refundable deposit still to collect (₹). Deposit ${inr(b.deposit)}, already paid ${inr(b.deposit_held)}`, type: 'number', value: String(depPending), required: true })
@@ -245,12 +259,30 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     if (adv < 0) return say('Enter a valid amount.')
     if (adv > owing) return say(`The balance is only ${inr(owing)}. Enter that amount or less.`)
     if ((d > 0 || adv > 0) && !v.mode) return say('Select the payment mode.')
-    const rows: any[] = []
-    if (d > 0) rows.push({ booking_id: b.id, amount: d, kind: 'deposit', purpose: 'deposit', mode: v.mode })
-    if (adv > 0) rows.push(...rentRows(b, adv, v.mode))
-    if (rows.length) { const { error } = await sb.from('payments').insert(rows); if (error) return say(dbMsg(error.message)) }
-    if (!(await shortfallOk(b.id, owing - adv))) { load(); return }
-    const delivered = await patch(b, { status: 'out', picked_up_at: new Date().toISOString() }, `Delivered${d > 0 ? `. Deposit ${inr(d)} collected (${v.mode})` : ''}${adv > 0 ? `. Rent ${inr(adv)} collected (${v.mode})` : ''}${owing - adv > 0 ? `. Shortfall of ${inr(owing - adv)} approved` : ''}${notReadyNote ? `. Delivered although not ready (${rd.reasons.map(r => r.label).join('; ')}). Reason: ${notReadyNote}` : ''}`)
+    // Shortfall: if part of the rent is not collected, the owner must approve. Staff give a reason; the owner just confirms.
+    const short = owing - adv; let reason = ''
+    if (short > 0) {
+      const mine = APPR.filter((x: any) => x.booking_id === b.id)
+      if (owner) { if (!(await askYes('Accept less than the rental amount?', `This booking is short by ${inr(short)}. As the owner you can accept this.`, 'Accept shortfall'))) return; reason = 'Accepted by owner' }
+      else if (mine.some((x: any) => x.status === 'approved' && x.shortfall >= short)) reason = 'Approved by owner'
+      else if (mine.some((x: any) => x.status === 'pending')) reason = 'Waiting for the owner'
+      else {
+        const rej = mine.find((x: any) => x.status === 'rejected')
+        const w = await ask('Rent not fully received', [{ name: 'r', label: `Short by ${inr(short)}. Why is it being accepted?`, required: true }], { ok: 'Send to owner for approval', note: rej ? `The owner declined an earlier request${rej.decision_note ? ': ' + rej.decision_note : ''}. Collect the balance if you can.` : 'Collect the balance if you can. Otherwise this goes to the owner, and you can continue once it is approved.' }); if (!w) return
+        reason = String(w.r || '').trim(); if (reason.length < 3) return say('Please give the reason.')
+      }
+    }
+    // ONE database call: the deposit, the rent and the delivery are saved together or not at all, and a repeated tap is ignored (MR-3).
+    if (delivering.current.has(b.id)) return
+    delivering.current.add(b.id)
+    let delivered = false
+    try {
+      const { data: res, error } = await sb.rpc('deliver_booking', { p_id: b.id, p_deposit: d, p_rent: adv, p_mode: v.mode || '', p_note: '', p_idem: crypto.randomUUID(), p_shortfall_reason: reason || null, p_not_ready_note: notReadyNote || null })
+      if (error) { say(errText(error)); load(); return }
+      if (res === 'pending_approval') { say('Payment recorded. Sent to the owner to approve the shortfall. You can mark it delivered once it is approved.'); load(); return }
+      if (res === 'duplicate') { say('That delivery was already being saved.'); load(); return }
+      delivered = true; say('Delivered'); load()
+    } finally { delivering.current.delete(b.id) }
     // The manager chose to close the alteration that was still open: record WHY it is closed, so the history stays honest.
     if (delivered && closeAlt) {
       const done = closeAlt.how === 'done', what = done ? 'completed (not updated in time)' : closeAlt.how === 'skipped' ? 'skipped' : 'missed (not done)'
@@ -258,43 +290,31 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       load()
     }
   }
-  // Packed-and-checked step: the day before delivery someone confirms the dress is checked, steamed and packed with everything that goes with it.
-  async function markPacked(b: any) {
-    const v = await ask('Packed and checked', [{ name: 'n', label: 'Note (optional)' }], { ok: 'Mark as packed', note: 'Confirm that you have checked the dress for marks and loose threads, steamed or ironed it, packed the dupatta, jewellery and other accessories, and put on the bag or hanger and the tag.' }); if (!v) return
-    const { error } = await sb.rpc('set_packed', { p_id: b.id, p_done: true, p_note: String(v.n || '').trim() || null }); say(error ? dbMsg(error.message) : 'Marked as packed'); load()
-  }
   async function ret(b: any) {
     // Rent (and customization) must be fully received before a return is processed; a shortfall needs the owner's approval.
     const needRent = Math.max(0, b.rent + (b.custom_charge || 0) - b.paid)
     if (needRent > 0) { if (!(await collectOrApprove(b, needRent))) { load(); return }; const r = await sb.from('booking_view').select('*').eq('id', b.id).single(); if (r.data) b = r.data }
-    const late = b.end_date < today() ? Math.max(0, nDays(b.end_date, today()) - 1) : 0, lateFee = late * (+dmap[b.dress_id]?.extra_day_fee || 0), owing = Math.max(0, b.rent + b.charges - b.paid)
+    // MR-4: the late fee, the refund and what the deposit is kept against are worked out by the database, not here.
+    const pre = await sb.rpc('return_preview', { p_booking: b.id, p_late_fee: null, p_damage_charge: 0 })
+    if (pre.error) return say(errText(pre.error))
+    const late = +pre.data.late_days || 0, lateFee = +pre.data.suggested_late_fee || 0, owing = Math.max(0, b.rent + b.charges - b.paid)
     const v = await returnWizard(b, { owing, late, lateFee }); if (!v) return
     const condition = ({ 'Good':'good','Minor Marks':'minor_marks','Needs Cleaning':'needs_cleaning','Damage / Repair Required':'damage_repair' } as any)[v.condition], cleanRequired = v.clean === 'Add to Dry Cleaning List'
     if ((condition === 'good' || condition === 'damage_repair') && cleanRequired) return say(condition === 'good' ? 'Good condition does not need a cleaning queue entry.' : 'Route damage or repair issues to maintenance; do not add them to dry cleaning.')
     if (condition === 'needs_cleaning' && !cleanRequired) return say('This inspection requires a cleaning queue entry.')
     const lf = +(v.lf || 0), dc = +(v.dc || 0), n = String(v.n || '').trim()
-    // Late fee and damage charge apply immediately for whoever processes the return; the deposit settles them first.
-    const aLf = lf, aDc = dc, refund = refundDue(b, lf + dc)
-    const kept = Math.max(0, Math.min(b.deposit_held - refund, Math.max(0, b.rent + b.charges + aLf + aDc - b.paid)))   // deposit kept against unpaid dues
-    // What the kept deposit was applied to, in the order dues are settled: rent, customization, earlier charges, late fee, damage / repair / cleaning.
-    const cust = b.custom_charge || 0, unpaidRent = Math.max(0, b.rent - b.paid), unpaidCust = Math.max(0, cust - Math.max(0, b.paid - b.rent)), unpaidPrev = Math.max(0, Math.max(0, b.rent + b.charges - b.paid) - unpaidRent - unpaidCust)
-    let left = kept; const applied: { amt: number; why: string }[] = []
-    for (const [due, why] of [[unpaidRent, 'Unpaid rent'], [unpaidCust, 'Unpaid customization charge'], [unpaidPrev, 'Earlier late fee / charges'], [aLf, 'Late-return fee'], [aDc, `Damage / repair / cleaning charge${n ? ': ' + n : ''}`]] as [number, string][]) {
-      const t = Math.min(left, due); if (t > 0) { applied.push({ amt: t, why }); left -= t }
-    }
-    if (left > 0) applied.push({ amt: left, why: 'Unpaid dues' })
     // Photos go up first. The return itself is ONE database call: it is saved completely, or not at all.
     const photoFiles: File[] = Array.from(v.photos || []), photoUrls: string[] = [], photoPaths: string[] = []; let photoFail = 0
     for (const [i, file] of photoFiles.entries()) { if (!(file instanceof File) || !file.size) continue; const path = `${b.id}/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`; const up = await sb.storage.from('return-inspection-photos').upload(path, file, { upsert: false, contentType: file.type }); if (up.error) photoFail++; else { photoPaths.push(path); photoUrls.push(sb.storage.from('return-inspection-photos').getPublicUrl(path).data.publicUrl) } }
-    const { data: res, error } = await sb.rpc('return_dress', { p_booking: b.id, p_condition: condition, p_notes: n || null, p_photos: photoUrls, p_clean_required: cleanRequired, p_late_fee: lf, p_damage_charge: dc, p_refund: refund, p_refund_mode: refund > 0 ? v.rm : null, p_applied: applied })
+    const { data: res, error } = await sb.rpc('return_booking', { p_booking: b.id, p_condition: condition, p_notes: n || null, p_photos: photoUrls, p_clean_required: cleanRequired, p_late_fee: Math.max(0, Math.round(lf)), p_damage_charge: Math.max(0, Math.round(dc)), p_refund_mode: v.rm || 'Cash' })
     if (error) {
       if (photoPaths.length) await sb.storage.from('return-inspection-photos').remove(photoPaths)
       const m = error.message || ''
-      say(m.includes('DAMAGE_EVIDENCE') ? 'A damage return needs a note and at least one photo.' : m.includes('BAD_STATUS') ? 'This booking is not out any more. Refresh and check its status.' : m.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : m.includes('BAD_AMOUNT') ? 'The deposit amounts do not add up. Please try the return again.' : /Could not find the function|PGRST202|return_dress/i.test(m) && !m.includes('BAD_') ? 'The database update for returns (migration-v17) has not been applied yet, so nothing was saved.' : 'The return could not be saved, so nothing was changed. Please try again.')
+      say(m.includes('DAMAGE_EVIDENCE') ? 'A damage return needs a note and at least one photo.' : m.includes('BAD_STATUS') ? 'This booking is not out any more. Refresh and check its status.' : m.includes('SHORTFALL') ? 'The rental amount has not been received in full. Collect it, or ask the owner to approve the shortfall.' : m.includes('BAD_AMOUNT') ? 'The deposit amounts do not add up. Please try the return again.' : /Could not find the function|PGRST202|return_booking/i.test(m) && !m.includes('BAD_') ? 'The database update for returns (migration-v26) has not been applied yet, so nothing was saved.' : 'The return could not be saved, so nothing was changed. Please try again.')
       load(); return
     }
     load()
-    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(refund)} to the customer.${kept ? ` ${inr(kept)} of the deposit is kept: ${applied.map(a => `${a.why} ${inr(a.amt)}`).join('; ')}.` : ''}${res?.already_in_cleaning ? ' This dress was already in the cleaning workflow, so no second cleaning record was created.' : ''}${photoFail ? ` ${photoFail} photo(s) could not be uploaded; add them again from the booking.` : ''} The dress becomes available again after the cleaning period.` })
+    await ask('Return recorded', [], { ok: 'Done', note: `Hand back ${inr(res?.refund || 0)} to the customer.${res?.kept ? ` ${inr(res.kept)} of the deposit is kept.` : ''}${res?.already_in_cleaning ? ' This dress was already in the cleaning workflow, so no second cleaning record was created.' : ''}${photoFail ? ` ${photoFail} photo(s) could not be uploaded; add them again from the booking.` : ''} The dress becomes available again after the cleaning period.` })
   }
   async function resched(b: any) {
     const v = await ask('Reschedule booking', [{ name: 's', label: 'New delivery date', type: 'date', value: b.start_date }, { name: 'e', label: 'New return date', type: 'date', value: b.end_date }, { name: 'why', label: 'Reason for the change', required: true }]); if (!v) return
@@ -305,8 +325,21 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     if (others.some(o => s <= o.end_date && e >= o.start_date)) return say('This dress is already booked on those dates.')
     let override = false
     if (others.some(o => s <= addD(o.end_date, buf) && addD(e, buf) >= o.start_date)) {
-      if (!(await askYes('Check dates for Cleaning & Preparation Period', 'Continue only if you have checked and confirmed availability for these dates.', 'I have checked and confirmed'))) return
-      override = true
+      if (owner) {
+        if (!(await askYes('Check dates for Cleaning & Preparation Period', 'Continue only if you have checked and confirmed availability for these dates.', 'I have checked and confirmed'))) return
+        override = true
+      } else {
+        // SA-3: staff cannot override the cleaning gap on their own. The owner approves a request for exactly these dates first.
+        const same = APPR.filter((x: any) => x.action_type === 'gap_override' && x.request_details?.dress_id === b.dress_id && x.request_details?.start === s && x.request_details?.end === e)
+        if (same.some((x: any) => x.status === 'approved')) override = true
+        else if (same.some((x: any) => x.status === 'pending')) return say('Waiting for the owner to approve rescheduling inside the cleaning period. Try again once it is approved.')
+        else {
+          const w = await ask('Check dates for Cleaning & Preparation Period', [{ name: 'r', label: 'Why should this be allowed inside the cleaning period?', required: true }], { ok: 'Send to owner for approval', note: 'These dates are inside the cleaning and preparation days. The owner has to approve this first.' }); if (!w) return
+          const { error } = await sb.rpc('request_gap_override', { p_dress: b.dress_id, p_start: s, p_end: e, p_booking: b.id, p_reason: String(w.r || '') })
+          if (error) return say(error.message.includes('REASON_REQUIRED') ? 'Please give the reason.' : error.message.includes('PENDING_EXISTS') ? 'This request is already waiting for the owner.' : 'Could not send the request. Please try again.')
+          load(); return say('Sent to the owner for approval. You can reschedule once it is approved.')
+        }
+      }
     }
     await patch(b, { start_date: s, end_date: e, gap_override: override, reason: why }, `Rescheduled from ${b.start_date} → ${b.end_date} to ${s} → ${e}${override ? ' (cleaning gap override confirmed)' : ''}. Reason: ${why}`)
   }
@@ -414,7 +447,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, STAFF, APPR, staffName, dmap, buf, st, tick, fullTick, load, extendRental, say, ask, askYes, patch, pay, pickup, markPacked, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, STAFF, APPR, NOTICES, staffName, dmap, buf, st, tick, fullTick, load, extendRental, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())
@@ -474,7 +507,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {tab === 'settings' && owner && <div style={{ display: 'grid', gap: 16 }}>
       <MfaSetup sb={sb} />
       <StaffAdmin ctx={ctx} />
-      {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), alert_horizon_days: +(f.get('ah') as string), clean_lead_days: +(f.get('cl') as string), alert_idle_days: +(f.get('ai') as string), alt_soon_days: +(f.get('as') as string), measure_by_days: +(f.get('mb') as string), send_by_days: +(f.get('sd') as string), tailor_days: +(f.get('td') as string) }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
+      {st && <form className="box" style={{ margin: 0 }} onSubmit={async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const { error } = await sb.from('settings').update({ buffer_days: +(f.get('b') as string), advance_pct: +(f.get('a') as string), advance_min: +(f.get('m') as string), alert_horizon_days: +(f.get('ah') as string), clean_lead_days: +(f.get('cl') as string), alert_idle_days: +(f.get('ai') as string), alt_soon_days: +(f.get('as') as string), measure_by_days: +(f.get('mb') as string), send_by_days: +(f.get('sd') as string), tailor_days: +(f.get('td') as string), late_grace_days: +(f.get('lg') as string) || 0 }).eq('id', 1); say(error ? error.message : 'Settings saved'); load() }}>
         <h3>Settings</h3><div className="flt" style={{ justifyContent: 'flex-start' }}><label style={{ margin: 0 }}>Cleaning and preparation days after each return<input name="b" type="number" min="0" max="7" defaultValue={st.buffer_days} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Refundable deposit: % of rent<input name="a" type="number" min="0" max="100" defaultValue={st.advance_pct} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Refundable deposit: minimum ₹ (the higher of the two applies)<input name="m" type="number" min="0" defaultValue={st.advance_min ?? 1000} style={{ display: 'block' }} /></label>
@@ -489,7 +522,8 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
         <div className="flt" style={{ justifyContent: 'flex-start' }}>
           <label style={{ margin: 0 }}>Measurements must be taken by<input name="mb" type="number" min="1" max="30" defaultValue={st.measure_by_days ?? 5} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Dress must be with the tailor by<input name="sd" type="number" min="1" max="30" defaultValue={st.send_by_days ?? 4} style={{ display: 'block' }} /></label>
-          <label style={{ margin: 0 }}>Usual tailor turnaround (days)<input name="td" type="number" min="1" max="21" defaultValue={st.tailor_days ?? 3} style={{ display: 'block' }} /></label></div>
+          <label style={{ margin: 0 }}>Usual tailor turnaround (days)<input name="td" type="number" min="1" max="21" defaultValue={st.tailor_days ?? 3} style={{ display: 'block' }} /></label>
+          <label style={{ margin: 0 }}>Free days after the return date before a late fee starts<input name="lg" type="number" min="0" max="14" defaultValue={st.late_grace_days ?? 0} style={{ display: 'block' }} /></label></div>
         <p className="mut" style={{ fontSize: 12 }}>A warning appears on the bell and the Today list when one of these dates passes and the step is still not done. The turnaround is used for the warning when a booking is taken with too little time.</p>
         <p className="mut" style={{ fontSize: 12 }}>A changed cleaning period applies to new bookings. Bookings already made keep the gap they were made with.</p><button className="btn">Save settings</button></form>}</div>}
     </main>
@@ -504,24 +538,33 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {cdec && <CancelDecision a={cdec.a} b={cdec.b} onClose={v => { const r = cdec.res; setCdec(null); r(v) }} />}
     {cx && <CancelBooking key={cx.b.id} b={cx.b} owner={owner} onClose={v => { const r = cx.res; setCx(null); r(v) }} />}
     {rw && <ReturnWizard key={rw.b.id} ctx={ctx} b={rw.b} owing={rw.owing} late={rw.late} lateFee={rw.lateFee} onClose={v => { const r = rw.res; setRw(null); r(v) }} />}
-    {dlg && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 95, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
+    {dlg && <div data-overlay style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 95, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
       <form className="box" style={{ background: 'var(--bg)', maxWidth: 440, width: '100%' }} onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget), v: Record<string, any> = {}; dlg.fields.forEach((x: Fld) => { v[x.name] = x.type === 'file' ? f.getAll(x.name).filter((z: any) => z instanceof File && z.size) : String(f.get(x.name) ?? '') }); const r = dlg.res; setDlg(null); r(v) }}>
         <h3>{dlg.title}</h3>{dlg.note && <p className="mut">{dlg.note}</p>}
         {dlg.fields.map((x: Fld, i: number) => <label key={x.name}>{x.label}{x.options ? <select name={x.name} defaultValue={x.required ? '' : x.value} required={x.required}>{x.required && <option value="">Select…</option>}{x.options.map(o => <option key={o}>{o}</option>)}</select> : x.type === 'file' ? <input name={x.name} type="file" accept={x.accept} multiple={x.multiple} /> : <><input name={x.name} type={x.type || 'text'} defaultValue={x.value} required={x.required} autoFocus={i === 0} list={x.suggestions ? `dl-${x.name}` : undefined} autoComplete={x.suggestions ? 'off' : undefined} />{x.suggestions && <datalist id={`dl-${x.name}`}>{x.suggestions.map(o => <option key={o} value={o} />)}</datalist>}</>}</label>)}
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}><button className="btn">{dlg.ok}</button><button type="button" className="btn alt" onClick={() => { const r = dlg.res; setDlg(null); r(null) }}>Cancel</button></div></form></div>}
     {prev && <img src={prev.src} alt="" style={{ position: 'fixed', left: prev.x, top: prev.y, width: 240, maxHeight: 320, objectFit: 'cover', zIndex: 90, boxShadow: '0 8px 30px #0006', pointerEvents: 'none', background: 'var(--bg)' }} />}
     {day && (() => {
+      // Group the day by what actually happens on it, so the list matches the counts in the notification (e.g. "1 delivery, 2 returns").
+      // Bookings that merely overlap the date (still with a customer, or already returned early) go in a collapsed "also" section.
       const on = live.filter(b => day >= b.start_date && day <= b.end_date), away = DC.filter(c => day >= c.sent_on && day <= dcEnd(c)), blk = K.filter(k => day >= k.start_date && day <= k.end_date)
+      const dels = on.filter(b => b.start_date === day), rets = on.filter(b => b.end_date === day && b.start_date !== day), rest = on.filter(b => b.start_date !== day && b.end_date !== day)
+      const pill = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+      const card = (b: any, what: string) => <div key={b.id} className="box" onClick={() => openBooking(b.id)} style={{ display: 'flex', gap: 12, cursor: 'pointer' }}>{thumb(dmap[b.dress_id], 72, 96)}<div style={{ flex: 1, minWidth: 0 }}><div className="row"><b>{b.dress_code} · {b.dress_name}</b><span style={{ color: COL[state(b)] }}>{state(b)}</span></div>
+        <div>{what} · {b.customer_name} · <a href={'tel:' + b.phone} onClick={e => e.stopPropagation()}>{b.phone}</a></div>
+        <div className="mut">{b.start_date} → {b.end_date} · Balance {inr(b.rent + b.charges - b.paid)} · ID {b.id}</div>
+        <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, marginTop: 4 }}>{b.alteration_notes ? <>✂ {b.alteration_notes}</> : <span className="mut">No alteration notes</span>}</div></div></div>
+      const head = (t: string) => <h4 style={{ margin: '14px 0 6px' }}>{t}</h4>
       return (<div onClick={() => setDay(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }}>
         <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 580, width: '100%' }}>
           <div className="row"><h3>{new Date(day + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className="btn alt sm" onClick={() => setDay(null)}>Close</button></div>
+          {(dels.length > 0 || rets.length > 0) && <p className="mut" style={{ margin: '2px 0 0' }}>{[dels.length && pill(dels.length, 'delivery', 'deliveries'), rets.length && pill(rets.length, 'return due', 'returns due')].filter(Boolean).join(' · ')}</p>}
           {!on.length && !away.length && !blk.length && <p className="mut">No bookings on this day.</p>}
-          {on.map(b => <div key={b.id} className="box" onClick={() => openBooking(b.id)} style={{ display: 'flex', gap: 12, cursor: 'pointer' }}>{thumb(dmap[b.dress_id], 72, 96)}<div style={{ flex: 1, minWidth: 0 }}><div className="row"><b>{b.dress_code} · {b.dress_name}</b><span style={{ color: COL[state(b)] }}>{state(b)}</span></div>
-            <div>{b.start_date === day ? 'Delivery today' : b.end_date === day ? 'Return today' : 'On rent'} · {b.customer_name} · <a href={'tel:' + b.phone} onClick={e => e.stopPropagation()}>{b.phone}</a></div>
-            <div className="mut">{b.start_date} → {b.end_date} · Balance {inr(b.rent + b.charges - b.paid)} · ID {b.id}</div>
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, marginTop: 4 }}>{b.alteration_notes ? <>✂ {b.alteration_notes}</> : <span className="mut">No alteration notes</span>}</div></div></div>)}
-          {away.map(c => <div key={c.id} className="box" style={{ display: 'flex', gap: 12, cursor: 'pointer' }} onClick={() => go('drycleaning')}>{thumb(dmap[c.dress_id], 48, 64)}<div>Out for dry cleaning: <b>{dmap[c.dress_id]?.code} · {dmap[c.dress_id]?.name}</b><div className="mut">Sent {c.sent_on}{c.returned_on ? `, back ${c.returned_on}` : `, expected back ${c.expected_back}`}</div></div></div>)}
-          {blk.map(k => <div key={k.id} className="box" style={{ display: 'flex', gap: 12 }}>{thumb(dmap[k.dress_id], 48, 64)}<div>Blocked: <b>{dmap[k.dress_id]?.code} · {dmap[k.dress_id]?.name}</b> · {k.reason || 'no reason given'} ({k.start_date} → {k.end_date})</div></div>)}
+          {dels.length > 0 && <>{head(`Deliveries (${dels.length})`)}{dels.map(b => card(b, 'Delivery'))}</>}
+          {rets.length > 0 && <>{head(`Returns due (${rets.length})`)}{rets.map(b => card(b, 'Return due'))}</>}
+          {rest.length > 0 && <details style={{ marginTop: 14 }}><summary className="mut" style={{ cursor: 'pointer' }}>Also booked on this date, no action needed ({rest.length})</summary>{rest.map(b => card(b, b.status === 'out' ? 'With customer' : state(b) === 'returned' ? 'Already returned' : 'Booked'))}</details>}
+          {away.length > 0 && <>{head('At the dry cleaner')}{away.map(c => <div key={c.id} className="box" style={{ display: 'flex', gap: 12, cursor: 'pointer' }} onClick={() => go('drycleaning')}>{thumb(dmap[c.dress_id], 48, 64)}<div>Out for dry cleaning: <b>{dmap[c.dress_id]?.code} · {dmap[c.dress_id]?.name}</b><div className="mut">Sent {c.sent_on}{c.returned_on ? `, back ${c.returned_on}` : `, expected back ${c.expected_back}`}</div></div></div>)}</>}
+          {blk.length > 0 && <>{head('Blocked')}{blk.map(k => <div key={k.id} className="box" style={{ display: 'flex', gap: 12 }}>{thumb(dmap[k.dress_id], 48, 64)}<div>Blocked: <b>{dmap[k.dress_id]?.code} · {dmap[k.dress_id]?.name}</b> · {k.reason || 'no reason given'} ({k.start_date} → {k.end_date})</div></div>)}</>}
         </div></div>)
     })()}
   </div>)

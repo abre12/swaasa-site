@@ -104,7 +104,7 @@ export default function Finance({ ctx }: { ctx: any }) {
     const v = await ctx.ask('Record payment', [{ name: 'b', label: 'Booking', options: optB(candidates()), required: true }, { name: 't', label: 'What is it for?', options: Object.keys(OPT), required: true }, { name: 'a', label: 'Amount (₹)', type: 'number', required: true }, { name: 'm', label: 'Payment mode', options: MODES, required: true }, { name: 'r', label: 'Remarks (optional)' }],
       { ok: 'Save payment', note: 'Recorded with today’s date and time. Earlier entries are never changed. For the advance taken when booking, use the booking screen.' }); if (!v) return
     const b = B.find(x => x.id === v.b.split(' · ')[0]), a = Math.round(+v.a), [kind, purpose] = OPT[v.t]; if (!b || !(a > 0)) return ctx.say('Enter a valid amount.')
-    const { error } = await ctx.sb.from('payments').insert({ booking_id: b.id, amount: a, kind, purpose, mode: v.m, remarks: v.r.trim() || null }); ctx.say(error ? dbMsg(error.message) : `${inr(a)} received`); ctx.load()
+    const { error } = await ctx.sb.rpc('record_payment', { p_booking: b.id, p_rows: [{ amount: a, kind, purpose, mode: v.m, remarks: v.r.trim() || null }] }); ctx.say(error ? dbMsg(error.message) : `${inr(a)} received`); ctx.load()
   }
   async function recordRefund() {
     const OPT: Record<string, [string, string]> = { 'Security deposit refund': ['deposit_refund', 'deposit_refund'], 'Advance refund': ['rent_refund', 'advance_refund'], 'Other refund': ['rent_refund', 'rent_refund'] }
@@ -115,7 +115,7 @@ export default function Finance({ ctx }: { ctx: any }) {
     if (kind === 'rent_refund' && a > b.paid) return ctx.say(`Only ${inr(Math.max(0, b.paid))} has been received for this booking.`)
     if (v.t === 'Other refund' && v.r.trim().length < 3) return ctx.say('Please say why the refund is being made.')
     if(!owner){const {error}=await ctx.sb.rpc('request_action_approval',{p_booking:b.id,p_action:'refund',p_details:{amount:a,kind,purpose,mode:v.m,remarks:v.r.trim()||null,reason:v.r.trim()||v.t}});ctx.say(error?error.message.includes('PENDING_EXISTS')?'A refund request is already waiting for the owner.':'Could not request the refund.':'Refund request sent to the owner.');ctx.load();return}
-    const { error } = await ctx.sb.from('payments').insert({ booking_id: b.id, amount: a, kind, purpose, mode: v.m, remarks: v.r.trim() || null }); ctx.say(error ? dbMsg(error.message) : `${inr(a)} refunded`); ctx.load()
+    const { error } = await ctx.sb.rpc('record_payment', { p_booking: b.id, p_rows: [{ amount: a, kind, purpose, mode: v.m, remarks: v.r.trim() || null }] }); ctx.say(error ? dbMsg(error.message) : `${inr(a)} refunded`); ctx.load()
   }
   async function setupOpening() {
     if (!owner) return ctx.say('Ask the owner to set the opening cash first.')

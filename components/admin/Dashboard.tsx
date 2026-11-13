@@ -2,7 +2,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { addD, dmy, inr, istDate, todayIST } from '@/lib/util'
 import { altStatus } from '@/lib/bookingAction'
-import { computeAlerts } from '@/lib/alerts'
 import { ALT_OPEN, bookingReadiness } from '@/lib/readiness'
 import { Ic } from './icons'
 import PageHead from './PageHead'
@@ -100,9 +99,8 @@ export default function Dashboard({ ctx }: { ctx: any }) {
       <KC ic="truck" c="var(--blue)" v={`${delToday.filter((b: any) => b.status === 'delivered').length}/${delToday.length}`} l="Deliveries completed today" on={() => setPop('del')} />
       <KC ic="ret" c="var(--purple)" v={retToday.length} l="Returns due today" on={() => setPop('ret')} />
       <KC ic="warn" c="var(--red)" v={odRet.length + odDel.length} l="Overdue items" on={() => setPop('over')} /></div>
-    {(pending.length > 0 || odDel.length > 0) && <div className="alsobar">
-      {pending.length > 0 && <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button>}
-      {odDel.length > 0 && <button className="hot" onClick={() => setPop('over')}>{odDel.length} overdue {odDel.length === 1 ? 'delivery' : 'deliveries'}</button>}</div>}
+    {pending.length > 0 && <div className="alsobar">
+      <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button></div>}
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
       <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
     {wfOpen && <div className="wf-after">{wfList}</div>}

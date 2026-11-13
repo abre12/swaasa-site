@@ -106,7 +106,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
     if (!b || !(a > 0)) return ctx.say('Enter a valid amount.')
     if (kind === 'deposit_refund' && a > b.deposit_held) return ctx.say(`Only ${inr(b.deposit_held)} of deposit is held for this booking.`)
     if (kind === 'rent_refund' && a > b.paid) return ctx.say(`Only ${inr(b.paid)} of rent has been received for this booking.`)
-    const { error } = await ctx.sb.from('payments').insert({ booking_id: b.id, amount: a, kind, purpose, mode: v.m }); ctx.say(error ? dbMsg(error.message) : `${inr(a)} recorded`); ctx.load(); load()
+    const { error } = await ctx.sb.rpc('record_payment', { p_booking: b.id, p_rows: [{ amount: a, kind, purpose, mode: v.m }] }); ctx.say(error ? dbMsg(error.message) : `${inr(a)} recorded`); ctx.load(); load()
   }
   async function voidExp(t: Tx) {
     const v = await ctx.ask('Void this expense?', [{ name: 'r', label: 'Reason (kept in the audit trail)', required: true }], { ok: 'Void expense', note: `${inr(-t.amount)} · ${t.who}. A voided expense stops counting and the drawer total goes back up. Nothing is deleted.` }); if (!v) return

@@ -1,5 +1,6 @@
 'use client'
 import { shouldClearDamaged } from '@/lib/readiness'
+import { computeAlerts } from '@/lib/alerts'
 import { useEffect, useMemo, useState } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
@@ -20,6 +21,12 @@ export async function dispatchAlteration(ctx: any, j: any): Promise<boolean> {
   const sent = todayIST(), v = await ctx.ask('Send to Tailoring Unit', [{ name: 'sent', label: 'Date sent', type: 'date', value: sent, required: true }, { name: 'expected', label: 'Expected return date', type: 'date', value: addD(sent, 3), required: true }, { name: 'notes', label: 'Dispatch notes' }], { ok: 'Confirm dispatch', note: 'Normal turnaround is 2–3 days. The expected return date can be adjusted.' })
   if (!v) return false
   if (v.expected < v.sent) { ctx.say('Expected return cannot be before dispatch.'); return false }
+  // DA-4: warn when the tailor would bring it back too close to delivery (later than two days before, the same rule the bell uses).
+  const bk = (ctx.B || []).find((x: any) => x.id === j.booking_id)
+  if (j.source !== 'damage' && bk && ['pending', 'confirmed'].includes(bk.status) && v.expected > addD(bk.start_date, -2)) {
+    if (!(await ctx.askYes('Return date is too late for delivery', `Delivery is on ${dmy(bk.start_date)}. A return on ${dmy(v.expected)} leaves less than two days to check and prepare the dress. Ask the tailor for an earlier date, or continue anyway. The owner will see this in the alerts.`, 'Continue anyway'))) return false
+    v.notes = [v.notes, `Dispatched with a late return date (${dmy(v.expected)}) for delivery on ${dmy(bk.start_date)}; confirmed by ${ctx.name}.`].filter(Boolean).join(' · ')
+  }
   const { error } = await ctx.sb.from('alteration_jobs').update({ status: 'at_unit', sent_on: v.sent, expected_return: v.expected, notes: v.notes.trim() || j.notes, updated_at: new Date().toISOString() }).eq('id', j.id)
   ctx.say(error ? 'Could not update the alteration.' : 'Dress marked At Tailoring Unit.'); ctx.load()
   return !error
@@ -30,22 +37,16 @@ export default function Alterations({ ctx }: { ctx: any }) {
   const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 15
   const isDmg = (j: any) => j.source === 'damage'
   const daysTo = (d: string) => Math.round((+new Date(d) - +new Date(today)) / 864e5)
-  // Anything in the alteration/repair work that could make the dress late (or not ready) on its delivery date. One reason per job, most serious first.
-  // Used for the red "Delivery critical" card, the Delivery Critical tab, the reason shown on each row, and to list these jobs first.
-  const riskOf = (j: any): { k: string; text: string } | null => {
-    if (['ready', 'cancelled'].includes(j.status) || isCompleted(j, bookings)) return null
-    const b = bookings.find((x: any) => x.id === j.booking_id)
-    const nb = isDmg(j) ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : (b && ['pending', 'confirmed'].includes(b.status) ? b : null)
-    if (!nb) return null
-    const left = daysTo(nb.start_date), what = isDmg(j) ? 'Repair' : 'Alteration'
-    if (left <= 1) return { k: `${what} not complete near delivery`, text: `${what} not complete and delivery ${left < 0 ? 'date has passed' : left === 0 ? 'is today' : 'is tomorrow'}` }
-    if (j.status === 'at_unit' && j.expected_return && j.expected_return < today) return { k: 'Overdue from tailor', text: `Tailor is late: expected back ${dmy(j.expected_return)}` }
-    if (j.status === 'at_unit' && j.expected_return && j.expected_return > addD(nb.start_date, -1)) return { k: 'Back from tailor too late', text: `Expected back ${dmy(j.expected_return)}, too close to delivery` }
-    if (!isDmg(j) && j.measurements_pending && left <= 3) return { k: 'Measurements not taken', text: `Measurements not taken, delivery in ${left} days` }
-    if (j.status === 'pending_dispatch' && left <= 2) return { k: 'Not yet sent to tailor', text: `Not yet sent to the tailor, delivery in ${left} days` }
-    if (j.status === 'quality_check' && left <= 2) return { k: 'Awaiting quality check', text: `Quality check still pending, delivery in ${left} days` }
-    return null
-  }
+  // CH-2: ONE rule for "critical for delivery". This page no longer has its own: it reads the same alerts as the bell and Today
+  // (lib/alerts.ts, driven by the Settings days), so the three can never disagree. A job is critical when it has a Delivery-at-risk or Critical alert.
+  const hourNow = Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false })) % 24
+  const riskMap = useMemo(() => {
+    const m = new Map<string, { k: string; text: string }>()
+    const { all } = computeAlerts({ B: bookings, D: ctx.D, AJ: jobs, CR: ctx.CR, DC: ctx.DC, st: ctx.st }, today, hourNow)
+    for (const a of [...all].sort((x, y) => y.rank - x.rank)) if ((a.level === 'risk' || a.level === 'critical') && a.action.kind === 'workflow' && a.action.module === 'alteration' && a.action.id && !m.has(a.action.id)) m.set(a.action.id, { k: a.short, text: a.body })
+    return m
+  }, [bookings, jobs, ctx.D, ctx.CR, ctx.DC, ctx.st, today, hourNow])   // eslint-disable-line react-hooks/exhaustive-deps
+  const riskOf = (j: any): { k: string; text: string } | null => riskMap.get(j.id) || null
   const risky = jobs.filter(j => riskOf(j))
   const riskBreakdown = (() => { const c = new Map<string, number>(); for (const j of risky) { const k = riskOf(j)!.k; c.set(k, (c.get(k) || 0) + 1) } return Array.from(c).map(([k, v]) => `${v} ${k.toLowerCase()}`).join(' · ') })()
   // An alteration is never started on a dress that has already gone out, so only Pending and Confirmed bookings are offered.
