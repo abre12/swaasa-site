@@ -1,13 +1,13 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { supa } from '@/lib/supabase/client'
-import { addD, dmy, inr, PAY_MODES, price, todayIST } from '@/lib/util'
+import { addD, dmy, inr, PAY_MODES, PHONE_HELP, phoneKey, phoneValid, price, todayIST } from '@/lib/util'
 import { GROUPS } from '@/components/admin/AlterationDrawer'
 
 const GAP = 'Check dates for Cleaning & Preparation Period'
 const ERR: Record<string, string> = {
   GAP_CLASH: GAP, GAP_APPROVAL_REQUIRED: 'The owner has not approved booking inside the cleaning period for these dates yet.', DATES_TAKEN: 'Those dates are already booked or blocked for this dress.', OWNER_ONLY: 'Only the owner can give discounts.',
-  PAST_START: 'The delivery date cannot be in the past.', BAD_CONTACT: 'Please enter the name and a valid 10-digit mobile number.', BAD_DATES: 'Please choose valid dates.', NOT_AVAILABLE: 'This dress is not available for booking.', FORBIDDEN: 'Please sign in as staff.',
+  PAST_START: 'The delivery date cannot be in the past.', BAD_CONTACT: 'Please enter the name and a valid mobile number.', BAD_PHONE: PHONE_HELP, BAD_DATES: 'Please choose valid dates.', NOT_AVAILABLE: 'This dress is not available for booking.', FORBIDDEN: 'Please sign in as staff.',
 }
 const EVENTS = ['Wedding', 'Engagement', 'Reception', 'Sangeet / Mehendi', 'Haldi', 'Pre-wedding shoot', 'Party / Other']
 const MEAS: [string, string][] = [['bust', 'Bust'], ['waist', 'Waist'], ['hip', 'Hip'], ['length', 'Length'], ['other', 'Other']]
@@ -23,7 +23,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   const [eventTouched, setEventTouched] = useState(false)
   const [alt, setAlt] = useState<Alt>('none'), [items, setItems] = useState<Record<string, string>>({}), [meas, setMeas] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState(''), [warns, setWarns] = useState<string[]>([]), [wait, setWait] = useState(false), [done, setDone] = useState<any>(null)
-  const [known, setKnown] = useState<{ name: string; email: string; n: number } | null>(null), [showDisc, setShowDisc] = useState(false)
+  const [known, setKnown] = useState<{ name: string; email: string; n: number }[] | null>(null), [showDisc, setShowDisc] = useState(false)
   // Booking inside the cleaning period: the owner can do it directly; anyone else needs the owner's approval first (SA-3).
   const isOwner = staff === 'owner'
   const [gapAsk, setGapAsk] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none'), [gapWhy, setGapWhy] = useState('')
@@ -80,8 +80,14 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   useEffect(() => { if (!eventTouched && s) setF(x => ({ ...x, eventDate: e && addDays(s, 1) > e ? s : addDays(s, 1) })) }, [s, e, eventTouched])
   // Returning customers: look the mobile number up in earlier bookings so details are not typed twice.
   useEffect(() => {
-    const d = f.phone.replace(/\D/g, '').slice(-10); setKnown(null); if (d.length < 10) return
-    const t = setTimeout(async () => { const { data } = await supa().from('booking_view').select('*').ilike('phone', '%' + d).order('start_date', { ascending: false }).limit(20); if (data?.length) setKnown({ name: data[0].customer_name, email: data[0].email || '', n: data.length }) }, 350)
+    const key = phoneKey(f.phone); setKnown(null); if (!phoneValid(f.phone)) return
+    // N-3: show who is already saved on this number (a family may share one), so a typo does not create a second copy of the same person.
+    const t = setTimeout(async () => {
+      const c = await supa().from('customers').select('id,name,email').eq('phone_key', key).limit(10); if (!c.data?.length) return
+      const bk = await supa().from('booking_view').select('customer_id').in('customer_id', c.data.map((x: any) => x.id)).neq('status', 'cancelled')
+      const n: Record<string, number> = {}; for (const r of bk.data || []) n[r.customer_id] = (n[r.customer_id] || 0) + 1
+      setKnown(c.data.map((x: any) => ({ name: x.name, email: x.email || '', n: n[x.id] || 0 })))
+    }, 350)
     return () => clearTimeout(t)
   }, [f.phone])
 
@@ -94,7 +100,8 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   function step1ok() {
     setMsg('')
     if (!valid || !canBook) { setMsg('Choose dates that are available for this dress.'); return false }
-    if (!f.name.trim() || f.phone.replace(/\D/g, '').length < 10) { setMsg(ERR.BAD_CONTACT); return false }
+    if (!f.name.trim()) { setMsg(ERR.BAD_CONTACT); return false }
+    if (!phoneValid(f.phone)) { setMsg(PHONE_HELP); return false }
     if (!f.eventDate) { setMsg('Event date is required.'); return false }
     if (f.dMode === 'courier' && !f.dAddr.trim()) { setMsg('Please enter the delivery address, or choose that the customer collects from the store.'); return false }
     if (f.eventDate < s || f.eventDate > e) { setMsg(`The event date must fall between delivery (${dmy(s)}) and return (${dmy(e)}).`); return false }
@@ -177,9 +184,9 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
           <label className="bk-f">Event date *<input type="date" value={f.eventDate} onChange={x => { setEventTouched(true); set('eventDate', x.target.value) }} /></label></div>
         {avBanner}
         <h4 className="bf-h">Customer details</h4>
-        <div className="bk-g2"><label className="bk-f">Mobile *<input type="tel" inputMode="numeric" placeholder="10-digit contact number" value={f.phone} onChange={x => set('phone', x.target.value)} /></label>
+        <div className="bk-g2"><label className="bk-f">Mobile *<input type="tel" inputMode="numeric" placeholder="Mobile number" value={f.phone} onChange={x => set('phone', x.target.value)} /></label>
           <label className="bk-f">Name *<input placeholder="Customer name" value={f.name} onChange={x => set('name', x.target.value)} /></label></div>
-        {known && !f.name && <div className="bf-known">Returning customer · {known.n} earlier booking{known.n === 1 ? '' : 's'} <button type="button" className="textlink" onClick={() => setF(x => ({ ...x, name: known.name, email: x.email || known.email }))}>Use {known.name}</button></div>}
+        {known && known.length > 0 && !known.some(k => k.name.trim().toLowerCase() === f.name.trim().toLowerCase()) && <div className="bf-known">{known.length === 1 ? 'This number is already saved for' : 'This number is saved for'}: {known.map(k => <button key={k.name} type="button" className="textlink" style={{ marginRight: 10 }} onClick={() => setF(x => ({ ...x, name: k.name, email: x.email || k.email }))}>{k.name} ({k.n} earlier booking{k.n === 1 ? '' : 's'})</button>)}<span className="mut">Tap a name to use it, or carry on to add a new person on this number.</span></div>}
         <label className="bk-f" style={{ marginTop: 10 }}>Email (optional)<input type="email" placeholder="Email address" value={f.email} onChange={x => set('email', x.target.value)} /></label>
         <div className="bk-g2" style={{ marginTop: 10 }}>
           <label className="bk-f">Delivery<select value={f.dMode} onChange={x => set('dMode', x.target.value)}><option value="">Customer collects from store</option><option value="courier">We deliver to the customer</option></select></label>

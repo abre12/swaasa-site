@@ -55,6 +55,7 @@ export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }:
   }
   const [evs, setEvs] = useState<any[]>([])
   useEffect(() => { if (!hist) { setEvs([]); return } ctx.sb.from('events').select('at,by_name,action,detail').eq('dress_id', hist.id).order('at', { ascending: false }).limit(100).then(({ data }: any) => setEvs(data || [])) }, [hist, ctx.sb])
+  useEffect(() => { if (hist) ctx.ensureFrom(ctx.ALL_TIME) }, [hist])   // eslint-disable-line react-hooks/exhaustive-deps
   const history = hist ? B.filter(b => b.dress_id === hist.id).sort((a, b) => b.start_date.localeCompare(a.start_date)) : []
   const Item = ({ ic, t, on, href }: { ic: string; t: string; on?: () => void; href?: string }) => { const c = <><Ic n={ic} s={16} />{t}</>; return href ? <a className="mi" href={href}>{c}</a> : <button className="mi" onClick={() => { setMenu(null); on?.() }}>{c}</button> }
   return (<div>

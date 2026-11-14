@@ -40,6 +40,18 @@ export const dbMsg = (m?: string): string => {
   if (/BAD_AMOUNT/.test(t)) return 'That amount is not valid for this booking. Refresh and try again.'
   if (/MODE_REQUIRED/.test(t)) return 'Select the payment mode.'
   if (/Could not find the function|PGRST202/i.test(t)) return 'The database update for this version (migration-v26) has not been applied yet.'
+  if (/BAD_PHONE/.test(t)) return PHONE_HELP
+  if (/ALREADY_EXISTS/.test(t)) return 'A customer with this name and number already exists.'
+  if (/NAME_REQUIRED/.test(t)) return 'Enter the customer name.'
   if (/NOT_FOUND/.test(t)) return 'That booking could not be found. Refresh the page.'
   return t
 }
+
+/** N-3: one key per phone. 10 digits for an Indian number (any +91 or 0 in front is dropped), or "+" and the digits for an international number.
+ *  The same rule is in the database (phone_key / phone_valid in migration v27). */
+export const phoneKey = (p?: string): string => {
+  const raw = String(p || ''), digits = raw.replace(/\D/g, '')
+  return /^\s*\+/.test(raw) && !/^91/.test(digits) ? '+' + digits : digits.slice(-10)
+}
+export const phoneValid = (p?: string): boolean => { const k = phoneKey(p); return /^[6-9]\d{9}$/.test(k) || /^\+\d{8,15}$/.test(k) }
+export const PHONE_HELP = 'Enter a valid mobile number: 10 digits starting with 6, 7, 8 or 9 (or an international number starting with +).'

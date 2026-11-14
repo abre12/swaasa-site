@@ -24,6 +24,9 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
   const live = (b: any) => b.status !== 'cancelled', owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid), total = (b: any) => b.rent + b.charges
   const undelivered = (b: any) => ['pending', 'confirmed'].includes(b.status), lateDel = (b: any) => undelivered(b) && b.start_date < today, lateRet = (b: any) => b.status === 'out' && b.end_date < today
   const delT = (b: any) => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status), retT = (b: any) => b.end_date === today && ['out', 'returned'].includes(b.status)
+  // Only 90 days of bookings are loaded; a past month, or a search, loads what it needs.
+  useEffect(() => { if (month) ctx.ensureFrom(`${month}-01`) }, [month])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (q.trim().length >= 2) ctx.ensureFrom(ctx.ALL_TIME) }, [q])   // eslint-disable-line react-hooks/exhaustive-deps
   const inMonth = (b: any) => !month || b.start_date.slice(0, 7) === month
   const P: Record<string, (b: any) => boolean> = {
     all: live, upcoming: b => undelivered(b) && b.start_date >= today && b.start_date <= in7, out: b => b.status === 'out', returns: b => b.status === 'out' && b.end_date >= today && b.end_date <= in7,

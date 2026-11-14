@@ -27,6 +27,8 @@ export default function Calendar({ ctx, onBlock, onBlockInfo }: { ctx: any; onBl
   const [view, setView] = useState<'month' | 'week' | 'day'>('month')
   const [sel, setSel] = useState(today)
   const [ref, setRef] = useState(today.slice(0, 7))
+  // Only 90 days of bookings are loaded; paging back to an older month loads it.
+  useEffect(() => { ctx.ensureFrom(view === 'month' ? `${ref}-01` : sel) }, [ref, sel, view])   // eslint-disable-line react-hooks/exhaustive-deps
   const [filter, setFilter] = useState<Filter>('all')
   const [fOpen, setFOpen] = useState(false)
   const [open, setOpen] = useState<Record<Kind, boolean>>({ delivery: true, alteration: true, return: false, cleaning: false, other: false })

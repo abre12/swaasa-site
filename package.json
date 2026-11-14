@@ -1,24 +1,35 @@
 {
- "name": "swaasa-rentals",
- "version": "1.0.0",
- "private": true,
- "scripts": {
-  "dev": "next dev",
-  "build": "next build",
-  "start": "next start"
- },
- "dependencies": {
-  "next": "14.2.35",
-  "react": "18.3.1",
-  "react-dom": "18.3.1",
-  "@supabase/ssr": "^0.5.2",
-  "@supabase/supabase-js": "^2.45.0",
-  "jszip": "3.10.1"
- },
- "devDependencies": {
-  "typescript": "5.6.3",
-  "@types/node": "20.16.10",
-  "@types/react": "18.3.11",
-  "@types/react-dom": "18.3.0"
- }
+  "name": "swaasa-rentals",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:db": "bash supabase/tests/run.sh",
+    "check": "npm run typecheck && npm run lint && npm test"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.45.0",
+    "jszip": "3.10.1",
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.16.10",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "typescript": "5.6.3",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

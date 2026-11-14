@@ -142,7 +142,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
   const sel = (l: string, v: string, set: (x: string) => void, opts: [string, string][]) => <select aria-label={l} value={v} onChange={e => set(e.target.value)} style={{ width: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 8px' }}>{opts.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select>
   const filtered = !!(mode || type), nF = (mode ? 1 : 0) + (type ? 1 : 0)
   const money = (t: Tx) => t.flow === 'book' ? <span className="mut" style={{ fontStyle: 'italic' }}>{inr(t.amount)}</span> : <b style={{ color: t.amount < 0 ? 'var(--bad)' : 'var(--ok)' }}>{t.amount < 0 ? '−' : '+'}{inr(Math.abs(t.amount))}</b>
-  const modeCell = (t: Tx) => t.flow === 'book' ? <span className="mut">Book entry</span> : <><span className="dot" style={{ background: { Cash: 'var(--ok)', 'GPay / UPI': PURPLE, Card: BLUE }[modeGroup(t.mode)] || 'var(--mut)' }} />{t.mode}</>
+  const modeCell = (t: Tx) => t.flow === 'book' ? <span className="mut">Book entry</span> : <><span className="dot" style={{ background: ({ Cash: 'var(--ok)', 'GPay / UPI': PURPLE, Card: BLUE } as Record<string, string>)[modeGroup(t.mode)] || 'var(--mut)' }} />{t.mode}</>
   const txTable = (list: Tx[], empty: string) => <div className="scroll"><table className="cc-table"><thead><tr><th>Time</th><th>Booking ID</th><th>Customer / Payee</th><th>Type</th><th>Remarks</th><th style={{ textAlign: 'right' }}>Amount</th><th>Payment mode</th><th>Entered by</th></tr></thead><tbody>
     {loading && !all.length && <tr><td colSpan={8} className="mut">Loading…</td></tr>}
     {list.map(t => <tr key={t.key} style={t.voided ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
@@ -161,7 +161,7 @@ export default function CashCounter({ ctx }: { ctx: any }) {
     <div className="cc-head"><h2>Daily Cash Counter</h2>
       <input type="date" value={date} max={todayIST()} onChange={e => e.target.value && setDate(e.target.value)} aria-label="Date" style={{ width: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 8px' }} />
       <button className="btn alt sm" onClick={() => setDate(todayIST())}>Today</button><span className="cc-sp" />
-      <button className="btn wine sm" onClick={record}>+ Record payment</button><button className="btn alt sm" onClick={() => pettyCashEntry(ctx).then(ok => ok && load())}>+ Petty cash expense</button><button className="btn alt sm" onClick={exportXlsx}>Export</button></div>
+      <button className="btn wine sm" onClick={record}>+ Record payment</button><button className="btn alt sm" onClick={() => { pettyCashEntry(ctx).then(ok => { if (ok) load() }) }}>+ Petty cash expense</button><button className="btn alt sm" onClick={exportXlsx}>Export</button></div>
     {err && <p className="bad"><b>{err}</b></p>}
     {!loading && !known && <div className="cc-banner"><b>Opening cash not set</b><span className="mut">Set the opening cash to start the cash counter.</span><span className="cc-sp" />{owner ? <button className="btn sm" onClick={setupOpening}>Set opening cash</button> : <span>Ask the owner to set it.</span>}</div>}
     <div className="cc-tabs">{TABS.map(([k, l]) => <button key={k} className={'t' + (view === k ? ' on' : '')} onClick={() => setView(k)}>{l}</button>)}<span className="cc-sp" />

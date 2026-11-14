@@ -12,12 +12,15 @@ import BookingsByStaff from './BookingsByStaff'
 import Today from './Today'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-export function Chart({ B }: { B: any[] }) {
+export function Chart({ B, sb }: { B: any[]; sb?: any }) {
   const [by, setBy] = useState<'created' | 'delivery'>('created'); const [hov, setHov] = useState<number | null>(null)
+  // The counts come from the database (only 90 days of bookings are loaded on the device). If that is not available the loaded bookings are counted instead.
+  const [dbCounts, setDbCounts] = useState<Record<string, number> | null>(null)
+  useEffect(() => { if (!sb) return; let live = true; sb.rpc('bookings_per_month', { p_by: by }).then((r: any) => { if (live) setDbCounts(r.error ? null : Object.fromEntries((r.data || []).map((x: any) => [x.month, x.n]))) }); return () => { live = false } }, [sb, by, B.length])
   const cur = todayIST().slice(0, 7)
   const months = Array.from({ length: 13 }, (_, i) => { const d = new Date(cur + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - (12 - i)); return d.toISOString().slice(0, 7) })
   // Counting rule: every booking that is not cancelled, counted in the month it was made (or the month of its delivery date).
-  const counts = months.map(m => B.filter(b => b.status !== 'cancelled' && (by === 'created' ? istDate(b.created_at) : b.start_date).slice(0, 7) === m).length)
+  const counts = dbCounts ? months.map(m => dbCounts[m] || 0) : months.map(m => B.filter(b => b.status !== 'cancelled' && (by === 'created' ? istDate(b.created_at) : b.start_date).slice(0, 7) === m).length)
   const top = Math.max(5, Math.ceil(Math.max(...counts) / 5) * 5), prev = counts[11], now = counts[12], diff = now - prev
   const W = 720, H = 220, L = 34, bw = (W - L - 10) / 13, y = (v: number) => H - 36 - (v / top) * (H - 56)
   const shown = hov ?? 12
@@ -45,6 +48,10 @@ const JT: Record<string, [string, string]> = { warn: ['var(--red)', 'xc'], todo:
 export default function Dashboard({ ctx }: { ctx: any }) {
   const B: any[] = ctx.B, today = todayIST(), in7 = addD(today, 7), tomorrow = addD(today, 1)
   const [pop, setPop] = useState<Pop>(null); const [mon, setMon] = useState(today.slice(0, 7)); const [wf, setWf] = useState<string | null>(null)
+  // SA-4 / OP-4: only the last 90 days are loaded. A past month asks for its own bookings; Team Momentum is counted in the database.
+  useEffect(() => { ctx.ensureFrom(`${mon}-01`) }, [mon])   // eslint-disable-line react-hooks/exhaustive-deps
+  const [staffRows, setStaffRows] = useState<any[] | null>(null)
+  useEffect(() => { let live = true; ctx.sb.rpc('staff_bookings_per_month').then((r: any) => { if (live) setStaffRows(r.error ? null : r.data || []) }); return () => { live = false } }, [ctx.sb, ctx.B.length])
   const made = B.filter(b => b.status !== 'cancelled' && istDate(b.created_at) === today)
   const delToday = B.filter(b => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status))
   const retToday = B.filter(b => b.end_date === today && ['out', 'returned'].includes(b.status))
@@ -104,7 +111,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
       <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
     {wfOpen && <div className="wf-after">{wfList}</div>}
-    <section className="team-momentum"><div className="team-momentum-head"><h2>Team Momentum</h2><p>Every booking contributes to the team’s growth. Celebrate progress and keep moving forward.</p></div><BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} /></section>
+    <section className="team-momentum"><div className="team-momentum-head"><h2>Team Momentum</h2><p>Every booking contributes to the team’s growth. Celebrate progress and keep moving forward.</p></div><BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} rows={staffRows} /></section>
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>

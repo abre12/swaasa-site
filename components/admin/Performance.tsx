@@ -25,6 +25,7 @@ export default function Performance({ ctx }: { ctx: any }) {
   const today = todayIST()
   // Collections for one month (bookings whose delivery date falls in it, cancelled ones excluded). Moved here from the Dashboard: this is the owner's concern, not the floor staff's.
   const [cMon, setCMon] = useState(todayIST().slice(0, 7))
+  useEffect(() => { ctx.ensureFrom(ctx.ALL_TIME) }, [])   // reports look at every period: load all bookings   // eslint-disable-line react-hooks/exhaustive-deps
   const cB = (ctx.B || []).filter((b: any) => b.status !== 'cancelled' && b.start_date.slice(0, 7) === cMon)
   const cReceived = cB.reduce((t: number, b: any) => t + Math.max(0, b.paid), 0), cDue = cB.reduce((t: number, b: any) => t + Math.max(0, b.rent + b.charges - b.paid), 0)
   const cName = new Date(cMon + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })

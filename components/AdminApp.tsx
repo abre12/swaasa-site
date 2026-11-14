@@ -15,6 +15,8 @@ import StaffAdmin from './admin/StaffAdmin'
 import MfaSetup from './admin/MfaSetup'
 import Finance from './admin/Finance'
 import Performance from './admin/Performance'
+import Confidence from './admin/Confidence'
+import { readinessSnapshot } from '@/lib/confidence'
 import BookingModal from './admin/BookingModal'
 import PaymentRecord from './admin/PaymentRecord'
 import Bookings from './admin/Bookings'
@@ -30,12 +32,13 @@ import CancelDecision from './admin/CancelDecision'
 import ReturnWizard from './admin/ReturnWizard'
 import { Ic } from './admin/icons'
 const today = todayIST
+const ALL_TIME = '0000-01-01'      // ensureFrom(ALL_TIME) = load every booking ever
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
 const COL: any = { pending: '#c58a2b', confirmed: '#4d6d9a', out: '#7a5aa6', returned: '#4f8a5b', overdue: '#b4493f', block: '#8c8c8c', dc: '#4a8a9c' }
 const NAV: [string, string, string, string[]][] = [
   ['dashboard', 'Dashboard', 'home', ['owner', 'manager']], ['bookings', 'Bookings', 'calcheck', ['owner', 'manager']], ['calendar', 'Calendar', 'calendar', ['owner', 'manager']],
   ['dresses', 'Inventory', 'dress', ['owner', 'manager']], ['alterations', 'Alterations', 'scissors', ['owner', 'manager']], ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']],
-  ['cash', 'Cash & Transactions', 'wallet', ['owner', 'manager']], ['customers', 'Customers', 'user', ['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
+  ['cash', 'Cash & Transactions', 'wallet', ['owner', 'manager']], ['confidence', 'Delivery Confidence', 'truck', ['owner']], ['customers', 'Customers', 'user', ['owner']], ['approvals','Approvals','bell',['owner']], ['reports', 'Reports & Analytics', 'chart', ['owner']], ['settings', 'Settings', 'gear', ['owner']],
   ['prep', 'Alterations to Complete', 'scissors', ['preparation']]]
 export default function AdminApp({ role, name, initialTab }: { role: string; name: string; initialTab?: string }) {
   const sb = useMemo(() => supa(), []); const owner = role === 'owner', ops = role !== 'preparation'
@@ -50,6 +53,9 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   // LIVE refresh: the polled path. Fetches only rows that can still change in practice (open bookings, open work,
   //              recent history) and merges them into what is already on screen, so a poll costs a few KB
   //              however large the history grows. The page only polls while the tab is visible.
+  // SA-4 / OP-4: by default only open bookings and the last 90 days are loaded. A page that needs older ones (a past month, a customer's
+  // history, a report) asks for them with ctx.ensureFrom(date); the window then widens and stays wide until the page is reloaded.
+  const histRef = useRef(addD(todayIST(), -90)); const [histFrom, setHistFrom] = useState(histRef.current)
   const seq = useRef(0), inflight = useRef(0), lastFull = useRef(0), fails = useRef(0)
   const [fullTick, setFullTick] = useState(0)
   const load = useCallback(async (): Promise<boolean> => {
@@ -57,7 +63,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     try {
       if (ops) {
         const [b, k, d, s, dc, cr, aj, sf, ap] = await Promise.all([
-          fetchAll(() => sb.from('booking_view').select('*').order('start_date', { ascending: false }).order('id')),
+          fetchAll(() => { const hf = histRef.current; let q = sb.from('booking_view').select('*'); if (hf > ALL_TIME) q = q.or(`status.in.(pending,confirmed,out),end_date.gte.${hf},returned_at.gte.${hf}`); return q.order('start_date', { ascending: false }).order('id') }),
           fetchAll(() => sb.from('blocks').select('*').order('id')),
           fetchAll(() => sb.from('dresses').select('*').order('code').order('id')),
           sb.from('settings').select('*').single(),
@@ -114,6 +120,22 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       return true
     } finally { inflight.current-- }
   }, [sb, ops, load])
+  // IN-1 / IN-3: the first staff login of each day records how ready the next 3 days of deliveries are (a back-up for the scheduled job).
+  const loggedDay = useRef('')
+  useEffect(() => {
+    if (!ops || !fullTick || loggedDay.current === todayIST() || !D.length) return
+    loggedDay.current = todayIST()
+    const rows = readinessSnapshot({ B, D, AJ, CR, DC, dmap: Object.fromEntries(D.map((x: any) => [x.id, x])) }, B, todayIST())
+    if (rows.length) sb.rpc('log_readiness', { p_rows: rows }).then(() => {})
+  }, [fullTick])   // eslint-disable-line react-hooks/exhaustive-deps
+  const ensureFrom = useCallback((d: string) => { if (ops && d && d < histRef.current) { histRef.current = d; setHistFrom(d); void load() } }, [load, ops])
+  // A booking opened from somewhere that is older than the loaded window (a payment, an approval, a customer) is fetched on its own.
+  useEffect(() => {
+    if (!ops || !openB || B.some(x => x.id === openB.id)) return
+    let live = true
+    sb.from('booking_view').select('*').eq('id', openB.id).maybeSingle().then(({ data }: any) => { if (live && data) setB(p => mergeRows(p, [data], (x: any, y: any) => String(y.start_date).localeCompare(String(x.start_date)) || String(x.id).localeCompare(String(y.id)))) })
+    return () => { live = false }
+  }, [openB, B, ops, sb])
   useEffect(() => {
     let stopped = false, timer: any
     const LIVE_MS = ops ? 30000 : 60000, FULL_MS = ops ? 180000 : 60000
@@ -447,7 +469,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const openBooking = (id: string, row?: any) => setOpenB({ id, row })
   const go = (t: string, o: any = {}) => { setTab(t); if (t === 'bookings') setFlt(o.flt || 'all'); window.scrollTo({ top: 0 }) }
   const staffName = (id?: string | null) => { if (!id) return null; const m = STAFF.find(x => x.user_id === id); return m ? `${m.name || 'Staff'}${m.deleted_at ? ' (removed)' : ''}` : 'Staff' }
-  const ctx = { decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, STAFF, APPR, NOTICES, staffName, dmap, buf, st, tick, fullTick, load, extendRental, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
+  const ctx = { ensureFrom, histFrom, ALL_TIME, decideApproval, showDay: (d: string) => setDay(d), cancelBooking, focus: wfFocus, clearFocus: () => setWfFocus(null), focusWorkflow, selSecondary, sb, role, owner, ops, name, B, D, K, DC, CR, AJ, STAFF, APPR, NOTICES, staffName, dmap, buf, st, tick, fullTick, load, extendRental, say, ask, askYes, patch, pay, pickup, ret, resched, sel, thumb, openBooking, openPayments: setPayB, go, state, refundDue, refundRef: (b: any) => refundDue(b), COL }
   const live = B.filter(b => b.status !== 'cancelled')
   const first = new Date(ref + '-01T00:00:00Z'); const start = addD(first.toISOString().slice(0, 10), -first.getUTCDay()); const cells = Array.from({ length: 42 }, (_, i) => addD(start, i))
   const dcEnd = (c: any) => c.returned_on || (c.expected_back > today() ? c.expected_back : today())
@@ -473,7 +495,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
 
   const goNav = (k: string) => { setDrawer(false); if (k === 'workflow') { setTab('dashboard'); setTimeout(() => document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) } else go(k) }
   const myNav = NAV.filter(n => n[3].includes(role)), pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
-  const navGroups: [string,string[],string][] = [['Workspace',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning','cash'],''],['Owner’s Corner',['customers','approvals','reports','settings'],''],['',['prep'],'']]
+  const navGroups: [string,string[],string][] = [['Workspace',['dashboard','bookings','calendar','dresses'],''],['Operations',['alterations','drycleaning','cash'],''],['Owner’s Corner',['confidence','customers','approvals','reports','settings'],''],['',['prep'],'']]
   const pendingAppr = (APPR || []).filter((a: any) => a.status === 'pending').length
   const navCount: Record<string, number> = { dashboard: (B || []).filter((b: any) => (['confirmed', 'pending'].includes(b.status) && b.start_date <= todayIST()) || (b.status === 'out' && b.end_date <= todayIST())).length, alterations: (AJ || []).filter((a: any) => !['ready', 'cancelled'].includes(a.status)).length, drycleaning: (CR || []).filter((r: any) => r.status === 'to_be_sent' || r.status === 'returned_pending_check').length, approvals: pendingAppr }
   const navButtons=(keys:string[],close=false)=>myNav.filter(n=>keys.includes(n[0])).map(([k,l,i])=>{const on=tab===k||(k==='reports'&&tab==='performance');return <button key={k} type="button" className={'nv'+(on?' on':'')} aria-current={on?'page':undefined} onClick={()=>{if(close)setDrawer(false);go(k)}}><Ic n={i} s={20}/><span className="nv-l">{l}</span>{navCount[k]!==undefined&&<span className="nv-n">{navCount[k]}</span>}</button>})
@@ -497,6 +519,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {tab === 'approvals' && owner && <Approvals ctx={ctx} />}
     {tab === 'cash' && ops && <Finance ctx={ctx} />}
     {tab === 'performance' && owner && <Performance ctx={ctx} />}
+    {tab === 'confidence' && owner && <Confidence ctx={ctx} />}
     {tab === 'bookings' && ops && <Bookings ctx={ctx} flt={flt} setFlt={setFlt} />}
     {tab === 'calendar' && ops && <Calendar ctx={ctx} onBlock={block} onBlockInfo={blockInfo} />}
     {tab === 'dresses' && ops && <Inventory ctx={ctx} D={D} owner={owner} onAdd={() => { setEd(null); setShowForm(true) }} onEdit={d => { setEd(d); setShowForm(true) }}
@@ -517,7 +540,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
           <label style={{ margin: 0 }}>Look ahead for preparation problems<input name="ah" type="number" min="1" max="30" defaultValue={st.alert_horizon_days ?? 7} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Time a dress in To Be Sent needs before delivery<input name="cl" type="number" min="1" max="14" defaultValue={st.clean_lead_days ?? 3} style={{ display: 'block' }} /></label>
           <label style={{ margin: 0 }}>Warn about an item waiting to be sent after<input name="ai" type="number" min="1" max="30" defaultValue={st.alert_idle_days ?? 3} style={{ display: 'block' }} /></label>
-          <label style={{ margin: 0 }}>"Alteration due soon" window<input name="as" type="number" min="1" max="14" defaultValue={st.alt_soon_days ?? 2} style={{ display: 'block' }} /></label></div>
+          <label style={{ margin: 0 }}>&ldquo;Alteration due soon&rdquo; window<input name="as" type="number" min="1" max="14" defaultValue={st.alt_soon_days ?? 2} style={{ display: 'block' }} /></label></div>
         <h4 style={{ margin: '14px 0 4px' }}>Checkpoints for dresses with alterations (days before delivery)</h4>
         <div className="flt" style={{ justifyContent: 'flex-start' }}>
           <label style={{ margin: 0 }}>Measurements must be taken by<input name="mb" type="number" min="1" max="30" defaultValue={st.measure_by_days ?? 5} style={{ display: 'block' }} /></label>

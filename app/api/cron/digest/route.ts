@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { readinessSnapshot } from '@/lib/confidence'
 import { timingSafeEqual } from 'crypto'
 import { supaAdmin } from '@/lib/supabase/server'
 import { fetchAll } from '@/lib/fetchAll'
@@ -54,6 +55,8 @@ export async function GET(req: Request) {
   const dmap = Object.fromEntries(D.map(d => [d.id, d])), today = todayIST(), tmr = addD(today, 1), hour = hourIST()
   const rctx = { B, D, AJ, CR, DC, dmap }
   const live = B.filter(b => b.status !== 'cancelled')
+  // IN-1 / IN-3: record today's readiness of the next 3 days of deliveries (the first check of each day is kept). A failure here never stops the message.
+  if (!dry) { try { const snap = readinessSnapshot(rctx, B, today); if (snap.length) await sb.from('readiness_log').upsert(snap, { onConflict: 'booking_id,stage', ignoreDuplicates: true }) } catch { /* table not created yet */ } }
   const delToday = live.filter(b => OPEN.includes(b.status) && b.start_date === today), delTmr = live.filter(b => OPEN.includes(b.status) && b.start_date === tmr)
   const missed = live.filter(b => OPEN.includes(b.status) && b.start_date < today)
   const retToday = live.filter(b => b.status === 'out' && b.end_date === today), retTmr = live.filter(b => b.status === 'out' && b.end_date === tmr), overdue = live.filter(b => b.status === 'out' && b.end_date < today)

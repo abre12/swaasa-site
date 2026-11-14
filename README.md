@@ -2,6 +2,35 @@
 
 Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 
+## Checks and safe releases (Phase 2, OP-3 / N-8)
+
+Nothing in this section changes how the shop's system behaves. It makes changes safer to release.
+
+| Item | What was added |
+| --- | --- |
+| Automatic checks | `.github/workflows/ci.yml` runs on every pull request and every change to main: type check, lint, 29 unit tests of the business rules (alerts, late fees, phone numbers, approvals, delivery confidence), a production build, and the database checks below. Run the same locally with `npm run check` (and `npm run build`). |
+| Database checks | `bash supabase/tests/run.sh` builds an empty test database and checks: delivery is all-or-nothing, a repeated tap is ignored, a short payment waits for approval, the late fee and refund are worked out correctly, the owner is told about overrides, cleaning-gap approvals work once, browsers cannot add payments or call the old return function, signed-out users cannot call functions, phone numbers and customers, the readiness log, and that the Preparation role cannot read bookings. It also checks that `schema-current.sql` builds the same tables, functions, rules and permissions as running every migration. It never touches the live Supabase. |
+| Stricter TypeScript | `strict` is now on (12 small fixes were needed). |
+| Repo hygiene | Added `.gitignore` and `.env.example`; the committed `tsconfig.tsbuildinfo` was removed. |
+| Staging and releases | `docs/STAGING.md` (a second Supabase project for testing, Vercel Preview pointed at it, Telegram off), `docs/RELEASE.md` (the release steps and what to do if it goes wrong), `docs/SMOKE-TEST.md` (a 25-minute checklist), `supabase/staging-sample-data.sql` (made-up dresses and bookings). |
+
+**Needs your action:** create the staging Supabase project and the Vercel Preview variables (`docs/STAGING.md`), and in GitHub > Settings > Branches require the two checks to pass before a pull request can be merged. These cannot be done from the code.
+
+Lint prints about 30 warnings from older code (image tags, hook lists). They do not fail the check.
+
+## What is new in Phase 2, batch A2 (data load, customers, error screens, delivery confidence)
+
+**Order.** Run `supabase/migration-v27-phase2-customers-nearmiss.sql` (after v26), then deploy this website. v27 is additive and safe. See `supabase/README-migrations.md` for the full run order and `supabase/schema-current.sql` for a new project.
+
+| Item | What changed |
+| --- | --- |
+| SA-4 / OP-4 | The website loads only open bookings and the last 90 days. A page that needs older ones asks for them: a past month on the Dashboard, Bookings or Calendar loads that month; a Bookings search, a dress's history, Customers and Reports load everything (the first time only, then it stays loaded until the page is reloaded). An older booking opened from a payment or approval is fetched on its own. The Dashboard chart and Team Momentum are now counted in the database. |
+| OP-2 | `supabase/README-migrations.md` is the one run-order table (including the misnamed v13b/v13c files and which scripts are superseded). `supabase/schema-current.sql` is the whole current database in one file; it was produced by running every script in order on a test database, and it rebuilds an identical database. |
+| N-3 | Phone numbers must be valid (10-digit Indian mobile starting 6 to 9, or + and an international number), in the booking form, the customer page, and in the database. A new `customers` table keeps a person per (phone, name): a family sharing one number are separate customers, and a typo in the name is shown as "already saved for ..." so staff pick the right one. Existing bookings are linked automatically. The owner can merge two records of the same person from the Customers page. Customer notes are still kept per phone number, so people on a shared number share notes. |
+| N-4 | Error, loading, not-found and global-error screens. A login with no active staff record gets a clear message instead of a crash. |
+| IN-1 | Owner page "Delivery Confidence": the next 7 days as green / amber / red with the cause, who booked it and who is delivering, and "% ready 2 days before". |
+| IN-3 | The same page has a near-miss log: deliveries not ready the day before or on the day, with reason codes, how often each happens, and what the outcome was. It is recorded once a day by the scheduled job and, as a back-up, by the first staff login each day. It starts empty and fills in from the day you deploy. |
+
 ## What is new in Phase 2, batch A (money and safety)
 
 **Order matters.** 1) Run `supabase/migration-v26-phase2-batchA.sql` in the Supabase SQL editor. 2) Deploy this website. 3) Test as a staff login: Mark delivered (with deposit and rent), Record payment (booking screen, Finance, Cash counter), Process return, and a cleaning-gap request. 4) Only then run `supabase/migration-v26b-lockdown.sql`. (Run v25b first if you have not.)
@@ -12,7 +41,7 @@ Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 | MR-4 | The late fee, the refund and what the deposit is kept against are worked out by the database (`return_preview`, `return_booking`). The return screen shows the database's answer and fills in the calculated late fee. A different late fee is allowed, is written to the booking history, and the owner is told. New Setting: free days after the return date before a late fee starts (default 0, so nothing changes until you set it). |
 | SA-2 | v26b removes access to every database function from signed-out users (except the few the public collection pages need) and closes new functions to them by default. The settings table was already staff-only (v6). |
 | SA-3 | "Deliver anyway" tells the owner (information only): a "For your information" list in the bell, and the owner-only part of the 9 AM Telegram message. Booking inside the cleaning period now needs the owner's approval for staff (new booking screen and Reschedule): staff send a request with a reason, the owner approves it in the bell, and the approval works once, for those dates, for 3 days. The owner can still override directly. |
-| SA-4 | The booking view hides customer phone and email from the Preparation role. NOT done: loading fewer bookings (open items plus the last 60 to 90 days) and closing the Preparation role's direct read of the bookings table. These touch every report and chart and need staging. |
+| SA-4 | Checked: the bookings table has been readable only by owner and manager since migration v2, so the Preparation role cannot read customer contact details. No change was needed (an earlier draft of v26 that masked phone numbers in the view was removed, because it would have blanked them in the Telegram messages). |
 | Cleanup | The unused public booking page, `/api/book`, `/api/tryon`, `Booking.tsx` and `TryOn.tsx` are deleted (they would stop working after the lock-down). |
 
 ## What is new in Phase 2, batch B (alerts)

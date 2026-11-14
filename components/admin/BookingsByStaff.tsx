@@ -9,7 +9,7 @@ const monthStart = (s: string, offset: number) => {
 const monthLabel = (s: string) => new Date(`${s}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })
 const shortName = (s: string) => s.trim().split(/\s+/).slice(0, 2)
 
-export default function BookingsByStaff({ bookings, staff, month }: { bookings: any[]; staff: any[]; month: string }) {
+export default function BookingsByStaff({ bookings, staff, month, rows }: { bookings: any[]; staff: any[]; month: string; rows?: { month: string; taken_by: string; n: number }[] | null }) {
   const [mode, setMode] = useState<'month' | 'trend'>('month')
   const activeStaff = useMemo(() => staff.filter(s => s.active && ['owner', 'manager'].includes(s.role)).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')), [staff])
   const colors = useMemo(() => Object.fromEntries(activeStaff.map((s, i) => [s.user_id, COLORS[i % COLORS.length]])), [activeStaff])
@@ -17,13 +17,15 @@ export default function BookingsByStaff({ bookings, staff, month }: { bookings: 
     const counts: Record<string, Record<string, number>> = {}
     for (let i = -5; i <= 0; i++) counts[monthStart(month, i)] = Object.fromEntries(activeStaff.map(s => [s.user_id, 0]))
     const activeIds = new Set(activeStaff.map(s => s.user_id))
-    for (const b of bookings) {
+    // Counted by the database when available (the device only holds the last 90 days of bookings); otherwise from the loaded bookings.
+    if (rows) { for (const r of rows) if (counts[r.month] && activeIds.has(r.taken_by)) counts[r.month][r.taken_by] += r.n }
+    else for (const b of bookings) {
       const createdMonth = istDate(b.created_at).slice(0, 7)
       if (counts[createdMonth] && activeIds.has(b.taken_by)) counts[createdMonth][b.taken_by]++
     }
     return Object.entries(counts).map(([key, values]) => ({ key, label: monthLabel(key), values, total: Object.values(values).reduce((a, b) => a + b, 0) }))
-  }, [bookings, activeStaff, month])
-  const thisMonth = useMemo(() => activeStaff.map(s => ({ staff: s, count: bookings.filter(b => istDate(b.created_at).slice(0, 7) === month && b.taken_by === s.user_id).length })).sort((a, b) => b.count - a.count || (a.staff.name || '').localeCompare(b.staff.name || '')), [activeStaff, bookings, month])
+  }, [bookings, activeStaff, month, rows])
+  const thisMonth = useMemo(() => activeStaff.map(s => ({ staff: s, count: rows ? rows.filter(r => r.month === month && r.taken_by === s.user_id).reduce((t, r) => t + r.n, 0) : bookings.filter(b => istDate(b.created_at).slice(0, 7) === month && b.taken_by === s.user_id).length })).sort((a, b) => b.count - a.count || (a.staff.name || '').localeCompare(b.staff.name || '')), [activeStaff, bookings, month, rows])
   const W = 840, H = 282, L = 48, R = 14, T = 18, B = 48, plotH = H - T - B, plotW = W - L - R
   const maxCount = mode === 'month' ? Math.max(1, ...thisMonth.map(x => x.count)) : Math.max(1, ...byMonth.map(x => x.total))
   const step = Math.max(1, Math.ceil(maxCount / 4)), ymax = step * 4, y = (n: number) => T + plotH - n / ymax * plotH
