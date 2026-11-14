@@ -1057,16 +1057,19 @@ body:has(.cl-page) footer{color:#6f5f66;border-color:#eadfdc}
 .cl-sw a i{display:block;width:min(24px,calc(100% - 4px));aspect-ratio:1/1;border-radius:50%;box-shadow:inset 0 0 0 1px #2a1a2033;transition:transform .2s}.cl-sw a b{font-weight:500;white-space:nowrap}
 .cl-sw a:hover i{transform:scale(1.14)}.cl-sw a.on{color:var(--cw);font-weight:700}.cl-sw a.on i{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--cw)}
 .cl-reels{position:relative;margin-top:44px;background:#fbe5e4;border:1px solid #f1cdce;border-radius:22px;padding:clamp(18px,2.6vw,28px) clamp(16px,3vw,34px) 18px;display:grid;grid-template-columns:minmax(210px,290px) minmax(0,1fr);gap:clamp(14px,3vw,34px);align-items:center}
+.cl-google-review{margin-top:24px;padding:clamp(20px,3vw,34px);border:1px solid #eadbd8;border-radius:22px;background:linear-gradient(135deg,#fffaf8,#fff);display:grid;grid-template-columns:minmax(210px,.7fr) minmax(0,1.3fr);gap:12px 34px;align-items:center}
+.cl-google-review-head{grid-row:1/3}.cl-review-kicker{display:block;margin-bottom:8px;color:var(--cw);font:600 10px Inter,sans-serif;letter-spacing:.18em}.cl-google-review-head h2{margin:0;color:#33121f;font:600 clamp(24px,2.4vw,30px)/1.1 "Cormorant Garamond",Georgia,serif}.cl-review-stars{margin-top:12px;color:#b78636;font-size:20px;letter-spacing:.12em}
+.cl-review-quote{margin:0;color:#34282d;font:500 clamp(18px,2vw,23px)/1.55 "Cormorant Garamond",Georgia,serif}.cl-review-by{display:flex;justify-content:space-between;align-items:center;gap:14px;color:#4d4146;font-size:12px}.cl-review-by small{color:var(--cm)}.cl-review-by a{color:var(--cw);font:600 12px Inter,sans-serif;text-decoration:none;white-space:nowrap}.cl-review-by a:hover{text-decoration:underline;text-underline-offset:3px}
 .cl-reels-txt p{margin:0 0 18px;font-size:14.5px;line-height:1.55;color:#3d3238;max-width:24ch}
 .cl-ig{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:9px;background:var(--cw);color:#fff;font:600 14px Inter,sans-serif;text-decoration:none}.cl-ig:hover{background:#661230}
 .cl-reels-stage{position:relative;min-width:0}
-.cl-track{position:relative;display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:28px 56px;align-items:center;-webkit-overflow-scrolling:touch}.cl-track::-webkit-scrollbar{display:none}
+.cl-track{position:relative;display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;padding:28px 56px;align-items:center;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior-x:contain}.cl-track::-webkit-scrollbar{display:none}
 .cl-reel{position:relative;appearance:none;padding:0;border:0;flex:none;width:clamp(140px,16vw,190px);aspect-ratio:9/16;border-radius:16px;overflow:hidden;scroll-snap-align:center;background:#e9cfcf;transform:scale(.92);transition:transform .3s,box-shadow .3s;box-shadow:0 4px 14px #5b123022;cursor:pointer}
 .cl-reel.on{transform:scale(1.1);box-shadow:0 10px 26px #5b123040;z-index:1}
-.cl-reel-select{position:absolute;inset:0;display:block;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:pointer}.cl-reel-select:focus-visible{outline:3px solid var(--cw);outline-offset:2px}
-.cl-reel-select img,.cl-reel-select video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}.cl-reel-select img{z-index:0}.cl-reel-select video{z-index:1}
+.cl-reel-select{position:absolute;inset:0;display:block;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:pointer;touch-action:pan-x pan-y;-webkit-tap-highlight-color:transparent}.cl-reel-select:focus-visible{outline:3px solid var(--cw);outline-offset:2px}
+.cl-reel-select img,.cl-reel-select video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}.cl-reel-select img{z-index:0}.cl-reel-select video{z-index:1}
 .cl-sound{position:absolute;z-index:3;top:10px;right:10px;width:40px;height:40px;display:grid;place-items:center;padding:0;border:1px solid #ffffffb3;border-radius:50%;background:#25151caa;color:#fff;cursor:pointer;backdrop-filter:blur(5px)}.cl-sound:hover{background:#25151ce8}.cl-sound:focus-visible{outline:3px solid #fff;outline-offset:2px}
-.cl-reel-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:#ffffff40;border:1.5px solid #fff;color:#fff;display:grid;place-items:center;backdrop-filter:blur(3px)}.cl-reel-play svg{margin-left:2px}
+.cl-reel-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:#ffffff40;border:1.5px solid #fff;color:#fff;display:grid;place-items:center;backdrop-filter:blur(3px);pointer-events:none}.cl-reel-play svg{margin-left:2px}
 .cl-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:42px;height:42px;border-radius:50%;border:1px solid #ead6d6;background:#fff;color:#2a1a20;display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 10px #5b12301f}
 .cl-arrow.l{left:0}.cl-arrow.r{right:0}.cl-arrow:hover:not(:disabled){background:#fff5f5}.cl-arrow:disabled{opacity:.4;cursor:default}.cl-arrow:focus-visible{outline:3px solid var(--cw);outline-offset:2px}
 .cl-dots{grid-column:1/-1;display:flex;justify-content:center;align-items:center;gap:6px}
@@ -1095,7 +1098,7 @@ body:has(.cl-page) footer{color:#6f5f66;border-color:#eadfdc}
   .cl-feat{grid-template-columns:1fr 1fr;gap:12px 8px}.cl-feat li{justify-content:flex-start;font-size:13px}
   .cl-cats{display:flex;overflow-x:auto;scrollbar-width:none;gap:10px;margin:0 calc(-1 * clamp(14px,3vw,34px));padding:2px clamp(14px,3vw,34px) 6px}.cl-cats::-webkit-scrollbar{display:none}.cl-cats a{flex:none;width:128px}
   .cl-sw a b{display:none}.cl-sw{flex-wrap:wrap;justify-content:center;gap:8px 10px}.cl-sw a{flex:none;width:28px}
-  .cl-reels{grid-template-columns:1fr}.cl-reels-txt p{max-width:none}
+  .cl-reels{grid-template-columns:1fr}.cl-reels-txt p{max-width:none}.cl-google-review{grid-template-columns:1fr;gap:14px}.cl-google-review-head{grid-row:auto}.cl-review-by{align-items:flex-start;flex-direction:column;gap:8px}
   .cl-track{padding:28px 12px}.cl-arrow{display:none}
   .cl-flt{justify-content:stretch}.cl-flt input[name=q]{flex:1 1 100%;width:auto}
 }
