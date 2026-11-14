@@ -56,7 +56,6 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
           <div className="cl-sw" role="list" aria-label="Filter by colour">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} /><b>{SHORT[c.label] || c.label}</b></Link>)}</div>
         </div>
       </section>
-      <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
       <section className="cl-sec" id="collection"><h2>The collection</h2>
         <form className="cl-flt">{cat && <input type="hidden" name="cat" value={cat} />}{colour && <input type="hidden" name="colour" value={colour} />}
           <input name="q" placeholder="Search name or ID" aria-label="Search name or ID" defaultValue={q} />
@@ -72,6 +71,7 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
             {!!d.colour_tags?.length && <span className="dots">{d.colour_tags.slice(0, 5).map((t: string) => <i key={t} title={t} style={{ background: COLOURS.find(c => c.label === t)?.css || '#bbb' }} />)}</span>}
             <span className="pr"><b>{inr(d.price)}</b><em>Check availability</em></span></Link>))}
           {!dresses?.length && <p className="cl-none">No dresses match these filters. Try removing a filter or changing the dates.</p>}</div></section>
+      <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
     </div>
   </div>)
 }

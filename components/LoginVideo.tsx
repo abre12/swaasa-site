@@ -1,15 +1,14 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-// Hero film behind the staff sign-in. It plays the same brand reel as before (public/hero.mp4), muted and looping, but skips the
-// opening logo card (the first ~7 seconds) and the closing seconds so the loop is all fashion. To use another film, replace
+// Hero film behind the staff sign-in. It plays the brand reel (public/hero.mp4) from the beginning, muted and looping. To skip the opening logo card, set START to 7.5 and END to 40.5. To use another film, replace
 // public/hero.mp4 (keep it short, under ~8 MB) and change START / END below to the seconds you want looped.
-const START = 7.5, END = 40.5
+const START = 0, END = 42   // plays the whole film from the very beginning (the logo card first) and loops
 export default function LoginVideo({ children }: { children?: React.ReactNode }) {
   const ref = useRef<HTMLVideoElement>(null), [playing, setPlaying] = useState(false)
   useEffect(() => { if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) ref.current?.pause() }, [])   // respect "reduce motion"
   const toggle = () => { const v = ref.current; if (!v) return; if (v.paused) void v.play().catch(() => {}); else v.pause() }
   return <div className={'lg-vid' + (playing ? ' is-playing' : '')}>
-    <video ref={ref} src={process.env.NEXT_PUBLIC_HERO_VIDEO || '/hero.mp4'} poster="/login-poster.jpg" autoPlay muted playsInline preload="metadata" aria-hidden="true"
+    <video ref={ref} src={process.env.NEXT_PUBLIC_HERO_VIDEO || '/hero.mp4'} poster="/poster.jpg" autoPlay muted playsInline preload="metadata" aria-hidden="true"
       onLoadedMetadata={e => { e.currentTarget.currentTime = START }}
       onTimeUpdate={e => { const v = e.currentTarget; if (v.currentTime >= END || v.currentTime < START - 0.5) v.currentTime = START }}
       onEnded={e => { const v = e.currentTarget; v.currentTime = START; void v.play().catch(() => {}) }}
