@@ -6,8 +6,17 @@
 //   3. Upload this file to GitHub. Vercel rebuilds and the reels appear. Nothing else to do.
 // The reel must be public (the Swaasa account cannot be private).
 export const REEL_LINKS: string[] = [
-  // 'https://www.instagram.com/reel/XXXXXXXXXXX/',
-  // 'https://www.instagram.com/reel/YYYYYYYYYYY/',
+  'https://www.instagram.com/p/DKYupVJOQrh/',
+  'https://www.instagram.com/p/DF5MGmoSBKE/',
+  'https://www.instagram.com/reel/DbphFNbTtv-/',
+  'https://www.instagram.com/reel/Da76-JORemi/',
+'https://www.instagram.com/reel/DW87NM2EeZr/',
+'https://www.instagram.com/reel/DNnxOYzSrrs/',
+'https://www.instagram.com/reel/DMmSQcYR9k8/',
+'https://www.instagram.com/reel/DHTQk4uSjb_/',
+'https://www.instagram.com/reel/DGgKkDqtO89/',
+
+
 ]
 
 export const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/swaasa_rentals/'
