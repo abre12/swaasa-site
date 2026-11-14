@@ -3,7 +3,7 @@ import { supaServer } from '@/lib/supabase/server'
 import { COLOURS, inr, MAIN_CATS } from '@/lib/util'
 import { COLOUR_WORDS } from '@/lib/colours'
 import ReelsCarousel from '@/components/ReelsCarousel'
-import { INSTAGRAM_URL, REELS, REEL_LINKS } from '@/lib/reels'
+import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 export const dynamic = 'force-dynamic'
 type P = Record<string, string | undefined>
 const SHORT: Record<string, string> = { 'Beige / Cream': 'Cream', 'Floral / Multicolour': 'Floral' }   // on-screen labels only; the full name is the tooltip
@@ -86,7 +86,7 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
             {!n && <p className="cl-none">No dresses match these filters. Try removing a filter or changing the dates.</p>}</div>
         </div>
       </section>
-      <ReelsCarousel reels={REELS} links={REEL_LINKS} instagram={INSTAGRAM_URL} />
+      <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
     </div>
   </div>)
 }
