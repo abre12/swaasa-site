@@ -1,0 +1,33 @@
+# The order the database scripts are applied in (see README-migrations.md). One file name per line.
+# update-staff-booking.sql is left out on purpose: schema.sql already contains it.
+# When you add a migration, add it here, then regenerate schema-current.sql. The CI check compares the two.
+schema.sql
+update-busy-function.sql
+migration-v2.sql
+migration-v3.sql
+migration-v4.sql
+migration-v5.sql
+migration-v6.sql
+migration-v7.sql
+migration-v8.sql
+migration-v9.sql
+migration-v10.sql
+migration-v11.sql
+migration-v12.sql
+migration-v13.sql
+migrationcpt-v13b.sql
+migrationcpt-v13c.sql
+migration-v14.sql
+migration-v15.sql
+migration-v16-performance.sql
+migration-v17-readiness-return-delivery.sql
+migration-v18-cancellation-policy.sql
+migration-v19-alteration-gap.sql
+migration-v20-controls.sql
+migration-v21-medium-items.sql
+migration-v25-phase1.sql
+migration-v22-cleanup.sql
+migration-v25b-lockdown.sql
+migration-v26-phase2-batchA.sql
+migration-v26b-lockdown.sql
+migration-v27-phase2-customers-nearmiss.sql
