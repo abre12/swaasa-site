@@ -1,8 +1,18 @@
 // "Swaasa in Motion" on the booking page (collection). It is only shown there, never on a dress page or in the booking flow.
-// The six thumbnails in /public/reels are stills cut from the brand film (public/hero.mp4), so the section works from day one.
-// To show real Instagram Reels: put a vertical picture in /public/reels (about 360 x 640) and, if you like, a short silent clip,
-// then change the list below. `href` is the reel's own Instagram address; without it the card opens the profile.
+//
+// TO SHOW YOUR INSTAGRAM REELS (Instagram's own player):
+//   1. On Instagram open the reel, tap the three dots, then "Copy link".
+//   2. Paste the link as a new line in REEL_LINKS below. The first line shows first. Remove a line to remove that reel.
+//   3. Upload this file to GitHub. Vercel rebuilds and the reels appear. Nothing else to do.
+// The reel must be public (the Swaasa account cannot be private).
+export const REEL_LINKS: string[] = [
+  // 'https://www.instagram.com/reel/XXXXXXXXXXX/',
+  // 'https://www.instagram.com/reel/YYYYYYYYYYY/',
+]
+
 export const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/swaasa_rentals/'
+
+// Shown only while REEL_LINKS is empty: stills cut from the brand film (public/reels), each opening the Instagram profile.
 export type Reel = { poster: string; alt: string; video?: string; href?: string }
 export const REELS: Reel[] = [
   { poster: '/reels/reel-1.jpg', alt: 'Bride in an ivory gown and veil' },

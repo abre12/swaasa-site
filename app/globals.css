@@ -1099,3 +1099,35 @@ body:has(.cl-page) footer{color:#6f5f66;border-color:#eadfdc}
 }
 @media(max-width:560px){.cl-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 12px}.cl-card .pr{flex-direction:column;gap:2px}.cl-book{padding:0 14px}}
 @media(prefers-reduced-motion:reduce){.cl-reel,.cl-cats .pic img,.cl-card .ph img,.lg-play{transition:none}}
+
+
+/* ===== Booking page v3: one merged shop card, Instagram embeds ===== */
+.cl-top .cl-feat{border-bottom:0;border-top:1px solid var(--cl)}
+.cl-shop{margin-top:20px;background:#fff;border:1px solid var(--cl);border-radius:22px;overflow:hidden;box-shadow:0 8px 30px #6b123012;scroll-margin-top:76px}
+.cl-shop-cats{padding:clamp(18px,2.6vw,28px) clamp(14px,3vw,34px) clamp(14px,2vw,20px);background:linear-gradient(180deg,#fff6f4 0,#fff 100%)}
+.cl-shop-cats h2,.cl-shop-head h2{margin:0 0 14px;font:600 clamp(26px,2.6vw,32px)/1.1 "Cormorant Garamond",Georgia,serif;color:#33121f}
+.cl-shop-main{padding:clamp(18px,2.6vw,28px) clamp(14px,3vw,34px) clamp(22px,3vw,34px);border-top:1px solid var(--cl)}
+.cl-shop-head{display:flex;align-items:flex-end;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;margin-bottom:14px}.cl-shop-head h2{margin:0}
+.cl-shop-head p{margin:0;font-size:14px;color:var(--cm)}.cl-shop-head p b{color:var(--ci);font-weight:700}
+.cl-shop .cl-flt{justify-content:flex-start;background:#fbf3f1;border:0;border-radius:14px;padding:10px 12px}
+.cl-shop .cl-flt input,.cl-shop .cl-flt select{border-color:#eadbd8}
+.cl-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.cl-chips a{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 12px;border-radius:99px;background:#f6e3e5;color:var(--cw);font:600 12.5px Inter,sans-serif;text-decoration:none}
+.cl-chips a span{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:13px;line-height:1}
+.cl-chips a:hover{background:#f0d3d7}.cl-chips a.all{background:none;color:var(--cm);text-decoration:underline;text-underline-offset:3px;padding:0 6px;font-weight:500}
+.cl-shop .cl-grid{margin-top:20px}
+.cl-cats a,.cl-cats .off{gap:5px}.cl-cats small{font-size:11.5px;color:var(--cm)}
+.cl-cats .off{display:grid;text-align:center;opacity:.65;cursor:default;color:var(--ci)}.cl-cats .off .pic{display:grid;place-items:center;color:#c28f9b;background:linear-gradient(135deg,#faeeec,#f3dedd)}
+.cl-card .pr{margin-top:auto;padding-top:6px;flex-wrap:wrap}.cl-card .pr em{letter-spacing:.08em;font-size:10px}
+.cl-reels{margin-top:24px}
+.cl-reels.live{grid-template-columns:minmax(200px,260px) minmax(0,1fr)}
+.cl-embed{position:relative;flex:none;width:min(328px,78vw);height:var(--reel-h,640px);border-radius:16px;overflow:hidden;background:#fff;scroll-snap-align:center;box-shadow:0 6px 20px #5b123030}
+.cl-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#fff}
+.cl-embed-ph{position:absolute;inset:0;width:100%;border:0;background:linear-gradient(160deg,#f6dcdc,#ecc7cc);color:#7b1738;cursor:pointer;display:grid;place-items:center;font-size:28px}
+.cl-reels.live .cl-track{padding:18px 56px}
+.cl-mnav{display:none}
+@media(max-width:900px){
+  .cl-reels.live{grid-template-columns:1fr}.cl-reels.live .cl-track{padding:14px 4px}.cl-reels.live .cl-reels-stage .cl-arrow{display:none}
+  .cl-mnav{display:inline-flex}.cl-mnav .cl-arrow{display:grid!important;position:static;transform:none;width:36px;height:36px}.cl-dots{gap:8px}
+  .cl-cats .off,.cl-cats a{flex:none;width:128px}
+}
