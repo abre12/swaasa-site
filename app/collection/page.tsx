@@ -2,26 +2,15 @@ import Link from 'next/link'
 import { supaServer } from '@/lib/supabase/server'
 import { COLOURS, inr, MAIN_CATS } from '@/lib/util'
 import { COLOUR_WORDS } from '@/lib/colours'
-import Hero from '@/components/Hero'
+import ReelsCarousel from '@/components/ReelsCarousel'
+import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 export const dynamic = 'force-dynamic'
 type P = Record<string, string | undefined>
 const SHORT: Record<string, string> = { 'Beige / Cream': 'Cream', 'Floral / Multicolour': 'Floral' }   // on-screen labels only; the full name is the tooltip
 const href = (p: P) => { const u = new URLSearchParams(); Object.entries(p).forEach(([k, v]) => v && u.set(k, v)); const s = u.toString(); return (s ? `/collection?${s}` : '/collection') + '#collection' }
-const CSS = `.band{background:#000;color:#f4ecdc;padding:14px 16px 34px}.band .in{max-width:1080px;margin:0 auto}
-.band .cap{display:block;text-align:center;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:#a8844a;margin:0 0 14px}
-.cats{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 8px;padding:0 0 30px}
-.cats a{font:500 clamp(15px,2.3vw,23px)/1 "Cormorant Garamond",Georgia,serif;letter-spacing:.2em;color:#8f8777;text-decoration:none;padding:10px 16px;border-bottom:1px solid transparent;transition:color .2s,border-color .2s}
-.cats a:hover{color:#f4ecdc}.cats a.on{color:#f4ecdc;border-bottom-color:#d2b074}
-.hair{height:1px;background:linear-gradient(90deg,transparent,#3a3024 20%,#3a3024 80%,transparent);margin:0 0 18px}
-.sw{display:flex;flex-wrap:nowrap;justify-content:space-between;max-width:720px;margin:0 auto}
-.sw a{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;color:#8f8777;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;text-align:center;line-height:1.2;transition:color .2s;padding:4px 0}
-.sw a i{display:block;width:min(26px,calc(100% - 4px));aspect-ratio:1/1;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(244,236,223,.28);transition:transform .2s}
-.sw a b{font-weight:400;white-space:nowrap}
-.sw a:hover{color:#f4ecdc}.sw a:hover i{transform:scale(1.14)}
-.sw a.on{color:#f1dcb0}.sw a.on i{box-shadow:0 0 0 2px #000,0 0 0 3.5px #d2b074}
-@media(max-width:700px){.sw a b{display:none}.cats a{padding:8px 9px;letter-spacing:.12em}}
-.cnt{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}.cnt a{font-size:12px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink);text-decoration:none}
-.dress .dots{display:flex;gap:4px;margin:4px 0}.dress .dots i{width:11px;height:11px;border:1px solid #8884;border-radius:50%;display:inline-block}.dress .cta{font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-bottom:1px solid var(--ink)}`
+const pretty = (t: string) => t.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())      // LEHENGAS -> Lehengas, OTHER OCCASIONS -> Other Occasions
+const ico = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
+const hico = { ...ico, width: 20, height: 20, strokeWidth: 1.8 }
 export default async function Collection({ searchParams }: { searchParams: P }) {
   const sb = supaServer(); const { q, cat, colour, sort, max, from, to } = searchParams
   const main = MAIN_CATS.find(m => m.key === cat), okDates = !!(from && to && to >= from)
@@ -32,27 +21,57 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
   if (q) { const t = q.replace(/[%,()]/g, ''); query = query.or(`name.ilike.%${t}%,code.ilike.%${t}%`) }
   if (okDates) { const { data: bad } = await sb.rpc('dresses_unavailable', { p_from: from, p_to: to }); if (bad?.length) query = query.not('id', 'in', `(${bad.join(',')})`) }   // free for the WHOLE period, cleaning day included
   query = sort === 'pl' ? query.order('price') : sort === 'ph' ? query.order('price', { ascending: false }) : sort === 'pop' ? query.order('popularity', { ascending: false }) : query.order('created_at', { ascending: false })
-  const { data: dresses } = await query
+  // The picture on each "Browse by Category" card is the newest dress in that category that has a photo.
+  const catPics = Promise.all(MAIN_CATS.map(async m => {
+    const { data } = await sb.from('dresses').select('thumbs,images').in('category', m.subs).in('status', ['available', 'maintenance']).order('created_at', { ascending: false }).limit(8)
+    const d = (data || []).find((x: any) => x.thumbs?.[0] || x.images?.[0]); return (d?.thumbs?.[0] || d?.images?.[0] || null) as string | null
+  }))
+  const [{ data: dresses }, pics] = await Promise.all([query, catPics])
   const cur: P = { q, cat, colour, sort, max, from, to }, any = !!(q || cat || colour || max || (okDates))
-  return (<>
-    <Hero /><style>{CSS}</style>
-    <section className="band"><div className="in">
-      <span className="cap">Shop by category</span><nav className="cats" aria-label="Categories">{MAIN_CATS.map(m => <Link key={m.key} href={href({ ...cur, cat: cat === m.key ? undefined : m.key })} className={cat === m.key ? 'on' : ''} aria-current={cat === m.key}>{m.label}</Link>)}</nav>
-      <div className="hair" />
-      <div className="sw" role="list" aria-label="Colours">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} /><b>{SHORT[c.label] || c.label}</b></Link>)}</div></div></section>
-    <section className="sec" id="collection"><h2>The collection</h2>
-      <form className="flt">{cat && <input type="hidden" name="cat" value={cat} />}{colour && <input type="hidden" name="colour" value={colour} />}
-        <input name="q" placeholder="Search name or ID" defaultValue={q} />
-        <input name="max" type="number" placeholder="Max ₹" defaultValue={max} style={{ width: 90 }} />
-        <select name="sort" defaultValue={sort}><option value="">Newest</option><option value="pl">Price: low</option><option value="ph">Price: high</option><option value="pop">Popular</option></select>
-        <label className="mut" style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}>Free from<input name="from" type="date" defaultValue={from} /></label>
-        <label className="mut" style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}>to<input name="to" type="date" defaultValue={to} /></label>
-        <button className="btn sm">Apply</button></form>
-      <div className="cnt"><b>{dresses?.length || 0} dress{dresses?.length === 1 ? '' : 'es'} {any ? 'match your filters' : 'in the collection'}{main ? ` · ${main.label}` : ''}{colour ? ` · ${colour}` : ''}{okDates ? ` · free ${from} to ${to}` : ''}</b>{any && <Link href="/#collection">Clear all filters</Link>}</div>
-      <div className="grid">{(dresses || []).map((d: any, i: number) => (
-        <Link key={d.id} href={`/dress/${d.id}${okDates ? `?from=${from}&to=${to}` : ''}`} className="dress"><div className="ph">{(d.thumbs?.[0] || d.images?.[0]) && <img src={d.thumbs?.[0] || d.images[0]} alt={d.name} loading={i < 4 ? 'eager' : 'lazy'} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}</div>
-          <span className="mut" style={{ fontSize: 12 }}>{d.code} · {d.category}</span><b>{d.name}</b>
-          {!!d.colour_tags?.length && <span className="dots">{d.colour_tags.slice(0, 5).map((t: string) => <i key={t} title={t} style={{ background: COLOURS.find(c => c.label === t)?.css || '#bbb' }} />)}</span>}
-          <span>{inr(d.price)}</span> <span className="cta">Check availability</span></Link>))}
-        {!dresses?.length && <p className="mut">No dresses match these filters. Try removing a filter or changing the dates.</p>}</div></section></>)
+  const FEATURES = [
+    { t: 'Flexible Rental Dates', i: <svg {...ico}><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg> },
+    { t: 'Premium Collection', i: <svg {...ico}><path d="M9 3h6l1 4-4 3-4-3 1-4Z" /><path d="M8 8.5 5 20h14l-3-11.5" /></svg> },
+    { t: 'Alteration Support', i: <svg {...ico}><circle cx="6" cy="6.5" r="2.4" /><circle cx="6" cy="17.5" r="2.4" /><path d="M20 4 8 15.2M20 20 8 8.8" /></svg> },
+    { t: 'Secure Booking', i: <svg {...ico}><path d="M12 3 4.5 6v5.5c0 4.4 3 7.9 7.5 9.5 4.5-1.6 7.5-5.1 7.5-9.5V6L12 3Z" /><path d="m8.8 12 2.4 2.4 4-4.6" /></svg> },
+  ]
+  return (<div className="cl-page">
+    <header className="cl-hd"><div className="cl-in">
+      <Link href="/collection" className="cl-logo"><img src="/logo-mark.png" alt="" /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
+      <div className="cl-tools">
+        <a className="cl-ic" href="#collection" aria-label="Search the collection"><svg {...hico}><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg></a>
+        <Link className="cl-ic" href="/admin" aria-label="Staff dashboard"><svg {...hico}><circle cx="12" cy="8" r="3.6" /><path d="M4.8 20c.6-3.7 3.5-5.6 7.2-5.6s6.6 1.9 7.2 5.6" /></svg></Link>
+        <a className="cl-book" href="#collection">Book Now</a>
+      </div></div></header>
+    <div className="cl-in">
+      <section className="cl-top">
+        <div className="cl-hero">
+          <div className="cl-hero-txt"><span className="cl-eyebrow">Bridal Dresses <i>•</i> Lehengas <i>•</i> Gowns</span>
+            <h1>Rent Your<br />Dream Look</h1><p>A curated collection of bridal and special occasion wear, made for your big moments.</p></div>
+          <div className="cl-hero-img" aria-hidden="true"><img src="/collection-hero.jpg" alt="" /></div>
+        </div>
+        <ul className="cl-feat">{FEATURES.map(f => <li key={f.t}>{f.i}<span>{f.t}</span></li>)}</ul>
+        <div className="cl-browse"><h2>Browse by Category</h2>
+          <nav className="cl-cats" aria-label="Categories">{MAIN_CATS.map((m, i) => <Link key={m.key} href={href({ ...cur, cat: cat === m.key ? undefined : m.key })} className={cat === m.key ? 'on' : ''} aria-current={cat === m.key}>
+            <span className="pic">{pics[i] ? <img src={pics[i]!} alt="" loading="lazy" decoding="async" /> : null}</span><span className="nm">{pretty(m.label)}</span></Link>)}</nav>
+          <div className="cl-sw" role="list" aria-label="Filter by colour">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} /><b>{SHORT[c.label] || c.label}</b></Link>)}</div>
+        </div>
+      </section>
+      <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
+      <section className="cl-sec" id="collection"><h2>The collection</h2>
+        <form className="cl-flt">{cat && <input type="hidden" name="cat" value={cat} />}{colour && <input type="hidden" name="colour" value={colour} />}
+          <input name="q" placeholder="Search name or ID" aria-label="Search name or ID" defaultValue={q} />
+          <input name="max" type="number" placeholder="Max ₹" aria-label="Maximum price" defaultValue={max} style={{ width: 96 }} />
+          <select name="sort" aria-label="Sort" defaultValue={sort}><option value="">Newest</option><option value="pl">Price: low</option><option value="ph">Price: high</option><option value="pop">Popular</option></select>
+          <label>Free from<input name="from" type="date" defaultValue={from} /></label>
+          <label>to<input name="to" type="date" defaultValue={to} /></label>
+          <button className="cl-apply">Apply</button></form>
+        <div className="cl-cnt"><b>{dresses?.length || 0} dress{dresses?.length === 1 ? '' : 'es'} {any ? 'match your filters' : 'in the collection'}{main ? ` · ${pretty(main.label)}` : ''}{colour ? ` · ${colour}` : ''}{okDates ? ` · free ${from} to ${to}` : ''}</b>{any && <Link href="/collection#collection">Clear all filters</Link>}</div>
+        <div className="cl-grid">{(dresses || []).map((d: any, i: number) => (
+          <Link key={d.id} href={`/dress/${d.id}${okDates ? `?from=${from}&to=${to}` : ''}`} className="cl-card"><div className="ph">{(d.thumbs?.[0] || d.images?.[0]) && <img src={d.thumbs?.[0] || d.images[0]} alt={d.name} loading={i < 4 ? 'eager' : 'lazy'} decoding="async" />}</div>
+            <span className="cd">{d.code} · {d.category}</span><b className="nm">{d.name}</b>
+            {!!d.colour_tags?.length && <span className="dots">{d.colour_tags.slice(0, 5).map((t: string) => <i key={t} title={t} style={{ background: COLOURS.find(c => c.label === t)?.css || '#bbb' }} />)}</span>}
+            <span className="pr"><b>{inr(d.price)}</b><em>Check availability</em></span></Link>))}
+          {!dresses?.length && <p className="cl-none">No dresses match these filters. Try removing a filter or changing the dates.</p>}</div></section>
+    </div>
+  </div>)
 }
