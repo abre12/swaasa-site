@@ -8,8 +8,10 @@ const Speaker = ({ muted }: { muted: boolean }) => <svg viewBox="0 0 24 24" widt
 export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; instagram: string }) {
   const track = useRef<HTMLDivElement>(null)
   const cards = useRef<(HTMLElement | null)[]>([])
+  const videos = useRef<(HTMLVideoElement | null)[]>([])
   const [on, setOn] = useState(0)
   const [soundOn, setSoundOn] = useState(false)
+  const [playing, setPlaying] = useState<number | null>(null)
   const [visible, setVisible] = useState<Set<number>>(() => new Set([0]))
   const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -27,6 +29,12 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   }, [])
 
   useEffect(() => { setSoundOn(false) }, [on])
+
+  useEffect(() => {
+    videos.current.forEach((video, i) => { if (i !== on) video?.pause() })
+    const activeVideo = videos.current[on]
+    if (activeVideo?.paused) activeVideo.play().catch(() => setPlaying(current => current === on ? null : current))
+  }, [on, visible])
 
   useEffect(() => {
     const root = track.current
@@ -66,6 +74,13 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     if (!t || !el) return
     t.scrollTo({ left: el.offsetLeft - (t.clientWidth - el.clientWidth) / 2, behavior: reduceMotion() ? 'auto' : 'smooth' })
   }
+  const selectAndPlay = (i: number) => {
+    const index = Math.max(0, Math.min(reels.length - 1, i))
+    setOn(index)
+    setSoundOn(false)
+    go(index)
+    videos.current[index]?.play().catch(() => setPlaying(current => current === index ? null : current))
+  }
   const prev = <button type="button" className="cl-arrow l" onClick={() => go(on - 1)} disabled={on === 0} aria-label="Previous reel"><Chev d="m15 5-7 7 7 7" /></button>
   const next = <button type="button" className="cl-arrow r" onClick={() => go(on + 1)} disabled={on >= reels.length - 1} aria-label="Next reel"><Chev d="m9 5 7 7-7 7" /></button>
 
@@ -75,11 +90,12 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     <div className="cl-reels-stage">{prev}
       <div className="cl-track" ref={track} onScroll={() => { requestAnimationFrame(pick) }}>
         {reels.map((reel, i) => <div key={reel.video || reel.poster} ref={el => { cards.current[i] = el }} className={'cl-reel' + (i === on ? ' on' : '')}>
-          <button type="button" className="cl-reel-select" aria-label={`${i === on ? 'Selected' : 'Select'} reel ${i + 1}: ${reel.alt}`} aria-pressed={i === on} onClick={() => go(i)}>
+          <button type="button" className="cl-reel-select" aria-label={`${playing === i ? 'Playing' : 'Play'} reel ${i + 1}: ${reel.alt}`} aria-pressed={i === on} onClick={() => selectAndPlay(i)}>
             <img src={reel.poster} alt="" loading={i < 3 ? 'eager' : 'lazy'} decoding="async" />
-            {reel.video && visible.has(i) && <video key={reel.video} src={reel.video} poster={reel.poster} preload="metadata" muted={i !== on || !soundOn} loop playsInline autoPlay={i === on} aria-label={reel.alt} />}
+            {reel.video && visible.has(i) && <video ref={el => { videos.current[i] = el }} key={reel.video} src={reel.video} poster={reel.poster} preload="metadata" muted={i !== on || !soundOn} loop playsInline autoPlay={i === on} aria-label={reel.alt} onPlaying={() => setPlaying(i)} onPause={() => setPlaying(current => current === i ? null : current)} />}
+            {reel.video && playing !== i && <span className="cl-reel-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg></span>}
           </button>
-          {reel.video && visible.has(i) && <button type="button" className="cl-sound" aria-label={soundOn && i === on ? `Mute reel ${i + 1}` : `Turn sound on for reel ${i + 1}`} aria-pressed={soundOn && i === on} onClick={() => { if (i === on) setSoundOn(value => !value); else go(i) }}><Speaker muted={!(soundOn && i === on)} /></button>}
+          {reel.video && visible.has(i) && <button type="button" className="cl-sound" aria-label={soundOn && i === on ? `Mute reel ${i + 1}` : `Turn sound on for reel ${i + 1}`} aria-pressed={soundOn && i === on} onClick={() => { if (i === on) { setSoundOn(value => !value); videos.current[i]?.play().catch(() => setPlaying(current => current === i ? null : current)) } else selectAndPlay(i) }}><Speaker muted={!(soundOn && i === on)} /></button>}
         </div>)}
       </div>{next}
     </div>
