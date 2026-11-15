@@ -1169,3 +1169,6 @@ body:has(.cl-page) footer{color:#6f5f66;border-color:#eadfdc}
 .adm .wf{font-size:14px;padding:10px 14px;gap:10px}.adm .wf b{font-size:15px}
 .adm .gs{margin-bottom:8px}
 @media(max-width:700px){.adm .kstrip{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.adm .ks{padding:8px 10px;gap:8px}.adm .ks b{font-size:18px}.adm .ks span{font-size:12px}}
+/* Today block now also holds the next 3 days (v30) */
+.td-day{margin:10px 0 6px;font-size:13px;font-weight:600;color:var(--mut)}
+.td-steps{display:flex;gap:4px;margin-top:7px;max-width:520px}.td-steps span{flex:1;min-width:0}.td-steps i{display:block;height:4px;border-radius:3px}.td-steps small{display:block;margin-top:2px;font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

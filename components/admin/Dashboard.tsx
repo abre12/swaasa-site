@@ -10,8 +10,6 @@ import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 import BookingsByStaff from './BookingsByStaff'
 import Today from './Today'
-import Countdown from './Countdown'
-import { DayNotes } from './HandoverNotes'
 import CloseDay from './CloseDay'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -111,7 +109,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const KS = ({ ic, c, v, l, on, title }: { ic: string; c: string; v: string | number; l: string; on: () => void; title?: string }) => <button type="button" className="ks" style={tint(c)} onClick={on} title={title}><Ic n={ic} s={22} /><div><b>{v}</b><span>{l}</span></div></button>
   return (<div>
     <PageHead icon="home" title="Dashboard" sub={daySub}></PageHead>
-    {/* 1. The work that cannot wait */}
+    {/* 1. Everything to do: today and the next 3 days, in one block */}
     <Today ctx={ctx} embedded />
     {/* 2. Numbers at a glance: one slim row */}
     <div className="kstrip">
@@ -121,9 +119,6 @@ export default function Dashboard({ ctx }: { ctx: any }) {
       {ctx.owner && <KS ic="coins" c="var(--ok)" v={inr(toCollectTotal)} l="To collect in 7 days" on={() => setPop('collect')} title={`${toCollect.length} ${toCollect.length === 1 ? 'delivery' : 'deliveries'}`} />}</div>
     {pending.length > 0 && <div className="alsobar">
       <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button></div>}
-    {/* 3. Coming up and notes: folded or one line unless there is something in them */}
-    <Countdown ctx={ctx} />
-    <DayNotes ctx={ctx} />
     {/* 4. Workflow overview */}
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
       <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>

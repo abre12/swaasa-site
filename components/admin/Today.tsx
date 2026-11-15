@@ -1,15 +1,16 @@
 'use client'
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import { computeAlerts } from '@/lib/alerts'
 import { bookingReadiness } from '@/lib/readiness'
 import { altStatus } from '@/lib/bookingAction'
+import { prepSteps, STEP_COL } from '@/lib/countdown'
 import { Ic } from './icons'
 import PageHead from './PageHead'
 
 // TODAY: one list for the start of the day. Every row is something someone has to DO, the button on the row does it (or opens it),
 // and the list is derived from live records, so a row disappears as soon as the work is recorded. Sections with nothing to do are hidden.
-type Row = { key: string; dressId: string; code: string; name: string; who?: string; chip: string; tone: 'bad' | 'warn' | 'ok' | 'info'; hint?: string; label: string; go: () => void; primary?: boolean }
+type Row = { key: string; dressId: string; code: string; name: string; who?: string; chip: string; tone: 'bad' | 'warn' | 'ok' | 'info'; hint?: string; label: string; go: () => void; primary?: boolean; day?: string; steps?: { label: string; state: string }[] }
 type Sec = { id: string; title: string; icon: string; rows: Row[] }
 
 export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: boolean }) {
@@ -66,19 +67,22 @@ export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: 
     }
     out.push({ id: 'clean', title: 'Dry cleaning', icon: 'sparkle', rows: clRows })
 
-    // 7. tomorrow's deliveries that are not ready yet (so there is time to fix them)
-    out.push({ id: 'tmr', title: "Tomorrow's deliveries: get them ready", icon: 'calendar', rows: live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === tmr).flatMap(b => {
-      const rd = bookingReadiness(ctx, b), slot = b.delivery_slot ? ` · ${b.delivery_slot}` : ''
-      if (!rd.ready) return [bk(b, { chip: 'Not ready', tone: 'warn', hint: rd.reasons.map(r => r.label).join(' · ') + slot, label: 'See what\'s pending', go: open(b) })]
-      if (b.status === 'confirmed') return [bk(b, { chip: 'Check before delivery', tone: 'info', hint: 'Check whether everything is ready to deliver.' + slot, label: 'Open booking', primary: true, go: open(b) })]
-      return [] }) })
+    // 7. Coming up: the next 3 days in one list (replaces the separate "Next 3 days" block and the "Coming up tomorrow" line).
+    // Deliveries show how far the preparation has got; returns due tomorrow are listed too. A dress already shown above is not repeated.
+    const rctx = { B: ctx.B, D: ctx.D, AJ: ctx.AJ, CR: ctx.CR, DC: ctx.DC, dmap: ctx.dmap }, horizon = addD(today, 3)
+    const soon: Row[] = live.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date >= tmr && b.start_date <= horizon).flatMap(b => {
+      const rd = bookingReadiness(ctx, b), slot = b.delivery_slot ? ` · ${b.delivery_slot}` : '', ev = b.event_date ? `${b.event_type || 'Event'} ${dmy(b.event_date)} · ` : ''
+      return [bk(b, { key: 'soon:' + b.id, day: b.start_date, steps: prepSteps(rctx, b), chip: rd.ready ? 'Ready' : 'Not ready', tone: rd.ready ? 'ok' : b.start_date === tmr ? 'bad' : 'warn',
+        hint: ev + (rd.ready ? 'Ready to deliver' : rd.reasons.map(r => r.label).join(' · ')) + slot, label: 'Open', go: open(b) })] })
+    const soonRet: Row[] = live.filter(b => b.status === 'out' && b.end_date === tmr).map(b => bk(b, { key: 'soonret:' + b.id, day: tmr, chip: 'Return due', tone: 'info', hint: b.phone ? `Phone ${b.phone}` : undefined, label: 'Open', go: open(b) }))
+    out.push({ id: 'soon', title: 'Coming up: next 3 days', icon: 'calendar', rows: [...soon, ...soonRet].sort((x, y) => (x.day || '').localeCompare(y.day || '')) })
     // A dress should appear once in Today. Keep the highest-priority issue; the row itself is the single place to open the work.
     const seen = new Set<string>()
     return out.map(s => ({ ...s, rows: s.rows.filter(r => { const k = r.dressId || r.key; if (seen.has(k)) return false; seen.add(k); return true }) })).filter(s => s.rows.length)
   }, [B, AJ, CR, DC, ctx.D, ctx.dmap, ctx.tick, today])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  const dayLbl = (d: string) => { const n = Math.round((Date.parse(d) - Date.parse(today)) / 864e5); return `${n === 1 ? 'Tomorrow' : dmy(d)} · D-${n}` }
   const total = sections.reduce((n, s) => n + s.rows.length, 0)
-  const tmrDel = B.filter(b => ['confirmed', 'pending'].includes(b.status) && b.start_date === tmr).length, tmrRet = B.filter(b => b.status === 'out' && b.end_date === tmr).length
   return (<div className={embedded ? 'td-embed' : undefined}>
     {embedded
       ? <div className="td-embed-head"><h2><Ic n="checkc" s={24} />Today</h2><span className="mut">{new Date(today + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Everything that needs doing, in order.</span></div>
@@ -86,13 +90,14 @@ export default function Today({ ctx, embedded = false }: { ctx: any; embedded?: 
     {!total && <div className="td-clear"><Ic n="checkc" s={30} /><b>All caught up for today</b><p>No deliveries, returns or vendor actions are waiting.</p></div>}
     {sections.map(s => <section key={s.id} className="td-sec">
       <h3><Ic n={s.icon} s={18} />{s.title}<span className="td-n">{s.rows.length}</span></h3>
-      {s.rows.map(r => <div key={r.key} className={'td-row ' + r.tone} role="button" tabIndex={0} onClick={r.go} onKeyDown={e => { if (e.key === 'Enter') r.go() }}>
-        {ctx.thumb(ctx.dmap?.[r.dressId] || { images: [] }, 40, 52)}
-        <div className="td-main"><div className="td-top"><b>{r.code}</b><span>{r.name}</span>{r.who && <em>{r.who}</em>}</div>
-          <div className="td-chip"><span className={'td-tag ' + r.tone}>{r.chip}</span>{r.hint && <small>{r.hint}</small>}</div></div>
-        <button type="button" className={'btn sm' + (r.primary ? ' wine' : ' alt')} onClick={e => { e.stopPropagation(); r.go() }}>{r.label}</button>
-      </div>)}
+      {s.rows.map((r, i) => <Fragment key={r.key}>{r.day && r.day !== s.rows[i - 1]?.day && <div className="td-day">{dayLbl(r.day)}</div>}
+        <div className={'td-row ' + r.tone} role="button" tabIndex={0} onClick={r.go} onKeyDown={e => { if (e.key === 'Enter') r.go() }}>
+          {ctx.thumb(ctx.dmap?.[r.dressId] || { images: [] }, 40, 52)}
+          <div className="td-main"><div className="td-top"><b>{r.code}</b><span>{r.name}</span>{r.who && <em>{r.who}</em>}</div>
+            <div className="td-chip"><span className={'td-tag ' + r.tone}>{r.chip}</span>{r.hint && <small>{r.hint}</small>}</div>
+            {r.steps && <div className="td-steps" aria-label="Preparation progress">{r.steps.map(x => <span key={x.label} title={`${x.label}: ${x.state === 'na' ? 'not needed' : x.state === 'doing' ? 'in progress' : x.state === 'done' ? 'done' : 'not started'}`}><i style={{ background: (STEP_COL as any)[x.state] }} /><small>{x.label}</small></span>)}</div>}</div>
+          <button type="button" className={'btn sm' + (r.primary ? ' wine' : ' alt')} onClick={e => { e.stopPropagation(); r.go() }}>{r.label}</button>
+        </div></Fragment>)}
     </section>)}
-    {(tmrDel + tmrRet) > 0 && <div className="td-tomorrow"><b>Coming up tomorrow</b><span>🚚 {tmrDel} deliver{tmrDel === 1 ? 'y' : 'ies'} · ↩ {tmrRet} return{tmrRet === 1 ? '' : 's'} due</span></div>}
   </div>)
 }
