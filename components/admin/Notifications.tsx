@@ -51,13 +51,13 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const isRead = (a: Alert) => (read[a.key] || 0) >= a.rank     // an alert that becomes more urgent shows as unread again
   const unreadAlerts = alerts.filter(a => !isRead(a)).length
   // Critical alerts (Delivery at Risk + Critical) keep their count on the bell until the problem is actually fixed. Reading them does not clear the count.
-  // CH-5: the bell counts every ISSUE (a dress with two problems counts twice), and shows critical, approvals and other unread as separate chips.
-  const criticalN = issues.filter(a => a.level === 'risk' || a.level === 'critical').length
+  // The bell counts one per dress (the same cards as the panel; extra problems on the same dress show under "Also"), and shows critical, approvals and other unread as separate chips.
+  const criticalN = alerts.filter(a => a.level === 'risk' || a.level === 'critical').length   // one per dress/booking, exactly the cards in the panel (not one per underlying issue)
   // SA-3: information-only notes for the owner (a dress delivered although not ready, a changed late fee). They never block anything.
   const notices: any[] = ctx.owner ? (ctx.NOTICES || []) : []
   const noticeRead = (n: any) => (read['notice:' + n.id] || 0) >= 1
   const unreadNotices = notices.filter(n => !noticeRead(n)).length
-  const unreadOther = issues.filter(a => a.level === 'high' && !isRead(a)).length + unreadNotices
+  const unreadOther = alerts.filter(a => a.level === 'high' && !isRead(a)).length + unreadNotices
 
   // ---- approvals ----
   const owner = !!ctx.owner, canAsk = !!ctx.ops && !owner
