@@ -34,12 +34,13 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   useEffect(() => {
     const sb = supa()
     Promise.all([
-      sb.from('bookings').select('id,end_date,customer_name').eq('dress_id', dress.id).eq('status', 'out').limit(1),
+      sb.from('bookings').select('id,start_date,end_date,customer_name').eq('dress_id', dress.id).eq('status', 'out').limit(1),
       sb.from('dry_clean_requests').select('status').eq('dress_id', dress.id).in('status', ['to_be_sent', 'sent', 'returned_pending_check']).limit(1)])
       .then(([o, c]) => setNow({ out: o.data?.[0] || null, clean: c.data?.[0] || null }))
   }, [dress.id])
   const heads: string[] = []
-  if (now.out) { const late = now.out.end_date < todayIST(); if (late || (s && now.out.end_date >= addDays(s, -2))) heads.push(`This dress is still with ${now.out.customer_name || 'another customer'}, due back ${dmy(now.out.end_date)}${late ? ' (overdue)' : ''}. It may not be back in time for the new booking.`) }
+  // Only a rental that comes BEFORE the new booking can make it late. If the other booking starts after the new one ends (the new booking is in the gap before it), the dress is not "still with" them for these dates.
+  if (now.out && !(s && e && now.out.start_date > e)) { const late = now.out.end_date < todayIST(); if (late || (s && now.out.end_date >= addDays(s, -2))) heads.push(`This dress is still with ${now.out.customer_name || 'another customer'}, due back ${dmy(now.out.end_date)}${late ? ' (overdue)' : ''}. It may not be back in time for the new booking.`) }
   if (now.clean && s && s <= addDays(todayIST(), 7)) heads.push(`This dress is in the cleaning workflow (${now.clean.status === 'to_be_sent' ? 'waiting to be sent to the cleaner' : now.clean.status === 'sent' ? 'with the cleaner' : 'back from the cleaner, to be checked'}). Check it will be ready by the delivery date.`)
   const valid = !!(s && e && e >= s)
   const clash = valid ? busy.filter(b => s <= b.hold_end && e >= b.start_date) : []
