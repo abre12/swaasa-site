@@ -14,8 +14,9 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   const playRequestId = useRef(0)
   const scrollTimer = useRef<number | null>(null)
   const dragGesture = useRef<{ pointerId: number; startX: number; startY: number; startScrollLeft: number; startIndex: number; dragging: boolean } | null>(null)
-  const touchGesture = useRef<{ startX: number; startY: number; startScrollLeft: number; didScroll: boolean } | null>(null)
+  const touchStart = useRef<{ x: number; y: number; scrollLeft: number } | null>(null)
   const suppressClickUntil = useRef(0)
+  const programmaticCenterUntil = useRef(0)
   const [active, setActive] = useState(0)
   const [soundOn, setSoundOn] = useState(false)
   const [playing, setPlaying] = useState<number | null>(null)
@@ -70,10 +71,6 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   }, [changeActive])
 
   const onTrackScroll = () => {
-    const touch = touchGesture.current
-    if (touch && track.current && Math.abs(track.current.scrollLeft - touch.startScrollLeft) > 4) {
-      touch.didScroll = true
-    }
     if (dragGesture.current?.dragging) return
     // Wait until momentum and scroll-snap settle before changing the active
     // slide. Updating React state on every touch-scroll frame can interrupt
@@ -81,14 +78,42 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
     scrollTimer.current = window.setTimeout(() => {
       scrollTimer.current = null
+      if (Date.now() < programmaticCenterUntil.current) return
       pickCenteredCard()
-    }, 120)
+    }, 180)
   }
 
-  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // Touch devices use the browser's native horizontal scrolling below.
-    if (event.pointerType !== 'mouse' || event.button !== 0) return
+  const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0]
+    if (!touch || !track.current) return
+    programmaticCenterUntil.current = 0
     suppressClickUntil.current = 0
+    if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
+    scrollTimer.current = null
+    touchStart.current = { x: touch.clientX, y: touch.clientY, scrollLeft: track.current.scrollLeft }
+  }
+
+  const onTouchEnd = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const start = touchStart.current
+    touchStart.current = null
+    if (!start || !track.current) return
+    const touch = event.changedTouches[0]
+    const movedX = Math.abs((touch?.clientX ?? start.x) - start.x)
+    const movedY = Math.abs((touch?.clientY ?? start.y) - start.y)
+    const scrolled = Math.abs(track.current.scrollLeft - start.scrollLeft) > 6
+    if (scrolled || (movedX > 18 && movedX > movedY)) suppressClickUntil.current = Date.now() + 450
+  }
+
+  const onTouchCancel = () => { touchStart.current = null }
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    // Desktop mouse dragging uses pointer events. Mobile uses the browser's
+    // native horizontal scroller and scroll snapping.
+    if (event.pointerType !== 'mouse' || event.button !== 0) return
+    programmaticCenterUntil.current = 0
+    suppressClickUntil.current = 0
+    if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
+    scrollTimer.current = null
     const scroller = track.current
     if (!scroller) return
     dragGesture.current = {
@@ -132,36 +157,6 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
       changeActive(Math.max(0, Math.min(reels.length - 1, gesture.startIndex + step)))
     }
     scrollToCard(activeRef.current, 'smooth')
-  }
-
-  const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
-    // A new intentional touch should never be blocked by the previous swipe.
-    suppressClickUntil.current = 0
-    if (event.touches.length !== 1) {
-      touchGesture.current = null
-      return
-    }
-    const touch = event.touches[0]
-    touchGesture.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      startScrollLeft: track.current?.scrollLeft ?? 0,
-      didScroll: false,
-    }
-  }
-
-  const finishTouchGesture = (event: ReactTouchEvent<HTMLDivElement>) => {
-    const gesture = touchGesture.current
-    touchGesture.current = null
-    if (!gesture) return
-    const touch = event.changedTouches[0]
-    const dx = touch ? touch.clientX - gesture.startX : 0
-    const dy = touch ? touch.clientY - gesture.startY : 0
-    const scrolled = gesture.didScroll || Math.abs((track.current?.scrollLeft ?? gesture.startScrollLeft) - gesture.startScrollLeft) > 4
-    if (scrolled || Math.abs(dx) > 28 || Math.abs(dy) > 28) {
-      // Ignore only the synthetic click produced after a real horizontal swipe.
-      suppressClickUntil.current = Date.now() + 350
-    }
   }
 
   const isSwipeClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -242,6 +237,7 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   const go = (index: number) => {
     const target = Math.max(0, Math.min(reels.length - 1, index))
     if (!track.current || !cards.current[target]) return
+    programmaticCenterUntil.current = Date.now() + 600
     changeActive(target)
     scrollToCard(target, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth')
   }
@@ -251,6 +247,9 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     const video = videos.current[index]
     if (!reel?.video || !video) return
 
+    if (scrollTimer.current !== null) window.clearTimeout(scrollTimer.current)
+    scrollTimer.current = null
+    programmaticCenterUntil.current = Date.now() + 600
     changeActive(index)
     // Center without starting a smooth scroll that could race playback state.
     scrollToCard(index, 'auto')
@@ -315,7 +314,7 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     <div className="cl-reels-txt"><h2>Swaasa in Motion</h2><p>Discover our latest looks, real stylings and behind-the-scenes moments.</p>
       <a className="cl-ig" href={instagram} target="_blank" rel="noopener noreferrer">Follow on Instagram <span aria-hidden="true">↗</span></a></div>
     <div className="cl-reels-stage">{previous()}
-      <div className="cl-track" ref={track} onScroll={onTrackScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishPointerGesture} onPointerCancel={event => finishPointerGesture(event, true)} onTouchStart={onTouchStart} onTouchEnd={finishTouchGesture} onTouchCancel={finishTouchGesture}>
+      <div className="cl-track" ref={track} onScroll={onTrackScroll} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onTouchCancel={onTouchCancel} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishPointerGesture} onPointerCancel={event => finishPointerGesture(event, true)}>
         {reels.map((reel, index) => {
           const shouldLoad = visible.has(index) || index === active
           const isMuted = index !== active || !soundOn

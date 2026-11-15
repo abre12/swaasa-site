@@ -1,5 +1,9 @@
-Swaasa customer carousel play, pause and mobile swipe fix
+Swaasa targeted admin and mobile carousel fix
 
-Copy the app and components folders into the root of the existing swaasa-site project and overwrite the matching files.
-The shared carousel is used on the customer homepage and booking page.
-Mobile swipes use native scrolling. A swipe does not trigger the next reel. Tapping a reel starts it; tapping a playing reel pauses it. Sound remains controlled by the speaker button.
+Copy these four files into the root of your current Swaasa GitHub repository, keeping the same folder paths and replacing the existing files:
+- components/AdminApp.tsx
+- components/ReelsCarousel.tsx
+- components/admin/Inventory.tsx
+- app/globals.css
+
+This package contains code only. It does not contain Reel videos, posters, or database migrations. Review the changed files in GitHub Desktop, commit, and push to the branch connected to Vercel.

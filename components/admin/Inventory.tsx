@@ -6,6 +6,8 @@ import { sendForDryCleaning } from './DryCleaning'
 import PageHead from './PageHead'
 import { ALT_OPEN, dressStage } from '@/lib/readiness'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
+const asArray = (value: unknown): any[] => Array.isArray(value) ? value : []
+const asText = (value: unknown): string => typeof value === 'string' ? value : ''
 // The database keeps the value 'maintenance'; staff see it as Damaged.
 const STATUS_LABEL: Record<string, string> = { available: 'Available', maintenance: 'Damaged', unavailable: 'Unavailable', retired: 'Retired', archived: 'Archived' }
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free size']
@@ -21,15 +23,20 @@ const STAGE_KEY: Record<string, string> = { ready: 'available', needs_work: 'nee
 export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }: { ctx: any; D: any[]; owner: boolean; onAdd: () => void; onEdit: (d: any) => void; form?: React.ReactNode; extra?: React.ReactNode }) {
   const [q, setQ] = useState(''), [cat, setCat] = useState(''), [size, setSize] = useState(''), [stf, setStf] = useState(''), [menu, setMenu] = useState<{ d: any; x: number; y: number } | null>(null), [hist, setHist] = useState<any>(null), [showF, setShowF] = useState(false)
   useEffect(() => { const c = () => setMenu(null); document.addEventListener('click', c); window.addEventListener('scroll', c, true); return () => { document.removeEventListener('click', c); window.removeEventListener('scroll', c, true) } }, [])
-  const B: any[] = ctx.B, DC: any[] = ctx.DC || []
-  const stateOf = (d: any): string => ['unavailable', 'retired', 'archived'].includes(d.status) ? d.status : (STAGE_KEY[dressStage(ctx, d).key] || 'available')
-  const detailOf = (d: any) => dressStage(ctx, d).detail
-  const rows = useMemo(() => D.map(d => ({ d, s: stateOf(d) })), [D, B, DC, ctx.AJ, ctx.CR])
+  const B: any[] = asArray(ctx.B), DC: any[] = asArray(ctx.DC), dresses = asArray(D)
+  const stateOf = (d: any): string => {
+    const status = asText(d?.status)
+    if (['unavailable', 'retired', 'archived'].includes(status)) return status
+    const stage = d ? dressStage(ctx, d).key : 'ready'
+    return stage === 'damaged' ? 'maintenance' : (STAGE_KEY[stage] || 'available')
+  }
+  const detailOf = (d: any) => d ? dressStage(ctx, d).detail : undefined
+  const rows = useMemo(() => dresses.filter(Boolean).map(d => ({ d, s: stateOf(d) })), [D, B, DC, ctx.AJ, ctx.CR])
   const isIn = (s: string, k: string) => k === 'away' ? s === 'at_tailor' || s === 'at_cleaner' : s === k
   const count = (k: string) => k ? rows.filter(r => isIn(r.s, k)).length : rows.length
-  const sizeOpts = [...new Set([...SIZES, ...D.flatMap(d => d.sizes || [])])]
+  const sizeOpts = [...new Set([...SIZES, ...dresses.flatMap(d => asArray(d?.sizes).filter((s): s is string => typeof s === 'string'))])]
   const n = q.trim().toLowerCase()
-  const shown = rows.filter(({ d, s }) => (!n || [d.code, d.name, d.colour, ...(d.colour_tags || [])].some((x: string) => (x || '').toLowerCase().includes(n))) && (!cat || mainCatOf(d.category) === cat) && (!size || (d.sizes || []).includes(size)) && (!stf || isIn(s, stf)))
+  const shown = rows.filter(({ d, s }) => (!n || [d.code, d.name, d.colour, ...asArray(d.colour_tags)].some((x: unknown) => asText(x).toLowerCase().includes(n))) && (!cat || mainCatOf(asText(d.category)) === cat) && (!size || asArray(d.sizes).includes(size)) && (!stf || isIn(s, stf)))
   const nF = [cat, size, stf].filter(Boolean).length
   async function setStatus(d: any, cur: string) {
     const v = await ctx.ask(`Update status: ${d.code}`, [{ name: 's', label: 'Status', options: Object.values(STATUS_LABEL), value: STATUS_LABEL[d.status] || d.status, required: true }], { ok: 'Save status', note: cur !== d.status || ['rented', 'needs_work', 'at_tailor', 'at_cleaner'].includes(cur) ? `Right now this dress shows as ${ST[cur][0]} from live bookings, alteration jobs and the cleaning queue. This changes only the stock status (available, damaged, unavailable, retired or archived).` : 'Damaged, unavailable, retired and archived dresses cannot be booked.' }); if (!v || (Object.keys(STATUS_LABEL).find(k => STATUS_LABEL[k] === v.s) || v.s) === d.status) return
@@ -74,11 +81,11 @@ export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }:
         <td style={{ textAlign: 'right' }}>{inr(d.price)}</td><td style={{ textAlign: 'right' }}>{inr(d.dry_clean_charge || 0)}</td>
         <td><span className="bdg bdg-lg" style={tint(ST[s][1])}><Ic n={ST[s][2]} s={16} />{ST[s][0]}</span>{detailOf(d) && <div className="mut" style={{ fontSize: 12, marginTop: 3 }}>{detailOf(d)}</div>}</td>
         <td><button className="dotb" aria-label={`Actions for ${d.code}`} onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setMenu(menu?.d.id === d.id ? null : { d, x: r.right, y: r.bottom + 4 }) }}><Ic n="dots" s={20} /></button></td></tr>)}
-      {!shown.length && <tr><td colSpan={8} className="mut" style={{ padding: 22 }}>{D.length ? 'No dresses match. Try clearing the search or filters.' : 'No dresses yet.'}</td></tr>}</tbody></table></div></div>
+      {!shown.length && <tr><td colSpan={8} className="mut" style={{ padding: 22 }}>{dresses.length ? 'No dresses match. Try clearing the search or filters.' : 'No dresses yet.'}</td></tr>}</tbody></table></div></div>
     <div className="inv-cards">{shown.map(({ d, s }) => <div key={d.id} className="inv-c">{ctx.thumb(d, 60, 78)}<div className="inv-b"><div className="inv-t"><b>{d.code}</b><button className="dotb" aria-label={`Actions for ${d.code}`} onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setMenu(menu?.d.id === d.id ? null : { d, x: r.right, y: r.bottom + 4 }) }}><Ic n="dots" s={20} /></button></div>
       <div className="inv-n">{d.name}</div><div className="mut" style={{ fontSize: 12 }}>{d.category} · Rent {inr(d.price)} · Wash {inr(d.dry_clean_charge || 0)}</div><span className="bdg" style={{ ...tint(ST[s][1]), marginTop: 6 }}><Ic n={ST[s][2]} s={14} />{ST[s][0]}</span>{detailOf(d) && <div className="mut" style={{ fontSize: 12, marginTop: 3 }}>{detailOf(d)}</div>}</div></div>)}
       {!shown.length && <p className="mut">No dresses match.</p>}</div>
-    <p className="mut" style={{ fontSize: 12 }}>Showing {shown.length} of {D.length} dresses. With customer, Needs work, At tailor and At cleaner come from live bookings, alteration jobs and the cleaning queue; Damaged, Unavailable, Retired and Archived are set by staff.</p>
+    <p className="mut" style={{ fontSize: 12 }}>Showing {shown.length} of {dresses.length} dresses. With customer, Needs work, At tailor and At cleaner come from live bookings, alteration jobs and the cleaning queue; Damaged, Unavailable, Retired and Archived are set by staff.</p>
     {menu && <div className="bkm-pop" onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: Math.min(menu.y, innerHeight - 260), right: Math.max(8, innerWidth - menu.x), padding: 6, gap: 2 }}>
       <Item ic="search" t="View Dress" href={`/dress/${menu.d.id}`} />
       {owner && <Item ic="pencil" t="Edit Dress" on={() => onEdit(menu.d)} />}
