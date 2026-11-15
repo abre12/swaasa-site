@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from 'react'
 import type { Reel } from '@/lib/reels'
 
 const Chev = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
@@ -11,8 +11,10 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   const cards = useRef<(HTMLDivElement | null)[]>([])
   const videos = useRef<(HTMLVideoElement | null)[]>([])
   const activeRef = useRef(0)
+  const playRequestId = useRef(0)
   const scrollTimer = useRef<number | null>(null)
-  const dragGesture = useRef<{ pointerId: number; pointerType: string; startX: number; startY: number; startScrollLeft: number; startIndex: number; dragging: boolean } | null>(null)
+  const dragGesture = useRef<{ pointerId: number; startX: number; startY: number; startScrollLeft: number; startIndex: number; dragging: boolean } | null>(null)
+  const touchGesture = useRef<{ startX: number; startY: number; startScrollLeft: number; didScroll: boolean } | null>(null)
   const suppressClickUntil = useRef(0)
   const [active, setActive] = useState(0)
   const [soundOn, setSoundOn] = useState(false)
@@ -32,6 +34,7 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     const next = Math.max(0, Math.min(reels.length - 1, index))
     if (next === activeRef.current) return
     activeRef.current = next
+    playRequestId.current += 1
     pauseOthers(next)
     setActive(next)
     setSoundOn(false)
@@ -67,6 +70,10 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   }, [changeActive])
 
   const onTrackScroll = () => {
+    const touch = touchGesture.current
+    if (touch && track.current && Math.abs(track.current.scrollLeft - touch.startScrollLeft) > 4) {
+      touch.didScroll = true
+    }
     if (dragGesture.current?.dragging) return
     // Wait until momentum and scroll-snap settle before changing the active
     // slide. Updating React state on every touch-scroll frame can interrupt
@@ -79,12 +86,13 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   }
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return
+    // Touch devices use the browser's native horizontal scrolling below.
+    if (event.pointerType !== 'mouse' || event.button !== 0) return
+    suppressClickUntil.current = 0
     const scroller = track.current
     if (!scroller) return
     dragGesture.current = {
       pointerId: event.pointerId,
-      pointerType: event.pointerType,
       startX: event.clientX,
       startY: event.clientY,
       startScrollLeft: scroller.scrollLeft,
@@ -102,15 +110,9 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     if (!gesture.dragging) {
       if (Math.abs(deltaX) < 8 || Math.abs(deltaX) <= Math.abs(deltaY)) return
       gesture.dragging = true
-      // Let the browser handle touch scrolling and momentum. Manually moving
-      // scrollLeft during a touch gesture prevents reliable native swipe on
-      // iOS and can cancel the click/play gesture. Keep mouse dragging custom.
-      if (gesture.pointerType !== 'touch') {
-        scroller.classList.add('is-dragging')
-        try { scroller.setPointerCapture(event.pointerId) } catch {}
-      }
+      scroller.classList.add('is-dragging')
+      try { scroller.setPointerCapture(event.pointerId) } catch {}
     }
-    if (gesture.pointerType === 'touch') return
     event.preventDefault()
     scroller.scrollLeft = gesture.startScrollLeft + deltaX
   }
@@ -122,14 +124,8 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     track.current?.classList.remove('is-dragging')
     if (!gesture.dragging) return
 
-    suppressClickUntil.current = Date.now() + 400
+    suppressClickUntil.current = Date.now() + 350
     pickCenteredCard()
-    if (gesture.pointerType === 'touch') {
-      // Native scroll-snap settles after touchend; keep following scroll events
-      // so the final centered reel becomes active after momentum finishes.
-      onTrackScroll()
-      return
-    }
     const swipeX = gesture.startX - event.clientX
     if (!cancelled && Math.abs(swipeX) >= 48 && activeRef.current === gesture.startIndex) {
       const step = swipeX > 0 ? 1 : -1
@@ -138,17 +134,61 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     scrollToCard(activeRef.current, 'smooth')
   }
 
+  const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    // A new intentional touch should never be blocked by the previous swipe.
+    suppressClickUntil.current = 0
+    if (event.touches.length !== 1) {
+      touchGesture.current = null
+      return
+    }
+    const touch = event.touches[0]
+    touchGesture.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startScrollLeft: track.current?.scrollLeft ?? 0,
+      didScroll: false,
+    }
+  }
+
+  const finishTouchGesture = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const gesture = touchGesture.current
+    touchGesture.current = null
+    if (!gesture) return
+    const touch = event.changedTouches[0]
+    const dx = touch ? touch.clientX - gesture.startX : 0
+    const dy = touch ? touch.clientY - gesture.startY : 0
+    const scrolled = gesture.didScroll || Math.abs((track.current?.scrollLeft ?? gesture.startScrollLeft) - gesture.startScrollLeft) > 4
+    if (scrolled || Math.abs(dx) > 28 || Math.abs(dy) > 28) {
+      // Ignore only the synthetic click produced after a real horizontal swipe.
+      suppressClickUntil.current = Date.now() + 350
+    }
+  }
+
+  const isSwipeClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (Date.now() >= suppressClickUntil.current) {
+      return false
+    }
+    return true
+  }
+
   const playFromClick = (event: ReactMouseEvent<HTMLButtonElement>, index: number) => {
-    if (Date.now() < suppressClickUntil.current) {
+    if (isSwipeClick(event)) {
       event.preventDefault()
       event.stopPropagation()
+      return
+    }
+    const video = videos.current[index]
+    if (video && !video.paused) {
+      playRequestId.current += 1
+      video.pause()
+      setPlaying(null)
       return
     }
     playWithSound(index)
   }
 
   const soundFromClick = (event: ReactMouseEvent<HTMLButtonElement>, index: number) => {
-    if (Date.now() < suppressClickUntil.current) {
+    if (isSwipeClick(event)) {
       event.preventDefault()
       event.stopPropagation()
       return
@@ -212,7 +252,8 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     if (!reel?.video || !video) return
 
     changeActive(index)
-    scrollToCard(index)
+    // Center without starting a smooth scroll that could race playback state.
+    scrollToCard(index, 'auto')
     pauseOthers(index)
     setVisible(previous => new Set(previous).add(index))
     setSoundOn(true)
@@ -225,13 +266,15 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     video.muted = false
     video.volume = 1
     video.playsInline = true
-    video.play().then(() => setPlaying(index)).catch(() => {
+    const requestId = ++playRequestId.current
+    video.play().catch(() => {
+      if (requestId !== playRequestId.current) return
       video.muted = true
       setSoundOn(false)
       // If the browser refuses audible playback on mobile, still start the
       // reel muted so the tap works; the visible sound control can unmute it.
-      video.play().then(() => setPlaying(index)).catch(() => {
-        setPlaying(current => current === index ? null : current)
+      video.play().catch(() => {
+        if (requestId === playRequestId.current) setPlaying(current => current === index ? null : current)
       })
     })
   }
@@ -253,11 +296,13 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     setSoundOn(!nextMuted)
     if (!nextMuted && video.paused) {
       video.volume = 1
-      video.play().then(() => setPlaying(index)).catch(() => {
+      const requestId = ++playRequestId.current
+      video.play().catch(() => {
+        if (requestId !== playRequestId.current) return
         video.muted = true
         setSoundOn(false)
-        video.play().then(() => setPlaying(index)).catch(() => {
-          setPlaying(current => current === index ? null : current)
+        video.play().catch(() => {
+          if (requestId === playRequestId.current) setPlaying(current => current === index ? null : current)
         })
       })
     }
@@ -270,14 +315,14 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     <div className="cl-reels-txt"><h2>Swaasa in Motion</h2><p>Discover our latest looks, real stylings and behind-the-scenes moments.</p>
       <a className="cl-ig" href={instagram} target="_blank" rel="noopener noreferrer">Follow on Instagram <span aria-hidden="true">↗</span></a></div>
     <div className="cl-reels-stage">{previous()}
-      <div className="cl-track" ref={track} onScroll={onTrackScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishPointerGesture} onPointerCancel={event => finishPointerGesture(event, true)}>
+      <div className="cl-track" ref={track} onScroll={onTrackScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishPointerGesture} onPointerCancel={event => finishPointerGesture(event, true)} onTouchStart={onTouchStart} onTouchEnd={finishTouchGesture} onTouchCancel={finishTouchGesture}>
         {reels.map((reel, index) => {
           const shouldLoad = visible.has(index) || index === active
           const isMuted = index !== active || !soundOn
           return <div key={reel.video || reel.poster} ref={element => { cards.current[index] = element }} className={'cl-reel' + (index === active ? ' on' : '')}>
-            <button type="button" className="cl-reel-select" aria-label={`${playing === index ? 'Playing' : 'Play'} reel ${index + 1}: ${reel.alt}`} onClick={event => playFromClick(event, index)}>
+            <button type="button" className="cl-reel-select" aria-label={`${playing === index ? 'Pause' : 'Play'} reel ${index + 1}: ${reel.alt}`} onClick={event => playFromClick(event, index)}>
               <img src={reel.poster} alt="" loading={index < 3 ? 'eager' : 'lazy'} decoding="async" draggable={false} />
-              {reel.video && <video ref={element => { videos.current[index] = element }} src={shouldLoad ? reel.video : undefined} poster={reel.poster} preload={shouldLoad ? 'metadata' : 'none'} muted={isMuted} loop playsInline aria-label={reel.alt} onPlaying={() => setPlaying(index)} onPause={() => setPlaying(current => current === index ? null : current)} />}
+              {reel.video && <video ref={element => { videos.current[index] = element }} src={shouldLoad ? reel.video : undefined} poster={reel.poster} preload={shouldLoad ? 'metadata' : 'none'} muted={isMuted} loop playsInline aria-label={reel.alt} onPlaying={event => { if (index === activeRef.current && !event.currentTarget.paused) setPlaying(index) }} onPause={() => setPlaying(current => current === index ? null : current)} />}
               {reel.video && playing !== index && <span className="cl-reel-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg></span>}
             </button>
             {reel.video && shouldLoad && <button type="button" className="cl-sound" aria-label={soundOn && index === active ? `Mute reel ${index + 1}` : `Turn sound on for reel ${index + 1}`} aria-pressed={soundOn && index === active} onClick={event => soundFromClick(event, index)}><Speaker muted={!(soundOn && index === active)} /></button>}

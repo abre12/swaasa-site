@@ -1,5 +1,5 @@
-Swaasa customer carousel mobile fix
+Swaasa customer carousel play, pause and mobile swipe fix
 
 Copy the app and components folders into the root of the existing swaasa-site project and overwrite the matching files.
-This updates the shared Swaasa in Motion carousel used on the customer page and booking page.
-Mobile swiping uses native horizontal scroll and snap; tapping a poster starts playback with sound when allowed, with muted playback fallback. The sound button toggles mute.
+The shared carousel is used on the customer homepage and booking page.
+Mobile swipes use native scrolling. A swipe does not trigger the next reel. Tapping a reel starts it; tapping a playing reel pauses it. Sound remains controlled by the speaker button.
