@@ -20,7 +20,7 @@ const dressOf = (ctx: any, id: string) => ctx.dmap?.[id] || (ctx.D || []).find((
 export function bookingReadiness(ctx: any, b: any): Readiness {
   if (!b || !['pending', 'confirmed'].includes(b.status)) return { applicable: false, ready: true, reasons: [], summary: '', hard: false }
   const reasons: Reason[] = [], jobs: any[] = (ctx.AJ || []).filter((j: any) => ALT_OPEN.includes(j.status)), d = dressOf(ctx, b.dress_id)
-  const prev = (ctx.B || []).find((x: any) => x.dress_id === b.dress_id && x.id !== b.id && x.status === 'out')
+  const prev = (ctx.B || []).find((x: any) => x.dress_id === b.dress_id && x.id !== b.id && x.status === 'out' && x.start_date < b.start_date)   // only a rental that comes BEFORE this booking can still be holding the dress
   if (prev) reasons.push({ code: 'previous_out', hard: true, label: `Still with ${prev.customer_name || 'the previous customer'}${prev.end_date ? ` (due back ${dmy(prev.end_date)}${prev.end_date < todayIST() ? ', overdue' : ''})` : ''}` })
   const alt = jobs.find(j => j.booking_id === b.id && j.source !== 'damage')
   if (alt) reasons.push({ code: 'alteration', label: `Alteration: ${altStatus(alt).label}`, module: 'alteration', id: alt.id })

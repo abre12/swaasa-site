@@ -1,5 +1,5 @@
-# Cleaning-period notice names the other customer (15 Nov 2026)
+# Fix: false "Still with <customer>" on the dashboard and readiness checks (15 Nov 2026)
 
-Replace components/BookingFlow.tsx. No database change. Includes all earlier booking fixes (warning, two-way gap, approval at the Payment step); upload only this zip.
+Replace lib/readiness.ts and lib/alerts.ts. No database change.
 
-The notice now reads, for example: "Check dates for Cleaning & Preparation Period as Krishna has booked the dress from 20 Nov 2026" (or "... has the dress booked until 13 Nov 2026" when the other booking is before yours). Blocks and dry-cleaning periods, which have no customer, keep the plain notice.
+A booking was shown as "not ready: still with X" whenever ANY other rental of the same dress was marked out, even one that starts after it. Now only a rental that starts before the booking can hold the dress. This also corrects the "not back" count in the 5 PM Tomorrow summary.

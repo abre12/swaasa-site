@@ -223,7 +223,7 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
       let alteration = 0, prep = 0, notBack = 0
       for (const b of tb) {
         if ((ctx.AJ || []).some(j => j.booking_id === b.id && ALT_ACTIVE.includes(j.status) && j.source !== 'damage')) alteration++
-        else if (live.some(x => x.dress_id === b.dress_id && x.status === 'out' && x.id !== b.id)) notBack++
+        else if (live.some(x => x.dress_id === b.dress_id && x.status === 'out' && x.id !== b.id && x.start_date < b.start_date)) notBack++
         else if (cleaningOf(b.dress_id) || dm.get(b.dress_id)?.status === 'maintenance') prep++
       }
       summary = { key: `tomorrow:${tmr}`, date: tmr, total: tb.length, alteration, prep, notBack, returns, ready: tb.length - alteration - prep - notBack }
