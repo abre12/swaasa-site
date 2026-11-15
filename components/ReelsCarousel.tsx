@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Reel } from '@/lib/reels'
 
 const Chev = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
@@ -12,6 +12,8 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   const videos = useRef<(HTMLVideoElement | null)[]>([])
   const activeRef = useRef(0)
   const scrollTimer = useRef<number | null>(null)
+  const dragGesture = useRef<{ pointerId: number; pointerType: string; startX: number; startY: number; startScrollLeft: number; startIndex: number; dragging: boolean } | null>(null)
+  const suppressClickUntil = useRef(0)
   const [active, setActive] = useState(0)
   const [soundOn, setSoundOn] = useState(false)
   const [playing, setPlaying] = useState<number | null>(null)
@@ -65,6 +67,7 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   }, [changeActive])
 
   const onTrackScroll = () => {
+    if (dragGesture.current?.dragging) return
     // Wait until momentum and scroll-snap settle before changing the active
     // slide. Updating React state on every touch-scroll frame can interrupt
     // swipes and can reset sound while a tap is starting playback.
@@ -73,6 +76,84 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
       scrollTimer.current = null
       pickCenteredCard()
     }, 120)
+  }
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const scroller = track.current
+    if (!scroller) return
+    dragGesture.current = {
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: scroller.scrollLeft,
+      startIndex: activeRef.current,
+      dragging: false,
+    }
+  }
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = dragGesture.current
+    const scroller = track.current
+    if (!gesture || gesture.pointerId !== event.pointerId || !scroller) return
+    const deltaX = gesture.startX - event.clientX
+    const deltaY = gesture.startY - event.clientY
+    if (!gesture.dragging) {
+      if (Math.abs(deltaX) < 8 || Math.abs(deltaX) <= Math.abs(deltaY)) return
+      gesture.dragging = true
+      // Let the browser handle touch scrolling and momentum. Manually moving
+      // scrollLeft during a touch gesture prevents reliable native swipe on
+      // iOS and can cancel the click/play gesture. Keep mouse dragging custom.
+      if (gesture.pointerType !== 'touch') {
+        scroller.classList.add('is-dragging')
+        try { scroller.setPointerCapture(event.pointerId) } catch {}
+      }
+    }
+    if (gesture.pointerType === 'touch') return
+    event.preventDefault()
+    scroller.scrollLeft = gesture.startScrollLeft + deltaX
+  }
+
+  const finishPointerGesture = (event: ReactPointerEvent<HTMLDivElement>, cancelled = false) => {
+    const gesture = dragGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    dragGesture.current = null
+    track.current?.classList.remove('is-dragging')
+    if (!gesture.dragging) return
+
+    suppressClickUntil.current = Date.now() + 400
+    pickCenteredCard()
+    if (gesture.pointerType === 'touch') {
+      // Native scroll-snap settles after touchend; keep following scroll events
+      // so the final centered reel becomes active after momentum finishes.
+      onTrackScroll()
+      return
+    }
+    const swipeX = gesture.startX - event.clientX
+    if (!cancelled && Math.abs(swipeX) >= 48 && activeRef.current === gesture.startIndex) {
+      const step = swipeX > 0 ? 1 : -1
+      changeActive(Math.max(0, Math.min(reels.length - 1, gesture.startIndex + step)))
+    }
+    scrollToCard(activeRef.current, 'smooth')
+  }
+
+  const playFromClick = (event: ReactMouseEvent<HTMLButtonElement>, index: number) => {
+    if (Date.now() < suppressClickUntil.current) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    playWithSound(index)
+  }
+
+  const soundFromClick = (event: ReactMouseEvent<HTMLButtonElement>, index: number) => {
+    if (Date.now() < suppressClickUntil.current) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    toggleSound(index)
   }
 
   useEffect(() => () => {
@@ -140,7 +221,6 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     // browsers allow audible playback without a second tap.
     if (video.getAttribute('src') !== reel.video) {
       video.src = reel.video
-      video.load()
     }
     video.muted = false
     video.volume = 1
@@ -148,7 +228,11 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     video.play().then(() => setPlaying(index)).catch(() => {
       video.muted = true
       setSoundOn(false)
-      setPlaying(current => current === index ? null : current)
+      // If the browser refuses audible playback on mobile, still start the
+      // reel muted so the tap works; the visible sound control can unmute it.
+      video.play().then(() => setPlaying(index)).catch(() => {
+        setPlaying(current => current === index ? null : current)
+      })
     })
   }
 
@@ -163,7 +247,6 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
 
     if (video.getAttribute('src') !== reel.video) {
       video.src = reel.video
-      video.load()
     }
     const nextMuted = !video.muted
     video.muted = nextMuted
@@ -173,7 +256,9 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
       video.play().then(() => setPlaying(index)).catch(() => {
         video.muted = true
         setSoundOn(false)
-        setPlaying(current => current === index ? null : current)
+        video.play().then(() => setPlaying(index)).catch(() => {
+          setPlaying(current => current === index ? null : current)
+        })
       })
     }
   }
@@ -185,17 +270,17 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     <div className="cl-reels-txt"><h2>Swaasa in Motion</h2><p>Discover our latest looks, real stylings and behind-the-scenes moments.</p>
       <a className="cl-ig" href={instagram} target="_blank" rel="noopener noreferrer">Follow on Instagram <span aria-hidden="true">↗</span></a></div>
     <div className="cl-reels-stage">{previous()}
-      <div className="cl-track" ref={track} onScroll={onTrackScroll}>
+      <div className="cl-track" ref={track} onScroll={onTrackScroll} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishPointerGesture} onPointerCancel={event => finishPointerGesture(event, true)}>
         {reels.map((reel, index) => {
           const shouldLoad = visible.has(index) || index === active
           const isMuted = index !== active || !soundOn
           return <div key={reel.video || reel.poster} ref={element => { cards.current[index] = element }} className={'cl-reel' + (index === active ? ' on' : '')}>
-            <button type="button" className="cl-reel-select" aria-label={`${playing === index ? 'Playing' : 'Play'} reel ${index + 1}: ${reel.alt}`} onClick={() => playWithSound(index)}>
-              <img src={reel.poster} alt="" loading={index < 3 ? 'eager' : 'lazy'} decoding="async" />
+            <button type="button" className="cl-reel-select" aria-label={`${playing === index ? 'Playing' : 'Play'} reel ${index + 1}: ${reel.alt}`} onClick={event => playFromClick(event, index)}>
+              <img src={reel.poster} alt="" loading={index < 3 ? 'eager' : 'lazy'} decoding="async" draggable={false} />
               {reel.video && <video ref={element => { videos.current[index] = element }} src={shouldLoad ? reel.video : undefined} poster={reel.poster} preload={shouldLoad ? 'metadata' : 'none'} muted={isMuted} loop playsInline aria-label={reel.alt} onPlaying={() => setPlaying(index)} onPause={() => setPlaying(current => current === index ? null : current)} />}
               {reel.video && playing !== index && <span className="cl-reel-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg></span>}
             </button>
-            {reel.video && shouldLoad && <button type="button" className="cl-sound" aria-label={soundOn && index === active ? `Mute reel ${index + 1}` : `Turn sound on for reel ${index + 1}`} aria-pressed={soundOn && index === active} onClick={() => toggleSound(index)}><Speaker muted={!(soundOn && index === active)} /></button>}
+            {reel.video && shouldLoad && <button type="button" className="cl-sound" aria-label={soundOn && index === active ? `Mute reel ${index + 1}` : `Turn sound on for reel ${index + 1}`} aria-pressed={soundOn && index === active} onClick={event => soundFromClick(event, index)}><Speaker muted={!(soundOn && index === active)} /></button>}
           </div>
         })}
       </div>{next()}
