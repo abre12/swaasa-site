@@ -1073,8 +1073,8 @@ body:has(.cl-page) footer{color:#6f5f66;border-color:#eadfdc}
 .cl-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:42px;height:42px;border-radius:50%;border:1px solid #ead6d6;background:#fff;color:#2a1a20;display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 10px #5b12301f}
 .cl-arrow.l{left:0}.cl-arrow.r{right:0}.cl-arrow:hover:not(:disabled){background:#fff5f5}.cl-arrow:disabled{opacity:.4;cursor:default}.cl-arrow:focus-visible{outline:3px solid var(--cw);outline-offset:2px}
 .cl-dots{grid-column:1/-1;display:flex;justify-content:center;align-items:center;gap:6px}
-.cl-dots button{width:7px;height:7px;padding:0;border:0;border-radius:99px;background:#c9a9ae;cursor:pointer;transition:width .25s,background .25s;position:relative}
-.cl-dots button:before{content:"";position:absolute;inset:-9px -4px}.cl-dots button.on{width:22px;background:#33121f}
+.cl-dots>button{width:7px;height:7px;padding:0;border:0;border-radius:99px;background:#c9a9ae;cursor:pointer;transition:width .25s,background .25s;position:relative}
+.cl-dots>button:before{content:"";position:absolute;inset:-9px -4px}.cl-dots>button.on{width:22px;background:#33121f}
 .cl-sec{padding:clamp(30px,4vw,46px) 0 0}
 .cl-sec>h2{margin:0 0 18px;text-align:center;font:600 clamp(28px,3vw,36px)/1.1 "Cormorant Garamond",Georgia,serif;letter-spacing:.03em;color:#33121f}
 .cl-flt{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;justify-content:center;background:#fff;border:1px solid var(--cl);border-radius:14px;padding:12px 14px}
