@@ -65,9 +65,9 @@ export async function addExpense(ctx: any, pre: any = {}): Promise<boolean> {
 }
 
 type TabKey = 'tx' | 'cash' | 'exp'
-export default function Finance({ ctx }: { ctx: any }) {
+export default function Finance({ ctx, initialTab = 'tx' }: { ctx: any; initialTab?: TabKey }) {
   const owner = ctx.owner, today = todayIST()
-  const [tab, setTab] = useState<TabKey>('tx'), [month, setMonth] = useState(today.slice(0, 7)), [date, setDate] = useState(today)
+  const [tab, setTab] = useState<TabKey>(initialTab), [month, setMonth] = useState(today.slice(0, 7)), [date, setDate] = useState(today)
   const [txView, setTxView] = useState<'transaction' | 'booking'>('transaction'), [txQuick, setTxQuick] = useState('month'), [txFrom, setTxFrom] = useState(''), [txTo, setTxTo] = useState(''), [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [txStart, txEnd] = dateRange(txQuick, month, txFrom, txTo, today)
   const [pays, setPays] = useState<any[]>([]), [todayPays, setTodayPays] = useState<any[]>([]), [exps, setExps] = useState<any[]>([]), [book, setBook] = useState<any>(null)

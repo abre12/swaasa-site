@@ -42,7 +42,7 @@ export default function CloseDay({ ctx }: { ctx: any }) {
         <h4 style={{ margin: '10px 0 4px' }}>1. Cash</h4>
         {tally === undefined ? <p className="mut">Checking…</p> : tally
           ? <p style={{ color: tally.difference ? '#b3261e' : '#2f7d4f', margin: 0 }}>{tally.difference ? `Tallied, but there is a difference of ₹${tally.difference}.` : 'Tallied. No difference.'}</p>
-          : <p style={{ margin: 0, color: '#b3261e' }}>The cash has not been tallied today. <button type="button" className="textlink" onClick={() => { setOpen(false); ctx.go('cash') }}>Open the Cash Counter</button></p>}
+          : <p style={{ margin: 0, color: '#b3261e' }}>The cash has not been tallied today. <button type="button" className="textlink" onClick={() => { setOpen(false); ctx.go('cash', { financeTab: 'cash' }) }}>Open the Cash Counter</button></p>}
         <h4 style={{ margin: '12px 0 4px' }}>2. Tomorrow&rsquo;s deliveries ({tomorrow.length})</h4>
         {!tomorrow.length && <p className="mut" style={{ margin: 0 }}>None.</p>}
         {tomorrow.map(({ b, rd }) => <div key={b.id} style={{ fontSize: 13, padding: '2px 0', color: rd.ready ? '#2f7d4f' : '#b3261e' }}>{rd.ready ? '✓' : '✗'} {b.dress_code} · {b.customer_name} <span className="mut">{rd.ready ? 'ready' : rd.reasons.map((x: any) => x.label).join(' · ')}</span></div>)}
