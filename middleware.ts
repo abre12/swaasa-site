@@ -1,9 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-// The whole site is private: every page and every API route needs a signed-in staff login (only /login is open).
-// The database enforces the same rule on the data itself, so this is a second lock, not the only one.
+// The customer landing page, crawl rules and selected promotional reels are public. Inventory, dress pages,
+// admin pages and APIs stay behind active-staff authentication; dress photos are also protected in Storage.
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname, isApi = path.startsWith('/api/')
+  if (path === '/' || path === '/robots.txt' || /^\/reels\/reel-[1-8](?:\.mp4|-poster\.(?:webp|jpg))$/i.test(path)) return NextResponse.next()
   // The scheduled reminders (GitHub Actions) have no browser login. That route checks its own secret (CRON_SECRET) and nothing else is open.
   if (path.startsWith('/api/cron/')) return NextResponse.next()
   let res = NextResponse.next({ request: req })
@@ -30,4 +31,4 @@ export async function middleware(req: NextRequest) {
   if (!st || !st.active) return deny('/login?denied=1')
   return res
 }
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logo-mark.png|logo-full.jpg|poster.jpg|hero.mp4|login-poster.jpg).*)'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logo-mark.png|logo-full.jpg|poster.jpg).*)'] }

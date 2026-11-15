@@ -4,6 +4,7 @@ import { COLOURS, inr, MAIN_CATS } from '@/lib/util'
 import { COLOUR_WORDS } from '@/lib/colours'
 import ReelsCarousel from '@/components/ReelsCarousel'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
+import { signDressImageValues, signDressRows } from '@/lib/dressImages'
 export const dynamic = 'force-dynamic'
 type P = Record<string, string | undefined>
 const SHORT: Record<string, string> = { 'Beige / Cream': 'Cream', 'Floral / Multicolour': 'Floral' }   // on-screen labels only; the full name is the tooltip
@@ -29,7 +30,12 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
     const d = (data || []).find((x: any) => x.thumbs?.[0] || x.images?.[0])
     return { pic: (d?.thumbs?.[0] || d?.images?.[0] || null) as string | null, n: count ?? data?.length ?? 0 }
   }))
-  const [{ data: dresses }, info] = await Promise.all([query, catInfo])
+  const [{ data: dressRows }, categoryRows] = await Promise.all([query, catInfo])
+  const [dresses, categoryPhotos] = await Promise.all([
+    signDressRows(sb, dressRows || [], 3600),
+    signDressImageValues(sb, categoryRows.map(item => item.pic || ''), 3600),
+  ])
+  const info = categoryRows.map((item, i) => ({ ...item, pic: categoryPhotos[i] || null }))
   const cur: P = { q, cat, colour, sort, max, from, to }, any = !!(q || cat || colour || max || (okDates))
   const FEATURES = [
     { t: 'Flexible Rental Dates', i: <svg {...ico}><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg> },

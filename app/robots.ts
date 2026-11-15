@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-// SA-5: search engines may list the public collection and dress pages, never the sign-in, staff or API addresses.
+// The landing page is public; inventory, dress pages, staff tools and APIs are private.
 export default function robots(): MetadataRoute.Robots {
-  return { rules: [{ userAgent: '*', allow: ['/', '/collection', '/dress/'], disallow: ['/admin', '/login', '/api/'] }] }
+  return { rules: [{ userAgent: '*', allow: ['/'], disallow: ['/collection', '/dress/', '/admin', '/booking', '/login', '/api/'] }] }
 }

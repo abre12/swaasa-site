@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { supaAdmin, supaServer } from '@/lib/supabase/server'
+import { DRESS_IMAGE_BUCKET, dressImagePath } from '@/lib/dressImages'
 export const maxDuration = 60
 const FASHN = 'https://api.fashn.ai/v1'
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status })
@@ -21,9 +22,16 @@ export async function POST(req: Request) {
   const { count } = await admin.from('tryon_log').select('id', { count: 'exact', head: true }).eq('ip_hash', ipHash).gte('created_at', since)
   if ((count || 0) >= (st?.tryon_daily_limit ?? 3)) return fail('You have reached today’s try-on limit. Please visit us in store or try again tomorrow.', 429)
 
-  const { data: dress } = await supaServer().from('dresses').select('images,try_on_image').eq('id', dressId).maybeSingle()
-  const garment = dress?.try_on_image || dress?.images?.[0]
+  const staffClient = supaServer()
+  const { data: dress } = await staffClient.from('dresses').select('images,try_on_image').eq('id', dressId).maybeSingle()
+  let garment = dress?.try_on_image || dress?.images?.[0]
   if (!garment) return fail('Try-on is not available for this dress.', 422)
+  const imagePath = dressImagePath(garment)
+  if (imagePath) {
+    const { data: signed, error } = await staffClient.storage.from(DRESS_IMAGE_BUCKET).createSignedUrl(imagePath, 300)
+    if (error || !signed?.signedUrl) return fail('The dress image could not be opened for try-on.', 503)
+    garment = signed.signedUrl
+  }
   await admin.from('tryon_log').insert({ ip_hash: ipHash })
 
   // The customer's photo is sent as base64 and never stored by us.

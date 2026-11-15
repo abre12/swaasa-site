@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { CATS, COLOURS, mainCatOf } from '@/lib/util'
 import { autoColours } from '@/lib/colours'
 import { makeSizes } from '@/lib/images'
+import { DRESS_IMAGE_BUCKET, dressImagePath } from '@/lib/dressImages'
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free size']
 type Item = { key: string; src: string; kind: 'old' | 'new'; i: number }
 const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '0 14px' }
@@ -45,14 +46,14 @@ export default function DressForm({ ctx, ed, onClose }: { ctx: any; ed: any | nu
     if (!code) return setErr('Enter the dress code.'); if (!name) return setErr('Enter the dress name.'); if (!(price > 0)) return setErr('Enter the rent amount.')
     setBusy(true)
     try {
-      const up = (p: string, b: Blob) => ctx.sb.storage.from('dress-images').upload(p, b, { cacheControl: '31536000', contentType: 'image/jpeg' }), url = (p: string) => ctx.sb.storage.from('dress-images').getPublicUrl(p).data.publicUrl
-      const entries: { key: string; url: string; thumb: string; medium: string }[] = old.map(o => ({ key: o.url, ...o }))
+      const up = (p: string, b: Blob) => ctx.sb.storage.from(DRESS_IMAGE_BUCKET).upload(p, b, { cacheControl: '3600', contentType: 'image/jpeg' })
+      const entries: { key: string; url: string; thumb: string; medium: string }[] = old.map(o => ({ key: o.url, url: dressImagePath(o.url) || o.url, thumb: dressImagePath(o.thumb) || o.thumb, medium: dressImagePath(o.medium) || o.medium }))
       for (const [i, n] of news.entries()) {
         ctx.say(`Uploading photo ${i + 1} of ${news.length}…`)
         try { const z = await makeSizes(n.file), base = `${Date.now()}-${i}`
           const [o, m, t] = await Promise.all([up(`${base}.jpg`, z.original), up(`m-${base}.jpg`, z.medium), up(`t-${base}.jpg`, z.thumb)])
           if (o.error) { setErr('A photo could not be uploaded. Please try again.'); setBusy(false); return }
-          entries.push({ key: 'new:' + i, url: url(`${base}.jpg`), thumb: m.error || t.error ? '' : url(`t-${base}.jpg`), medium: m.error ? '' : url(`m-${base}.jpg`) })
+          entries.push({ key: 'new:' + i, url: `${base}.jpg`, thumb: m.error || t.error ? '' : `t-${base}.jpg`, medium: m.error ? '' : `m-${base}.jpg` })
         } catch { setErr('A photo could not be read. Please choose it again.'); setBusy(false); return }
       }
       const at = entries.findIndex(e => e.key === mainKey); if (at > 0) entries.unshift(...entries.splice(at, 1))     // the main photo goes first

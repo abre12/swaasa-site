@@ -64,12 +64,12 @@ seed = """
 
 -- ───────────── SEED (new project only) ─────────────
 insert into public.settings default values on conflict do nothing;
-insert into storage.buckets(id, name, public) values ('dress-images', 'dress-images', true) on conflict do nothing;
+insert into storage.buckets(id, name, public) values ('dress-images', 'dress-images', false) on conflict (id) do update set public = false;
 insert into storage.buckets(id, name, public) values ('return-inspection-photos', 'return-inspection-photos', false) on conflict do nothing;
 -- Create the owner: sign up under Supabase > Authentication, then run
 --   insert into public.staff(user_id, name, role) values ('<the new user id>', 'Owner name', 'owner');
--- The storage (photo) access rules live in the storage schema, which this export does not cover. Apply the "storage.objects" policies from
--- schema.sql (dress-images) and migration-v10.sql / migration-v20-controls.sql (return-inspection-photos).
+-- The storage access rules live outside the public schema export. Apply migration-v30-private-dress-images.sql for dress photos and
+-- migration-v10.sql / migration-v20-controls.sql for return-inspection-photos.
 """
 open(out, 'w', encoding='utf-8').write(hdr + 'SET check_function_bodies = false;\n\n' + body + seed)
 PY

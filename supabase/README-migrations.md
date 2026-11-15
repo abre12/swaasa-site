@@ -6,8 +6,8 @@ This list was checked by applying every script below, in this order, to an empty
 
 | Situation | What to run |
 | --- | --- |
-| **Your live database today** (already has bookings) | Only the migrations it has not had yet. The newest are **v26**, **v27** and **v28** (each before deploying its website) and the lock-down **v26b** (after testing). Never run `schema-current.sql` on it. |
-| **A new project** (staging copy, rebuild) | Run `schema-current.sql` once, then its SEED section, then create the owner. Nothing else. |
+| **Your live database today** (already has bookings) | Only the migrations it has not had yet. Apply **v26**, **v27** and **v28** as required by that release, **v29** when using its delivery chart, and **v30** after deploying the signed-image website. Never run `schema-current.sql` on it. |
+| **A new project** (staging copy, rebuild) | Run `schema-current.sql` once, apply the storage policies in **v30**, then create the owner. |
 
 ## The full order (for the record)
 
@@ -39,8 +39,12 @@ This list was checked by applying every script below, in this order, to an empty
 | 28 | `migration-v26b-lockdown.sql` | Phase 2 batch A lock-down | After testing batch A |
 | 29 | `migration-v27-phase2-customers-nearmiss.sql` | Customers table, delivery confidence log | Before deploying the Phase 2 website (additive) |
 | 30 | `migration-v28-phase3.sql` | Handover notes, missed enquiries, dress costs, day close, scorecard and leakage, receipt settings, one money symbol; removes the unused `admin_notifications` | Before deploying the Phase 3 website |
+| 31 | `migration-v29-staff-deliveries.sql` | Actual deliveries per staff member for the Team Momentum chart | Optional website feature; safe to run before or after the matching website |
+| 32 | `migration-v30-private-dress-images.sql` | Makes the dress-image bucket private and limits image reads to active staff | Deploy the signed-image website first; after applying, purge the Storage CDN cache for `dress-images` if your plan supports it |
 
 There are no v23 or v24 files; those numbers were used for website-only versions.
+
+The v30 migration changes the existing bucket visibility without moving or deleting objects. Older public URLs may have been cached by the Storage CDN; purge the `dress-images` bucket cache after running v30 when that feature is available in the Supabase project.
 
 ## Rules going forward
 - Every new migration gets the next number and is added to this table **and to `migration-order.txt`** in the same change.

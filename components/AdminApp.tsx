@@ -36,6 +36,7 @@ import CancelBooking from './admin/CancelBooking'
 import CancelDecision from './admin/CancelDecision'
 import ReturnWizard from './admin/ReturnWizard'
 import { Ic } from './admin/icons'
+import { DRESS_IMAGE_BUCKET, signDressRows } from '@/lib/dressImages'
 const today = todayIST
 const ALL_TIME = '0000-01-01'      // ensureFrom(ALL_TIME) = load every booking ever
 const state = (b: any) => b.status === 'out' && b.end_date < today() ? 'overdue' : b.status
@@ -52,6 +53,16 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
   const [note, setNote] = useState(''); const [buf, setBuf] = useState(1); const [day, setDay] = useState<string | null>(null); const [tick, setTick] = useState(0); const [openB, setOpenB] = useState<any>(null)
   const [calView,setCalView]=useState<'month'|'week'|'day'>('month'),[calFocus,setCalFocus]=useState(today()),[calFilters,setCalFilters]=useState({bookings:true,deliveries:true,returns:true,alterations:true,cleaning:true})
   const [st, setSt] = useState<any>(null); const [payB, setPayB] = useState<string | null>(null)
+  const signedDressRef = useRef<any[]>([])
+  useEffect(() => { signedDressRef.current = D }, [D])
+  useEffect(() => {
+    let alive = true
+    const timer = window.setInterval(() => {
+      const rows = signedDressRef.current
+      if (rows.length) void signDressRows(sb, rows, 3600).then(next => { if (alive) setD(next) }).catch(() => {})
+    }, 45 * 60 * 1000)
+    return () => { alive = false; window.clearInterval(timer) }
+  }, [sb])
   // ── Data loading ────────────────────────────────────────────────────────────────────────────
   // FULL load  : every table, paged so nothing is cut at the API row cap. Runs when the app opens, after every
   //              action (load() is passed to all the action handlers), and every few minutes as a safety net.
@@ -80,7 +91,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
         // A failed request keeps what is already on screen (it used to blank the list, which also silently cleared every alert).
         const ok = !(b.error || k.error || d.error || dc.error || cr.error || aj.error || ap.error)
         if (!dc.error) setDC(dc.data || []); if (!cr.error) setCR(cr.data || []); if (!aj.error) setAJ(aj.data || []); if (!sf.error) setSTAFF(sf.data || []); if (!ap.error) setAPPR(ap.data || [])
-        if (!k.error) setK(k.data || []); if (!d.error) setD(d.data || []); if (!s.error) { setSt(s.data); setBuf(s.data?.buffer_days ?? 1) }
+        if (!k.error) setK(k.data || []); if (!d.error) setD(await signDressRows(sb, d.data || [], 3600)); if (!s.error) { setSt(s.data); setBuf(s.data?.buffer_days ?? 1) }
         if (!b.error) {
           let rows: any[] = b.data || []
           // booking_view already carries event_date / event_type (migrationcpt-v13c). Only an older database needs the extra lookup.
@@ -94,7 +105,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
         return ok
       }
       const [d, s] = await Promise.all([fetchAll(() => sb.from('dresses').select('id,code,name,images,thumbs,medium').order('code').order('id')), sb.from('settings').select('buffer_days').single()])
-      if (!d.error) setD(d.data || []); if (!s.error) setBuf(s.data?.buffer_days ?? 1)
+      if (!d.error) setD(await signDressRows(sb, d.data || [], 3600)); if (!s.error) setBuf(s.data?.buffer_days ?? 1)
       lastFull.current = Date.now(); setFullTick(t => t + 1); setTick(t => t + 1)
       return !d.error
     } finally { inflight.current-- }
@@ -452,8 +463,8 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       for (let i = 0; i < d.images.length; i++) {
         let t = d.thumbs?.[i] || '', m = d.medium?.[i] || ''
         if (!t || !m) { try { const z = await makeSizes(await (await fetch(d.images[i])).blob()), base = `opt-${d.id}-${i}-${Date.now()}`
-          const up = (pth: string, bl: Blob) => sb.storage.from('dress-images').upload(pth, bl, { cacheControl: '31536000', contentType: 'image/jpeg' }), url = (pth: string) => sb.storage.from('dress-images').getPublicUrl(pth).data.publicUrl
-          const [mm, tt] = await Promise.all([up(`m-${base}.jpg`, z.medium), up(`t-${base}.jpg`, z.thumb)]); if (!mm.error) m = url(`m-${base}.jpg`); if (!tt.error) t = url(`t-${base}.jpg`) } catch {} }
+          const up = (pth: string, bl: Blob) => sb.storage.from(DRESS_IMAGE_BUCKET).upload(pth, bl, { cacheControl: '3600', contentType: 'image/jpeg' })
+          const [mm, tt] = await Promise.all([up(`m-${base}.jpg`, z.medium), up(`t-${base}.jpg`, z.thumb)]); if (!mm.error) m = `m-${base}.jpg`; if (!tt.error) t = `t-${base}.jpg` } catch {} }
         thumbs.push(t); medium.push(m)
       }
       await sb.from('dresses').update({ thumbs, medium }).eq('id', d.id); done++; say(`Photos prepared for ${done} of ${todo.length} dresses…`)
