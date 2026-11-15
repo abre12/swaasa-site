@@ -1201,28 +1201,12 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 .ch-showcase .cl-reels{margin:0;border-radius:22px;box-shadow:0 10px 30px #64162a12}
 .ch-showcase .cl-reels-txt h2{font-size:clamp(28px,3vw,36px)}
 .ch-showcase .cl-reels-txt p{max-width:25ch}
-.ch-intro{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);align-items:center;gap:clamp(36px,8vw,112px);padding:clamp(64px,9vw,112px) clamp(2px,4vw,48px)}
 .ch-kicker{display:flex;align-items:center;gap:9px;margin:0 0 18px;color:var(--cw);font-size:10px;font-weight:700;letter-spacing:.17em;line-height:1.5}
 .ch-kicker>span{width:20px;height:1px;background:#bd9a58;display:inline-block}
-.ch-intro h1,.ch-experience h2,.ch-visit h2{margin:0;color:#301522;font:500 clamp(48px,6.7vw,82px)/.99 "Cormorant Garamond",Georgia,serif;letter-spacing:-.025em}
-.ch-intro h1 em,.ch-experience h2 em,.ch-visit h2 em{color:#8d3c54;font-weight:500}
-.ch-lead{max-width:46ch;margin:24px 0 10px;color:#392b31;font:500 clamp(18px,1.7vw,22px)/1.5 "Cormorant Garamond",Georgia,serif}
-.ch-body{max-width:54ch;margin:0;color:#706168;font-size:14px;line-height:1.85}
-.ch-actions{display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-top:25px}
+.ch-experience h2,.ch-visit h2{margin:0;color:#301522;font:500 clamp(48px,6.7vw,82px)/.99 "Cormorant Garamond",Georgia,serif;letter-spacing:-.025em}
+.ch-experience h2 em,.ch-visit h2 em{color:#8d3c54;font-weight:500}
 .ch-button{min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:15px;padding:0 19px;border:1px solid var(--cw);border-radius:9px;background:var(--cw);color:#fff;font:600 13px Inter,system-ui,sans-serif;text-align:center;text-decoration:none;transition:transform .18s,background .18s}
 .ch-button:hover{background:#66122f;transform:translateY(-1px)}
-.ch-text-link{color:#5c4650;font-size:13px;text-decoration:none}.ch-text-link:hover{text-decoration:underline;text-underline-offset:4px}
-.ch-art{height:clamp(300px,38vw,470px);display:grid;place-items:center;border-radius:48% 48% 44% 44%;background:radial-gradient(ellipse at 48% 47%,#fff9f2 0 32%,#eadbd3 32.5% 33%,#f0e4dd 33.5% 55%,#e4d4cd 100%);position:relative;overflow:hidden}
-.ch-art:before,.ch-art:after{content:"";position:absolute;border:1px solid #a5815033;border-radius:50%;width:74%;aspect-ratio:1;transform:rotate(-23deg)}
-.ch-art:after{width:59%;transform:rotate(29deg);border-color:#7b173833}
-.ch-art-frame{position:relative;z-index:1;width:70%;height:72%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:24px 14px;border:1px solid #aa8b6666;text-align:center;color:#72573c}
-.ch-art-top,.ch-art-bottom{font-size:9px;font-weight:700;letter-spacing:.19em}.ch-art-bottom{color:#7b1738}
-.ch-art-orbit{width:min(47%,176px);aspect-ratio:1;position:relative;display:grid;place-items:center;border:1px solid #a9885866;border-radius:50%;color:#7b1738}
-.ch-art-orbit:before,.ch-art-orbit:after{content:"";position:absolute;inset:11%;border:1px solid #7b173822;border-radius:50%;transform:rotate(45deg) scaleX(.43)}
-.ch-art-orbit:after{transform:rotate(-45deg) scaleX(.43)}
-.ch-art-orbit b{font:500 clamp(54px,7vw,86px)/1 "Cormorant Garamond",Georgia,serif}
-.ch-art-orbit i{position:absolute;width:7px;height:7px;background:#b39052;border-radius:50%}.ch-art-orbit i:first-child{top:8%;left:50%}.ch-art-orbit i:last-child{bottom:8%;left:50%}
-.ch-art-number{position:absolute;right:12px;bottom:10px;color:#8c7560;font:600 9px Inter,sans-serif;letter-spacing:.12em}
 .ch-promise{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #dfd2ce;border-bottom:1px solid #dfd2ce}
 .ch-promise span{display:flex;align-items:center;justify-content:center;gap:11px;min-height:70px;color:#514249;font-size:12.5px}
 .ch-promise span+span{border-left:1px solid #dfd2ce}.ch-promise b{color:#a27d48;font:500 16px "Cormorant Garamond",Georgia,serif}
@@ -1231,6 +1215,7 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 .ch-section-head h2{margin:0;color:#301522;font:500 clamp(35px,4.2vw,53px)/1.05 "Cormorant Garamond",Georgia,serif}
 .ch-section-head .ch-kicker{margin-bottom:12px}
 .ch-section-head>p{max-width:42ch;margin:0 0 4px;color:#74656a;font-size:13px;line-height:1.75}
+.ch-wardrobe .ch-promise{margin:0 0 28px}
 .ch-occasion-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .ch-occasion{position:relative;min-height:182px;padding:18px 16px;border:1px solid #eadfdb;border-radius:12px;background:linear-gradient(145deg,#fbf3ef,#fffdfa 72%);overflow:hidden}
 .ch-occasion:after{content:"";position:absolute;width:82px;height:82px;right:-33px;top:-36px;border:1px solid #b58b5344;border-radius:50%;box-shadow:0 0 0 12px #b58b5309,0 0 0 24px #b58b5307}
@@ -1268,6 +1253,13 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 .ch-visit{display:grid;grid-template-columns:1fr minmax(240px,.6fr);gap:28px;align-items:center;margin-top:clamp(52px,7vw,84px);padding:clamp(30px,5vw,62px);border-radius:22px;background:#65132f;color:#fff8f3}
 .ch-visit .ch-kicker{color:#e0c696}.ch-visit h2{color:#fff8f3;font-size:clamp(42px,5.4vw,66px)}.ch-visit h2 em{color:#edc9c3}
 .ch-visit>div:last-child>p{max-width:39ch;margin:0 0 19px;color:#f0dfe0;font-size:13px;line-height:1.75}
+.ch-location{margin:18px 0 20px;padding:15px 0;border-top:1px solid #ffffff35;border-bottom:1px solid #ffffff35}
+.ch-location-label{color:#e0c696;font-size:9px;font-weight:700;letter-spacing:.17em}
+.ch-location address{display:grid;gap:4px;margin-top:8px;color:#f8ece8;font-size:13px;font-style:normal;line-height:1.55}
+.ch-location address b{font-size:14px;font-weight:650}
+.ch-directions{display:inline-flex;align-items:center;gap:8px;margin-top:12px;color:#f2d39d;font-size:12px;font-weight:650;text-decoration:none;text-underline-offset:3px}
+.ch-directions:hover{text-decoration:underline}
+.ch-directions span{font-size:15px}
 .ch-button-light{border-color:#f6e8da;background:#fff8f3;color:#65132f}.ch-button-light:hover{background:#ead7cb}
 .ch-visit-social{display:inline-block;margin:14px 0 0 15px;color:#f4d9d7;font-size:12px;text-underline-offset:3px}
 .ch-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:26px 2px 4px;color:#74666b;font-size:11px}
@@ -1286,8 +1278,6 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
   .ch-nav{min-height:70px}.ch-nav nav{gap:14px}.ch-nav nav>a:not(.ch-nav-cta){display:none}.ch-nav nav .ch-nav-cta{padding:10px 13px;font-size:12px}
   .ch-brand img{width:33px}.ch-brand b{font-size:26px}
   .ch-showcase{padding-top:12px}.ch-showcase .cl-reels{padding:18px 12px 14px;border-radius:18px}.ch-showcase .cl-track{padding-block:20px;padding-inline:max(12px,calc(50% - min(33vw,125px)))}
-  .ch-intro{grid-template-columns:1fr;gap:28px;padding:52px 4px 42px}.ch-intro h1{font-size:clamp(48px,12vw,68px)}
-  .ch-art{height:300px;width:min(100%,420px);justify-self:center}.ch-art-frame{width:72%;height:74%}
   .ch-promise{grid-template-columns:1fr}.ch-promise span{justify-content:flex-start;min-height:49px;padding:0 10px}.ch-promise span+span{border-left:0;border-top:1px solid #dfd2ce}
   .ch-wardrobe{margin-top:42px;padding:24px 16px;border-radius:18px}.ch-section-head{grid-template-columns:1fr;gap:12px}.ch-section-head h2{font-size:39px}
   .ch-occasion-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ch-occasion{min-height:150px;padding:15px 12px}.ch-occasion h3{font-size:20px;margin-top:25px}
@@ -1300,5 +1290,5 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 @media(max-width:540px){.ch-tracking-form{grid-template-columns:1fr}.ch-tracking-form .ch-button{grid-column:auto;width:100%}.ch-tracking-steps{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:15px}.ch-tracking-steps li small{max-width:92px}}
 @media(max-width:390px){
   .ch-occasion-grid{grid-template-columns:1fr}.ch-occasion{min-height:130px}.ch-occasion h3{margin-top:17px}
-  .ch-showcase .cl-reels-txt p{font-size:13px}.ch-actions{align-items:flex-start;flex-direction:column;gap:13px}
+  .ch-showcase .cl-reels-txt p{font-size:13px}
 }
