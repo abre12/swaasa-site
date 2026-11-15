@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { addD, dmy, todayIST } from '@/lib/util'
 import { bookingReadiness } from '@/lib/readiness'
 import { prepSteps, STEP_COL } from '@/lib/countdown'
@@ -12,19 +12,15 @@ export default function Countdown({ ctx }: { ctx: any }) {
       .map(b => ({ b, n: Math.round((Date.parse(b.start_date) - Date.parse(today)) / 864e5), rd: bookingReadiness(rctx, b), steps: prepSteps(rctx, b) }))
       .sort((x, y) => x.n - y.n || String(x.b.delivery_slot || '').localeCompare(String(y.b.delivery_slot || '')))
   }, [ctx.B, ctx.D, ctx.AJ, ctx.CR, ctx.DC, ctx.dmap, today])
-  const count = (f: (n: number) => boolean) => items.filter(i => f(i.n)).length
-  const [tab, setTab] = useState<'today' | 'tomorrow' | 'next'>(() => count(n => n === 0) ? 'today' : count(n => n === 1) ? 'tomorrow' : 'next')
-  const shown = items.filter(i => tab === 'today' ? i.n === 0 : tab === 'tomorrow' ? i.n === 1 : i.n >= 1)
-  const T = ({ k, label, n }: { k: typeof tab; label: string; n: number }) => <button type="button" role="tab" aria-selected={tab === k} className={'btn sm ' + (tab === k ? '' : 'alt')} onClick={() => setTab(k)}>{label} <b>{n}</b></button>
+  const shown = items.filter(i => i.n >= 1)   // today's deliveries are already in the Today block above
   let last = -1
-  return <section className="box cd-box" aria-label="Delivery countdown" style={{ padding: '12px 14px', marginBottom: 12 }}>
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
-      <h3 style={{ margin: 0, flex: '1 1 auto' }}>Countdown to delivery</h3>
-      <div role="tablist" style={{ display: 'flex', gap: 6 }}>
-        <T k="today" label="Today" n={count(n => n === 0)} /><T k="tomorrow" label="Tomorrow" n={count(n => n === 1)} /><T k="next" label="Next 3 days" n={count(n => n >= 1)} /></div></div>
-    {!shown.length && <p className="mut" style={{ margin: '6px 0' }}>{tab === 'today' ? 'No deliveries today.' : tab === 'tomorrow' ? 'No deliveries tomorrow.' : 'No deliveries in the next 3 days.'}</p>}
+  if (!shown.length) return null
+  const sorted = shown.filter(i => !i.rd.ready).length
+  return <details className="fold" aria-label="Delivery countdown">
+    <summary>Next 3 days<span className="fold-n">{shown.length}</span><small>{sorted ? `${sorted} still to prepare` : 'all ready'}</small></summary>
+    <div className="fold-body">
     {shown.map(({ b, n, rd, steps }) => {
-      const head = tab === 'next' && n !== last; last = n
+      const head = n !== last; last = n
       const late = !rd.ready && n <= 1
       return <div key={b.id}>
         {head && <h4 style={{ margin: '10px 0 4px', fontSize: 13 }}>{n === 1 ? 'Tomorrow' : dmy(b.start_date)} <span className="mut">· D-{n}</span></h4>}
@@ -44,5 +40,5 @@ export default function Countdown({ ctx }: { ctx: any }) {
             <div style={{ fontSize: 12.5, color: rd.ready ? '#2f7d4f' : late ? '#b3261e' : '#8a6414', marginTop: 2 }}>{rd.ready ? 'Ready to deliver' : rd.reasons.map(r => r.label).join(' · ')}</div></div>
         </div></div>
     })}
-  </section>
+    </div></details>
 }

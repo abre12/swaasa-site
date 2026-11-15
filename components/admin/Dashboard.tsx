@@ -103,28 +103,36 @@ export default function Dashboard({ ctx }: { ctx: any }) {
         : wfOpen.rows.map((b: any) => { const d = b[wfOpen.dk]; return <div key={b.id} className="wf-r" onClick={() => ctx.openBooking(b.id)}>{ctx.thumb(ctx.dmap[b.dress_id], 30, 40)}<b>{b.id}</b><span>{b.customer_name}</span><span className="mut">{b.dress_code} · {b.dress_name}</span><span className="wf-d" style={d < today ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{wfOpen.dk === 'end_date' ? 'Return ' : ''}{rel(d)}</span></div> })}
       {!wfOpen.rows.length && <p className="mut" style={{ margin: 0, padding: '6px 4px' }}>Nothing here right now.</p>}</div>
   ) : null
-  const KC = ({ ic, c, v, l, sub, on }: { ic: string; c: string; v: string | number; l: string; sub?: string; on: () => void }) => <button className="kc" style={tint(c)} onClick={on}><Ic n={ic} s={40} /><div><b>{v}</b><span>{l}</span>{sub && <small>{sub}</small>}</div></button>
   const dressCell = (code: string, name: string, did: string, img?: string) => <div className="dr">{ctx.thumb(ctx.dmap[did] || { images: img ? [img] : [] }, 46, 60)}<div><b>{code}</b><span>{name}</span></div></div>
   const duePill = (r: any) => r.job.status === 'ready' ? <span className="mut">{dShort(r.due)}</span> : r.over || r.due === today ? <span className="bdg" style={tint('var(--red)')}><Ic n="calendar" s={14} />{r.over ? 'Overdue' : 'Today'}</span> : r.due === tomorrow ? <span className="bdg" style={tint('var(--blue)')}><Ic n="calendar" s={14} />Tomorrow</span> : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Ic n="calendar" s={15} />{dShort(r.due)}</span>
   // Alteration stage badge: read-only. The work itself is done in Alterations (open the booking, then its primary action).
   const altBadge = (r: any) => { const st = altStatus(r.job), [c, ic] = JT[st.tone] || JT.off; return <span className="bdg" style={tint(c)} title={st.hint}><Ic n={ic} s={15} />{st.label}</span> }
+  const daySub = `${delToday.length} ${delToday.length === 1 ? 'delivery' : 'deliveries'} today · ${retDue.length} ${retDue.length === 1 ? 'return' : 'returns'} due · ${odRet.length + odDel.length} overdue`
+  const KS = ({ ic, c, v, l, on, title }: { ic: string; c: string; v: string | number; l: string; on: () => void; title?: string }) => <button type="button" className="ks" style={tint(c)} onClick={on} title={title}><Ic n={ic} s={22} /><div><b>{v}</b><span>{l}</span></div></button>
   return (<div>
-    <PageHead icon="home" title="Dashboard" sub="The most important work for today, all in one place"></PageHead>
-    <Countdown ctx={ctx} />
-    <DayNotes ctx={ctx} />
-    <CloseDay ctx={ctx} />
+    <PageHead icon="home" title="Dashboard" sub={daySub}></PageHead>
+    {/* 1. The work that cannot wait */}
     <Today ctx={ctx} embedded />
-    <div className="k6" style={{ gridTemplateColumns: 'repeat(3,minmax(0,1fr))' }}>
-      <KC ic="truck" c="var(--blue)" v={`${delToday.filter((b: any) => b.status === 'out' || b.status === 'returned').length}/${delToday.length}`} l="Deliveries completed today" on={() => setPop('del')} />
-      <KC ic="ret" c="var(--purple)" v={retDue.length} l="Returns due today" on={() => setPop('ret')} />
-      <KC ic="warn" c="var(--red)" v={odRet.length + odDel.length} l="Overdue items" on={() => setPop('over')} />
-      {ctx.owner && <KC ic="coins" c="var(--ok)" v={inr(toCollectTotal)} l="To collect in 7 days" sub={`${toCollect.length} ${toCollect.length === 1 ? 'delivery' : 'deliveries'}`} on={() => setPop('collect')} />}</div>
+    {/* 2. Numbers at a glance: one slim row */}
+    <div className="kstrip">
+      <KS ic="truck" c="var(--blue)" v={`${delToday.filter((b: any) => b.status === 'out' || b.status === 'returned').length}/${delToday.length}`} l="Delivered today" on={() => setPop('del')} />
+      <KS ic="ret" c="var(--purple)" v={retDue.length} l="Returns due today" on={() => setPop('ret')} />
+      <KS ic="warn" c="var(--red)" v={odRet.length + odDel.length} l="Overdue items" on={() => setPop('over')} />
+      {ctx.owner && <KS ic="coins" c="var(--ok)" v={inr(toCollectTotal)} l="To collect in 7 days" on={() => setPop('collect')} title={`${toCollect.length} ${toCollect.length === 1 ? 'delivery' : 'deliveries'}`} />}</div>
     {pending.length > 0 && <div className="alsobar">
       <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button></div>}
+    {/* 3. Coming up and notes: folded or one line unless there is something in them */}
+    <Countdown ctx={ctx} />
+    <DayNotes ctx={ctx} />
+    {/* 4. Workflow overview */}
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
       <Ic n={w.ic} s={22} /><span>{w.l}</span><b>{w.rows.length}</b><Ic n="down" s={18} style={{ marginLeft: 'auto', transform: wf === w.k ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} /></button>{wf === w.k && <div className="wf-in">{wfList}</div>}</Fragment>)}</div>
     {wfOpen && <div className="wf-after">{wfList}</div>}
-    <section className="team-momentum"><div className="team-momentum-head"><h2>Team Momentum</h2><p>Every booking contributes to the team’s growth. Celebrate progress and keep moving forward.</p></div><BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} rows={staffRows} /></section>
+    {/* 5. End of day, then the team chart (folded) */}
+    <div style={{ height: 14 }} />
+    <CloseDay ctx={ctx} />
+    <details className="fold team-momentum"><summary>Team Momentum<small>Fresh bookings this month, by staff</small></summary>
+      <div className="fold-body"><BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} rows={staffRows} /></div></details>
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>

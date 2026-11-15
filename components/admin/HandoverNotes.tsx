@@ -30,6 +30,8 @@ export function BookingNotes({ ctx, b }: { ctx: any; b: any }) {
 export function DayNotes({ ctx }: { ctx: any }) {
   const today = todayIST(), notes: any[] = (ctx.NOTES || []).filter((n: any) => n.note_date <= addD(today, 3) && (!n.done_at || n.note_date >= today))
   const days = Array.from(new Set(notes.map(n => n.note_date))).sort()
+  if (!notes.length) return <section className="slimbar" aria-label="Handover notes"><div><b>Notes for the next days</b><span className="mut">None</span></div>
+    <button type="button" className="btn alt sm" onClick={() => ctx.addNote()}>+ Add note</button></section>
   return <section className="box" aria-label="Handover notes" style={{ padding: '10px 14px', marginBottom: 12 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><h3 style={{ margin: 0, flex: 1 }}>Notes for the next days</h3>
       <button type="button" className="btn alt sm" onClick={() => ctx.addNote()}>+ Add note</button></div>

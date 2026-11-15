@@ -32,8 +32,8 @@ export default function CloseDay({ ctx }: { ctx: any }) {
       ctx.say(j.sent ? 'Day closed. The owner has been told.' : 'Day closed.'); setOpen(false); loadClosed()
     } finally { setBusy(false) }
   }
-  return <section className="box" aria-label="End of day" style={{ padding: '10px 14px', marginBottom: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-    <div style={{ flex: '1 1 220px' }}><b>End of day</b><div className="mut" style={{ fontSize: 13 }}>{closed ? `Closed by ${closed.closed_by_name} at ${new Date(closed.closed_at).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}` : 'Not closed yet. Check the cash, tomorrow\u2019s dresses and overdue returns, then close.'}</div></div>
+  return <section className="slimbar" aria-label="End of day">
+    <div style={{ flex: '1 1 220px' }}><b>End of day</b><div className="mut" style={{ fontSize: 13 }}>{closed ? `Closed by ${closed.closed_by_name} at ${new Date(closed.closed_at).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}` : 'Not closed yet'}</div></div>
     <button type="button" className={'btn sm ' + (closed ? 'alt' : '')} onClick={() => { setChecked(false); setCalled({}); setNote(''); setTally(undefined); setOpen(true) }}>{closed ? 'Update the close' : 'Close the day'}</button>
     <button type="button" className="btn alt sm" onClick={() => ctx.logLostDemand()}>Log a missed enquiry</button>
     {open && <div style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 90, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'auto', padding: 20 }} onClick={() => setOpen(false)} data-overlay>
