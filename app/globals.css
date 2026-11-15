@@ -1121,6 +1121,7 @@ body:has(.cl-page) footer{color:#6f5f66;border-color:#eadfdc}
 .cl-chips a span{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:13px;line-height:1}
 .cl-chips a:hover{background:#f0d3d7}.cl-chips a.all{background:none;color:var(--cm);text-decoration:underline;text-underline-offset:3px;padding:0 6px;font-weight:500}
 .cl-shop .cl-grid{margin-top:20px}
+.cl-shop>.cl-reels{margin:0 clamp(14px,3vw,34px) 20px}
 .cl-cats a,.cl-cats .off{gap:5px}.cl-cats small{font-size:11.5px;color:var(--cm)}
 .cl-cats .off{display:grid;text-align:center;opacity:.65;cursor:default;color:var(--ci)}.cl-cats .off .pic{display:grid;place-items:center;color:#c28f9b;background:linear-gradient(135deg,#faeeec,#f3dedd)}
 .cl-card .pr{margin-top:auto;padding-top:6px;flex-wrap:wrap}.cl-card .pr em{letter-spacing:.08em;font-size:10px}
