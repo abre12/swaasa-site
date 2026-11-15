@@ -52,6 +52,8 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   // SA-4 / OP-4: only the last 90 days are loaded. A past month asks for its own bookings; Team Momentum is counted in the database.
   useEffect(() => { ctx.ensureFrom(`${mon}-01`) }, [mon])   // eslint-disable-line react-hooks/exhaustive-deps
   const [staffRows, setStaffRows] = useState<any[] | null>(null)
+  const [delRows, setDelRows] = useState<any[] | null>(null)
+  useEffect(() => { let live = true; ctx.sb.rpc('staff_deliveries_per_month').then((r: any) => { if (live) setDelRows(r.error ? null : r.data || []) }); return () => { live = false } }, [ctx.sb, ctx.B.length])   // null (function not installed yet) = count from the bookings the device holds
   useEffect(() => { let live = true; ctx.sb.rpc('staff_bookings_per_month').then((r: any) => { if (live) setStaffRows(r.error ? null : r.data || []) }); return () => { live = false } }, [ctx.sb, ctx.B.length])
   const made = B.filter(b => b.status !== 'cancelled' && istDate(b.created_at) === today)
   const delToday = B.filter(b => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status))
@@ -126,8 +128,8 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     {/* 5. End of day, then the team chart (folded) */}
     <div style={{ height: 14 }} />
     <CloseDay ctx={ctx} />
-    <details className="fold team-momentum"><summary>Team Momentum<small>Fresh bookings this month, by staff</small></summary>
-      <div className="fold-body"><BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} rows={staffRows} /></div></details>
+    <details className="fold team-momentum"><summary>Team Momentum<small>Bookings and deliveries by staff</small></summary>
+      <div className="fold-body"><BookingsByStaff bookings={B} staff={ctx.STAFF || []} month={mon} rows={staffRows} delRows={delRows} /></div></details>
     {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, background: '#0007', zIndex: 60, overflow: 'auto', padding: 16 }}>
       <div className="box" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', maxWidth: 980, margin: '0 auto' }}>
         <div className="row"><h3 style={{ margin: 0 }}>{title[pop]}</h3><button className="btn alt sm" onClick={() => setPop(null)}>Close</button></div>
