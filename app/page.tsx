@@ -1,4 +1,5 @@
 import ReelsCarousel from '@/components/ReelsCarousel'
+import CustomerBookingTracker from '@/components/CustomerBookingTracker'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 
 export const metadata = {
@@ -35,8 +36,7 @@ export default function Home() {
         </a>
         <nav aria-label="Main navigation">
           <a href="#experience">The experience</a>
-          <a href="#faq">Questions</a>
-          <a className="ch-nav-cta" href="#visit">Plan a visit <span aria-hidden="true">↗</span></a>
+          <a className="ch-nav-cta" href="#track-booking">Track a booking <span aria-hidden="true">↗</span></a>
         </nav>
       </header>
 
@@ -83,21 +83,13 @@ export default function Home() {
         <p className="ch-private-note"><span aria-hidden="true">✦</span> Our detailed catalogue is shared privately during a guided viewing.</p>
       </section>
 
+      <CustomerBookingTracker />
+
       <section className="ch-experience" id="experience" aria-labelledby="ch-experience-title">
         <div className="ch-experience-heading"><p className="ch-kicker">A LITTLE MORE PERSONAL</p><h2 id="ch-experience-title">Choosing your look<br /><em>should feel special.</em></h2>
           <p>From the first conversation to the fitting, we make space for you to explore at your own pace.</p>
         </div>
         <ol className="ch-steps">{steps.map(step => <li key={step.n}><span>{step.n}</span><div><h3>{step.title}</h3><p>{step.text}</p></div><b aria-hidden="true">↗</b></li>)}</ol>
-      </section>
-
-      <section className="ch-faq" id="faq" aria-labelledby="ch-faq-title">
-        <div><p className="ch-kicker">GOOD TO KNOW</p><h2 id="ch-faq-title">A few helpful details.</h2><p>For anything specific to your dates or celebration, just get in touch.</p></div>
-        <div className="ch-faq-list">
-          <details><summary>Why is the full collection private?</summary><p>We show detailed styles during a guided viewing, so you can explore the wardrobe with personal support and care.</p></details>
-          <details><summary>What should I share when I contact you?</summary><p>Your occasion and event date are a good place to start. We can then help you plan a suitable viewing.</p></details>
-          <details><summary>Can you help with fit?</summary><p>Fit and alteration support can be discussed for the pieces you view. The available options depend on the style and timing.</p></details>
-          <details><summary>Where is Swaasa?</summary><p>We are based in Thiruvananthapuram, Kerala. Contact us to arrange your visit.</p></details>
-        </div>
       </section>
 
       <section className="ch-visit" id="visit" aria-labelledby="ch-visit-title">

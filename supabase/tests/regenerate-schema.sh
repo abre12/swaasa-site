@@ -14,6 +14,7 @@ psql -d swaasa_chain -Atq > /tmp/swaasa_acl.sql <<'SQL'
 select 'revoke all on all tables in schema public from anon, authenticated;';
 select 'revoke all on all sequences in schema public from anon, authenticated;';
 select 'revoke all on all functions in schema public from public, anon, authenticated;';
+select 'revoke all on table public.booking_tracking_rate_limits from service_role;';
 select format('grant %s on table public.%I to %s;', string_agg(a.privilege_type, ', ' order by a.privilege_type), c.relname, r.rolname)
   from pg_class c join pg_namespace n on n.oid = c.relnamespace, aclexplode(c.relacl) a join pg_roles r on r.oid = a.grantee
  where n.nspname = 'public' and c.relkind in ('r', 'v') and r.rolname in ('anon', 'authenticated') group by c.relname, r.rolname order by c.relname, r.rolname;
@@ -23,6 +24,10 @@ select format('grant %s on sequence public.%I to %s;', string_agg(a.privilege_ty
 select format('grant execute on function %s to %s;', p.oid::regprocedure, r.rolname)
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace, aclexplode(p.proacl) a join pg_roles r on r.oid = a.grantee
  where n.nspname = 'public' and a.privilege_type = 'EXECUTE' and r.rolname in ('anon', 'authenticated') order by 1;
+select format('grant execute on function %s to service_role;', p.oid::regprocedure)
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and p.proname = 'customer_booking_track'
+   and has_function_privilege('service_role', p.oid, 'EXECUTE');
 SQL
 python3 - "$sup/schema-current.sql" <<'PY'
 import re, sys
