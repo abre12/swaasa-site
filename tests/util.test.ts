@@ -30,5 +30,5 @@ describe('database messages', () => {
   it('turns database codes into plain words', () => {
     expect(dbMsg('BAD_PHONE')).toMatch(/valid mobile number/); expect(dbMsg('MODE_REQUIRED')).toMatch(/payment mode/); expect(dbMsg('FORBIDDEN')).toMatch(/not allowed/i)
   })
-  it('says plainly when the database update is missing', () => expect(dbMsg('Could not find the function public.deliver_booking')).toMatch(/migration-v26/))
+  it('says plainly when the database update is missing', () => expect(dbMsg('Could not find the function public.deliver_booking')).toMatch(/not been applied/))
 })

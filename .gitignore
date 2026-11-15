@@ -1,0 +1,20 @@
+# dependencies and build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts.bak
+
+# secrets: never commit these
+.env
+.env.local
+.env.*.local
+
+# deployment and editor files
+.vercel/
+.DS_Store
+*.log
+npm-debug.log*
+.idea/
+.vscode/
+coverage/

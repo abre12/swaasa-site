@@ -32,7 +32,7 @@ export default function CancelBooking({ b, owner, onClose }: { b: any; owner: bo
 
   return <div className="cxl-back" role="dialog" aria-modal="true" aria-labelledby="cxl-title">
     <form className="box cxl" onSubmit={submit}>
-      <h3 id="cxl-title">Cancel booking {b.id}</h3>
+      <h3 id="cxl-title">{owner ? `Cancel booking ${b.id}` : `Request cancellation of booking ${b.id}`}</h3>
       <p className="cxl-note">{b.dress_code} · {b.customer_name} · {dmy(b.start_date)} – {dmy(b.end_date)}. The dress becomes available again for these dates.</p>
       <div className="cxl-sum"><div><span>Rent received</span><b>{inr(paid)}</b></div><div><span>Security deposit held</span><b>{inr(dep)}</b></div></div>
       <p className="cxl-note"><b>Policy: no refund.</b> The rent and the security deposit are kept unless the owner decides to refund some or all of it.</p>

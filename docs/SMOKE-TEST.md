@@ -30,6 +30,19 @@ Reload the page before you start, and use the made-up sample data (`supabase/sta
 - [ ] Reports and Customers load all history (may take a moment, then stay fast).
 - [ ] Settings: the new "free days before a late fee starts" field saves.
 
+## Phase 3 screens
+- [ ] **Countdown** at the top of the Dashboard: tabs Today / Tomorrow / Next 3 days; each delivery shows D-0..D-3 and a 4-step strip.
+- [ ] **Search**: type a booking ID, a phone number, a name and a dress code in turn. Each finds the booking; Enter opens it.
+- [ ] **Notes**: add a note on a booking (it shows on the booking and under the Countdown row) and a note for a day; tick one done.
+- [ ] **Receipt**: on a booking press Print / save as PDF (check the totals, terms and signature lines), and Send on WhatsApp.
+- [ ] **To collect in 7 days** (owner): opens a list; the total matches the balances plus deposits still to take.
+- [ ] **Insights** (owner): Scorecard, Leakage, Stock (add a cost to one dress and see payback), Missed enquiries, Day closes all open without an error.
+- [ ] **Log a missed enquiry** from the Dashboard and from the booking form when the dates are not free; the owner sees it under Insights.
+- [ ] **Close the day**: with the cash not tallied it says so; tick the boxes and close; the owner gets a Telegram message (when Telegram is set up) and the Day closes list shows it.
+- [ ] A manager (Staff) login sees **Request cancellation**, no Insights page, no cost figures; the staff screen no longer offers a "Preparation only" login.
+- [ ] Set the phone's date a day wrong: Swaasa shows a note about the clock and still shows the right day.
+- [ ] Open a dialog (for example Receive on a dry-cleaning item): the cursor is in it, Tab stays inside it, Escape closes it.
+
 ## Reminders (only if reminders were touched)
 - [ ] `curl -H "Authorization: Bearer YOUR_STAGING_CRON_SECRET" "https://YOUR-PREVIEW-LINK/api/cron/digest?slot=morning&dry=1"` returns the message text and sends nothing.
 

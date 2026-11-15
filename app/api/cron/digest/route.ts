@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { readinessSnapshot } from '@/lib/confidence'
+import { sendTelegram } from '@/lib/telegram'
 import { timingSafeEqual } from 'crypto'
 import { supaAdmin } from '@/lib/supabase/server'
 import { fetchAll } from '@/lib/fetchAll'
@@ -22,15 +23,7 @@ const money = (n: number) => '₹' + Math.round(n || 0).toLocaleString('en-IN')
 const same = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y) }
 const hourIST = () => Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false })) % 24
 
-async function send(chat: string, text: string) {
-  const parts: string[] = []; let cur = ''
-  for (const ln of text.split('\n')) { if ((cur + '\n' + ln).length > 3800) { parts.push(cur); cur = ln } else cur = cur ? cur + '\n' + ln : ln }
-  if (cur) parts.push(cur)
-  for (const p of parts) {
-    const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ chat_id: chat, text: p, disable_web_page_preview: true }) })
-    if (!r.ok) throw new Error(`Telegram said ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  }
-}
+const send = sendTelegram
 
 export async function POST(req: Request) { return GET(req) }
 export async function GET(req: Request) {

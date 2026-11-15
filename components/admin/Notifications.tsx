@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { dmy, istDate, istTime, todayIST } from '@/lib/util'
+import { dmy, hourIST, istDate, istTime, todayIST } from '@/lib/util'
 import { computeAlerts, type Alert, type Level } from '@/lib/alerts'
 import { ago, approvalDetail, approvalIcon, approvalName, approvalReason, approvalRef, approvalTitle, needsConfirm } from '@/lib/approvals'
 import { thumbOf, mediumOf } from '@/lib/images'
@@ -17,7 +17,6 @@ const GROUPS: { level: Exclude<Level, 'summary'>; title: string; icon: string; o
   { level: 'critical', title: 'Critical', icon: 'warn', open: 2 },
   { level: 'high', title: 'High Priority', icon: 'clock', open: 2 },
 ]
-const hourIST = () => Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false })) % 24
 type Tab = 'approvals' | 'alerts' | 'recent' | 'mine'
 
 export default function Notifications({ ctx, placement }: { ctx: any; placement?: 'side' }) {

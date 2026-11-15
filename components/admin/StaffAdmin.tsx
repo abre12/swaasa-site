@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-const ROLE: Record<string, string> = { owner: 'Owner', manager: 'Salesperson', preparation: 'Preparation only' }
+const ROLE: Record<string, string> = { owner: 'Owner', manager: 'Staff', preparation: 'Preparation only (no longer used)' }
 // Owner only: one login per person, so every booking, preparation, delivery and return is recorded against the right name.
 export default function StaffAdmin({ ctx }: { ctx: any }) {
   const [f, setF] = useState({ name: '', email: '', password: '', role: 'manager' }); const [busy, setBusy] = useState(false)
@@ -35,8 +35,8 @@ export default function StaffAdmin({ ctx }: { ctx: any }) {
         <td style={{ whiteSpace: 'normal' }}>{s.role !== 'owner' && <><button className="btn alt sm" onClick={() => reset(s)}>Reset password</button> <button className="btn alt sm" onClick={() => remove(s)}>Delete</button></>}</td></tr>)}</tbody></table></div>
     {ctx.STAFF.some((s: any) => s.deleted_at) && <p className="mut" style={{ fontSize: 12 }}>Former staff (records kept): {ctx.STAFF.filter((s: any) => s.deleted_at).map((s: any) => s.name).join(', ')}</p>}
     <h3 style={{ marginTop: 16, fontSize: 18 }}>Add a person</h3>
-    <div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Name (e.g. Salesperson 1)" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="Login email" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /><input placeholder="Password (8+ characters)" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} />
-      <select value={f.role} onChange={e => setF({ ...f, role: e.target.value })} style={{ width: 'auto' }}><option value="manager">Salesperson (bookings, payments, deliveries, returns)</option><option value="preparation">Preparation only (alterations list)</option></select>
+    <div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Name (e.g. Staff 1)" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="Login email" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /><input placeholder="Password (8+ characters)" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} />
+      <select value={f.role} onChange={e => setF({ ...f, role: e.target.value })} style={{ width: 'auto' }}><option value="manager">Staff (bookings, payments, deliveries, returns)</option></select>
       <button className="btn sm" disabled={busy} onClick={add}>{busy ? 'Creating…' : 'Create login'}</button></div>
     <p className="mut" style={{ fontSize: 12, marginBottom: 0 }}>The email can be any address you control (for example sales1@yourdomain.in). No email is sent. Give the person their email and password, and ask them to keep the password private.</p></div>)
 }

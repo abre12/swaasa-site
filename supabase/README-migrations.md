@@ -6,7 +6,7 @@ This list was checked by applying every script below, in this order, to an empty
 
 | Situation | What to run |
 | --- | --- |
-| **Your live database today** (already has bookings) | Only the migrations it has not had yet. The newest are **v26** (before deploying) and **v26b** and the new **v27** (after testing). Never run `schema-current.sql` on it. |
+| **Your live database today** (already has bookings) | Only the migrations it has not had yet. The newest are **v26**, **v27** and **v28** (each before deploying its website) and the lock-down **v26b** (after testing). Never run `schema-current.sql` on it. |
 | **A new project** (staging copy, rebuild) | Run `schema-current.sql` once, then its SEED section, then create the owner. Nothing else. |
 
 ## The full order (for the record)
@@ -37,7 +37,8 @@ This list was checked by applying every script below, in this order, to an empty
 | 26 | `migration-v25b-lockdown.sql` | Phase 1 lock-down | After testing |
 | 27 | `migration-v26-phase2-batchA.sql` | Phase 2 batch A part 1 (additive) | Before deploying the batch A website |
 | 28 | `migration-v26b-lockdown.sql` | Phase 2 batch A lock-down | After testing batch A |
-| 29 | `migration-v27-phase2-customers-nearmiss.sql` | Customers table, delivery confidence log | Before deploying this website (additive) |
+| 29 | `migration-v27-phase2-customers-nearmiss.sql` | Customers table, delivery confidence log | Before deploying the Phase 2 website (additive) |
+| 30 | `migration-v28-phase3.sql` | Handover notes, missed enquiries, dress costs, day close, scorecard and leakage, receipt settings, one money symbol; removes the unused `admin_notifications` | Before deploying the Phase 3 website |
 
 There are no v23 or v24 files; those numbers were used for website-only versions.
 

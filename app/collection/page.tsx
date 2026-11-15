@@ -13,6 +13,8 @@ const ico = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke:
 const hico = { ...ico, width: 20, height: 20, strokeWidth: 1.8 }
 export default async function Collection({ searchParams }: { searchParams: P }) {
   const sb = supaServer(); const { q, cat, colour, sort, max, from, to } = searchParams
+  // OP-5: only staff ever sign in, so a signed-in visitor gets the compact search page: no big banner, no film strip, nothing heavy to download.
+  const { data: { user } } = await sb.auth.getUser(), compact = !!user
   const main = MAIN_CATS.find(m => m.key === cat), okDates = !!(from && to && to >= from)
   let query = sb.from('dresses').select('id,code,name,category,price,images,thumbs,status,colour_tags').in('status', ['available', 'maintenance'])
   if (main) query = query.in('category', main.subs)
@@ -43,7 +45,7 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
   if (okDates) chips.push({ label: `Free ${from} to ${to}`, to: href({ ...cur, from: undefined, to: undefined }) })
   const hanger = <svg {...ico} width={30} height={30}><path d="M12 7.5V6.2a2 2 0 1 1 2 2" /><path d="m12 8.2-8.4 6a1.4 1.4 0 0 0 .8 2.6h15.2a1.4 1.4 0 0 0 .8-2.6L12 8.2Z" /></svg>
   const n = dresses?.length || 0
-  return (<div className="cl-page">
+  return (<div className={'cl-page' + (compact ? ' cl-compact' : '')}>
     <header className="cl-hd"><div className="cl-in">
       <Link href="/collection" className="cl-logo"><img src="/logo-mark.png" alt="" /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
       <div className="cl-tools">
@@ -52,14 +54,14 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
         <a className="cl-book" href="#collection">Book Now</a>
       </div></div></header>
     <div className="cl-in">
-      <section className="cl-top">
+      {!compact && <section className="cl-top">
         <div className="cl-hero">
           <div className="cl-hero-txt"><span className="cl-eyebrow">Bridal Dresses <i>•</i> Lehengas <i>•</i> Gowns</span>
             <h1>Rent Your<br />Dream Look</h1><p>A curated collection of bridal and special occasion wear, made for your big moments.</p></div>
           <div className="cl-hero-img" aria-hidden="true"><img src="/collection-hero.jpg" alt="" /></div>
         </div>
         <ul className="cl-feat">{FEATURES.map(f => <li key={f.t}>{f.i}<span>{f.t}</span></li>)}</ul>
-      </section>
+      </section>}
       <section className="cl-shop" id="collection" aria-label="The collection">
         <div className="cl-shop-cats"><h2>Browse by Category</h2>
           <nav className="cl-cats" aria-label="Categories">{MAIN_CATS.map((m, i) => {
@@ -86,7 +88,7 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
             {!n && <p className="cl-none">No dresses match these filters. Try removing a filter or changing the dates.</p>}</div>
         </div>
       </section>
-      <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
+      {!compact && <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />}
     </div>
   </div>)
 }

@@ -48,6 +48,13 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   const avail = dress.status === 'available'
   const free = valid && avail && clash.length === 0
   const gapOk = isOwner ? checked : gapAsk === 'approved'
+  // N-13: when the customer walks away because the dress is not free, one tap records it (the owner sees what is asked for and missed).
+  const [missed, setMissed] = useState<'' | 'saved' | 'error'>('')
+  useEffect(() => { setMissed('') }, [s, e, dress.id])
+  async function logMissed() {
+    const { error } = await supa().rpc('log_lost_demand', { p_dress: dress.id, p_category: null, p_from: s || null, p_to: e || null, p_reason: 'dates_taken', p_customer: f.name.trim() || null, p_phone: f.phone.trim() || null, p_note: null })
+    setMissed(error ? 'error' : 'saved')
+  }
   const canBook = valid && avail && (free || (gapOnly && gapOk))
   async function loadGap() {
     if (isOwner || !gapOnly) { setGapAsk('none'); return }
@@ -137,7 +144,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   const stepper = (typeof step === 'number') && <ol className="bf-steps" aria-label="Booking progress">{STEPS.map((l, i) => <li key={l} className={step === i + 1 ? 'cur' : step > i + 1 ? 'done' : ''}><i>{step > i + 1 ? '✓' : i + 1}</i><span>{l}</span></li>)}</ol>
   const avBanner = <>
     {valid && !avail && <div className="bk-avail no"><div><b>Not available</b><span>This dress is currently marked {dress.status}.</span></div></div>}
-    {valid && avail && realClash && <div className="bk-avail no"><div><b>Not available for those dates</b><span>Try nearby dates or browse similar dresses.</span></div></div>}
+    {valid && avail && realClash && <div className="bk-avail no"><div><b>Not available for those dates</b><span>Try nearby dates or browse similar dresses. {missed === 'saved' ? 'Logged as a missed enquiry.' : <button type="button" className="textlink" onClick={logMissed}>Customer going away? Log a missed enquiry</button>}{missed === 'error' && ' Could not save, try again.'}</span></div></div>}
     {valid && avail && gapOnly && <><div className="bk-avail no"><div><b>{GAP}</b><span>Each dress needs a day for cleaning and preparation between rentals.</span></div></div>
       {isOwner ? <label className="bf-check"><input type="checkbox" checked={checked} onChange={x => setChecked(x.target.checked)} />I have checked and confirmed availability. Book inside the cleaning period.</label>
         : gapAsk === 'approved' ? <div className="bk-avail"><div><b>Approved by the owner</b><span>You can book inside the cleaning period for these dates.</span></div></div>

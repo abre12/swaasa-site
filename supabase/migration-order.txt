@@ -31,3 +31,4 @@ migration-v25b-lockdown.sql
 migration-v26-phase2-batchA.sql
 migration-v26b-lockdown.sql
 migration-v27-phase2-customers-nearmiss.sql
+migration-v28-phase3.sql

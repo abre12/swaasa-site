@@ -2,7 +2,7 @@
 import { shouldClearDamaged } from '@/lib/readiness'
 import { computeAlerts } from '@/lib/alerts'
 import { useEffect, useMemo, useState } from 'react'
-import { addD, dmy, todayIST } from '@/lib/util'
+import { addD, dmy, hourIST, todayIST } from '@/lib/util'
 import AlterationDrawer, { summarise } from './AlterationDrawer'
 import ReceiveAtStore, { type ReceiveResult } from './ReceiveAtStore'
 import PageHead from './PageHead'
@@ -39,7 +39,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
   const daysTo = (d: string) => Math.round((+new Date(d) - +new Date(today)) / 864e5)
   // CH-2: ONE rule for "critical for delivery". This page no longer has its own: it reads the same alerts as the bell and Today
   // (lib/alerts.ts, driven by the Settings days), so the three can never disagree. A job is critical when it has a Delivery-at-risk or Critical alert.
-  const hourNow = Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false })) % 24
+  const hourNow = hourIST()
   const riskMap = useMemo(() => {
     const m = new Map<string, { k: string; text: string }>()
     const { all } = computeAlerts({ B: bookings, D: ctx.D, AJ: jobs, CR: ctx.CR, DC: ctx.DC, st: ctx.st }, today, hourNow)
@@ -53,9 +53,10 @@ export default function Alterations({ ctx }: { ctx: any }) {
   const eligible = bookings.filter((b: any) => ['pending', 'confirmed'].includes(b.status) && !jobs.some((j: any) => j.booking_id === b.id && !isDmg(j) && !['ready', 'cancelled'].includes(j.status)))
   const count = (s: Stage) => jobs.filter(j => j.status === s && !isDmg(j) && !isCompleted(j, bookings)).length
   const damaged = jobs.filter(j => isDmg(j) && !['ready', 'cancelled'].includes(j.status))
+  const bookingById = useMemo(() => new Map<string, any>(bookings.map((x: any) => [x.id, x])), [bookings])      // CH-7: look a booking up once, not by scanning the whole list for every row
   const completed = jobs.filter(j => isCompleted(j, bookings))
   const filtered = useMemo(() => jobs.filter(j => {
-    const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings)
+    const b = bookingById.get(j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings)
     if (j.status === 'cancelled') return false
     if (tab === 'damaged') { if (!isDmg(j) || done) return false }
     else if (tab === 'completed') { if (!done) return false }
@@ -69,7 +70,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
   }).sort((a, b) => {
     const p = (s: string) => STAGES.indexOf(s as Stage)
     return (riskOf(b) ? 1 : 0) - (riskOf(a) ? 1 : 0) || p(a.status) - p(b.status) || (a.expected_return || '9999').localeCompare(b.expected_return || '9999')
-  }), [jobs, bookings, tab, q, due, category, status, ctx.dmap, today])
+  }), [jobs, bookings, bookingById, riskMap, tab, q, due, category, status, ctx.dmap, today])   // eslint-disable-line react-hooks/exhaustive-deps
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize)), rows = filtered.slice((page - 1) * pageSize, page * pageSize)
   const categories = [...new Set(jobs.map(j => (ctx.dmap[j.dress_id]?.category || '').trim()).filter(Boolean))].sort()
 
@@ -132,7 +133,7 @@ export default function Alterations({ ctx }: { ctx: any }) {
     <div className="alt-toolbar"><label className="alt-search"><span><Ic n="search" s={18} /></span><input value={q} onChange={e => { setQ(e.target.value); setPage(1) }} placeholder="Search by booking, customer, or dress..." /></label><label className="alt-filter"><span><Ic n="calendar" s={18} /></span><select aria-label="Delivery date filter" value={due} onChange={e => { setDue(e.target.value); setPage(1) }}><option value="">All Delivery Dates</option><option value={today}>Due Today</option><option value={addD(today, 1)}>Due Tomorrow</option></select></label><label className="alt-filter"><span><Ic n="dress" s={18} /></span><select aria-label="Dress category filter" value={category} onChange={e => { setCategory(e.target.value); setPage(1) }}><option value="all">All Categories</option>{categories.map(c => <option key={c} value={c.toLowerCase()}>{c}</option>)}</select></label><label className="alt-filter"><span><Ic n="filter" s={18} /></span><select aria-label="Status filter" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}><option value="all">All Statuses</option>{STAGES.map(s => <option key={s} value={s}>{LABEL[s]}</option>)}</select></label></div>
     <section className="alt-queue-panel"><div className="alt-queue-heading"><h2>{tab === 'all' ? 'Alteration Queue' : tab === 'damaged' ? 'Damaged Queue' : tab === 'critical' ? 'Delivery Critical' : tab === 'completed' ? 'Completed Alterations' : LABEL[tab as Stage]} <span>({filtered.length})</span></h2><small>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} alterations</small></div>
       <div className="scroll alt-table-scroll"><table className="bt alt-table"><thead><tr><th>Booking</th><th>Customer</th><th>Dress</th><th>Alterations Required</th><th>Delivery Date</th><th>Tailoring Details</th><th>Status</th><th>Action</th><th aria-label="More actions" /></tr></thead><tbody>
-        {rows.map(j => { const b = bookings.find((x: any) => x.id === j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, rk = riskOf(j), dmg = isDmg(j), nb = dmg ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : b, left = nb ? Math.round((+new Date(nb.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={(late ? 'late' : '') + (rk ? ' risk' : '')} onClick={() => setOpenId(j.id)}>
+        {rows.map(j => { const b = bookingById.get(j.booking_id), d = ctx.dmap[j.dress_id], done = isCompleted(j, bookings), late = j.status === 'at_unit' && j.expected_return && j.expected_return < today, rk = riskOf(j), dmg = isDmg(j), nb = dmg ? bookings.filter((x: any) => x.dress_id === j.dress_id && ['pending', 'confirmed'].includes(x.status) && x.start_date >= today).sort((x: any, y: any) => x.start_date.localeCompare(y.start_date))[0] : b, left = nb ? Math.round((+new Date(nb.start_date) - +new Date(today)) / 864e5) : null; return <tr key={j.id} className={(late ? 'late' : '') + (rk ? ' risk' : '')} onClick={() => setOpenId(j.id)}>
           <td><button className="alt-booking-link" onClick={e => { e.stopPropagation(); if (b) ctx.openBooking(b.id) }}>{j.booking_id}</button></td>
           <td><div className="alt-customer"><b>{b?.customer_name || '—'}</b><small>{dmg ? 'Returned damaged' : b?.phone || ''}</small></div></td>
           <td><div className="alt-dress-cell">{ctx.thumb(d, 48, 62)}<span><b>{d?.name || '—'}</b><small>SKU: {d?.code || '—'}</small></span></div></td>

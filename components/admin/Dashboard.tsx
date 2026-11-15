@@ -10,6 +10,9 @@ import { sendForDryCleaning } from './DryCleaning'
 import { PendingDeliveries, PendingReturns } from './Deliveries'
 import BookingsByStaff from './BookingsByStaff'
 import Today from './Today'
+import Countdown from './Countdown'
+import { DayNotes } from './HandoverNotes'
+import CloseDay from './CloseDay'
 const mon = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' })
 const monLong = (m: string) => new Date(m + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 export function Chart({ B, sb }: { B: any[]; sb?: any }) {
@@ -40,7 +43,7 @@ export function Chart({ B, sb }: { B: any[]; sb?: any }) {
     <p className="mut" style={{ fontSize: 12, margin: '2px 0 0' }}>Cancelled bookings are not counted. The dashed bar is the current month, still in progress.</p>
   </div>)
 }
-type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret' | 'appr'
+type Pop = null | 'made' | 'del' | 'ret' | 'over' | 'pdel' | 'pret' | 'appr' | 'collect'
 const tint = (c: string): React.CSSProperties => ({ ['--c' as any]: c })
 const dShort = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })
 // Colour and icon for each alteration stage (the label itself comes from altStatus() in lib/bookingAction.ts).
@@ -55,6 +58,12 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const made = B.filter(b => b.status !== 'cancelled' && istDate(b.created_at) === today)
   const delToday = B.filter(b => b.start_date === today && ['confirmed', 'out', 'returned'].includes(b.status))
   const retToday = B.filter(b => b.end_date === today && ['out', 'returned'].includes(b.status))
+  // IN-4: money still to collect on deliveries in the next 7 days (rent balance + any deposit not yet taken), so the cash needed on those days is known.
+  const toCollect = B.filter(b => ['pending', 'confirmed'].includes(b.status) && b.start_date >= today && b.start_date <= addD(today, 6))
+    .map(b => ({ b, rent: Math.max(0, b.rent + b.charges - b.paid), dep: Math.max(0, b.deposit - b.deposit_held) })).filter(x => x.rent + x.dep > 0)
+    .sort((x, y) => x.b.start_date.localeCompare(y.b.start_date))
+  const toCollectTotal = toCollect.reduce((t, x) => t + x.rent + x.dep, 0)
+  const retDue = retToday.filter(b => b.status === 'out')      // still to come back; ones already returned are not "due" any more
   const odDel = B.filter(b => b.status === 'confirmed' && b.start_date < today), odRet = B.filter(b => b.status === 'out' && b.end_date < today)
   const pdel = B.filter(b => b.status === 'confirmed' && b.start_date <= in7), pret = B.filter(b => b.status === 'out')
   const pending = (ctx.APPR || []).filter((a: any) => a.status === 'pending')
@@ -73,7 +82,7 @@ export default function Dashboard({ ctx }: { ctx: any }) {
     const v = await ctx.ask(yes ? 'Approve the shortfall?' : 'Decline the shortfall?', [{ name: 'n', label: 'Note for the team (optional)' }], { ok: yes ? 'Approve' : 'Decline', note: `${yes ? 'The booking can then be delivered or returned' : 'The team must collect the balance'} with ${inr(a.shortfall)} unpaid.` }); if (!v) return
     const { error } = await ctx.sb.rpc('decide_approval', { p_id: a.id, p_approve: yes, p_note: v.n }); ctx.say(error ? 'Could not save your decision.' : yes ? 'Approved' : 'Declined'); ctx.load()
   }
-  const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers', appr: ctx.owner ? 'Shortfalls waiting for your approval' : 'Shortfall requests' }
+  const title: Record<string, string> = { made: "Today's bookings", del: "Today's deliveries", ret: "Today's returns", over: 'Overdue deliveries and returns', collect: 'Money to collect on deliveries in the next 7 days', pdel: 'Pending deliveries: next 7 days', pret: 'Pending returns: dresses out with customers', appr: ctx.owner ? 'Shortfalls waiting for your approval' : 'Shortfall requests' }
   const dl = (f: string) => <PendingDeliveries ctx={ctx} filter={f} />, rt = (f: string) => <PendingReturns ctx={ctx} filter={f} />
   // Workflow overview (secondary): live lists, each sorted by its nearest relevant date.
   const needsAlt = (b: any) => (ctx.AJ || []).some((j: any) => j.booking_id === b.id && j.source !== 'damage' && ALT_OPEN.includes(j.status))
@@ -101,11 +110,15 @@ export default function Dashboard({ ctx }: { ctx: any }) {
   const altBadge = (r: any) => { const st = altStatus(r.job), [c, ic] = JT[st.tone] || JT.off; return <span className="bdg" style={tint(c)} title={st.hint}><Ic n={ic} s={15} />{st.label}</span> }
   return (<div>
     <PageHead icon="home" title="Dashboard" sub="The most important work for today, all in one place"></PageHead>
+    <Countdown ctx={ctx} />
+    <DayNotes ctx={ctx} />
+    <CloseDay ctx={ctx} />
     <Today ctx={ctx} embedded />
     <div className="k6" style={{ gridTemplateColumns: 'repeat(3,minmax(0,1fr))' }}>
-      <KC ic="truck" c="var(--blue)" v={`${delToday.filter((b: any) => b.status === 'delivered').length}/${delToday.length}`} l="Deliveries completed today" on={() => setPop('del')} />
-      <KC ic="ret" c="var(--purple)" v={retToday.length} l="Returns due today" on={() => setPop('ret')} />
-      <KC ic="warn" c="var(--red)" v={odRet.length + odDel.length} l="Overdue items" on={() => setPop('over')} /></div>
+      <KC ic="truck" c="var(--blue)" v={`${delToday.filter((b: any) => b.status === 'out' || b.status === 'returned').length}/${delToday.length}`} l="Deliveries completed today" on={() => setPop('del')} />
+      <KC ic="ret" c="var(--purple)" v={retDue.length} l="Returns due today" on={() => setPop('ret')} />
+      <KC ic="warn" c="var(--red)" v={odRet.length + odDel.length} l="Overdue items" on={() => setPop('over')} />
+      {ctx.owner && <KC ic="coins" c="var(--ok)" v={inr(toCollectTotal)} l="To collect in 7 days" sub={`${toCollect.length} ${toCollect.length === 1 ? 'delivery' : 'deliveries'}`} on={() => setPop('collect')} />}</div>
     {pending.length > 0 && <div className="alsobar">
       <button className="hot" onClick={() => setPop('appr')}>{pending.length} shortfall {pending.length === 1 ? 'request' : 'requests'} {ctx.owner ? 'need your approval' : 'waiting for the owner'}</button></div>}
     <div id="workflow" className="wf-row" role="tablist" aria-label="Workflow overview">{WF.map(w => <Fragment key={w.k}><button role="tab" aria-expanded={wf === w.k} className={'wf' + (wf === w.k ? ' on' : '')} style={tint(w.c)} onClick={() => setWf(wf === w.k ? null : w.k)}>
@@ -119,6 +132,9 @@ export default function Dashboard({ ctx }: { ctx: any }) {
           {pop === 'made' && <div className="scroll"><table><thead><tr><th>Ref</th><th>Dress</th><th>Customer</th><th>Delivery</th><th>Status</th><th>Balance</th></tr></thead><tbody>
             {made.map(b => <tr key={b.id} onClick={() => ctx.openBooking(b.id)} style={{ cursor: 'pointer' }}><td>{b.id}</td><td><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{ctx.thumb(ctx.dmap[b.dress_id])}{b.dress_code}</div></td><td>{b.customer_name}<br />{b.phone}</td><td>{dmy(b.start_date)}</td><td>{b.status}</td><td>{inr(b.rent + b.charges - b.paid)}</td></tr>)}
             {!made.length && <tr><td colSpan={6} className="mut">No bookings made today.</td></tr>}</tbody></table></div>}
+          {pop === 'collect' && <div className="scroll"><table><thead><tr><th>Delivery</th><th>Dress</th><th>Customer</th><th>Rent balance</th><th>Deposit to take</th><th>Total</th><th></th></tr></thead><tbody>
+            {toCollect.map(({ b, rent, dep }) => <tr key={b.id}><td>{dmy(b.start_date)}</td><td>{b.dress_code} · {b.dress_name}</td><td>{b.customer_name}</td><td>{inr(rent)}</td><td>{inr(dep)}</td><td><b>{inr(rent + dep)}</b></td><td><button className="btn alt sm" onClick={() => { setPop(null); ctx.openBooking(b.id) }}>Details</button></td></tr>)}
+            {!toCollect.length && <tr><td colSpan={7} className="mut">Nothing outstanding on the next 7 days of deliveries.</td></tr>}</tbody></table></div>}
           {pop === 'del' && dl('today-del')}{pop === 'ret' && rt('today-ret')}
           {pop === 'over' && <>{<div><b>Overdue deliveries ({odDel.length})</b>{dl('overdue')}</div>}{<div><b>Overdue returns ({odRet.length})</b>{rt('overdue')}</div>}</>}
           {pop === 'pdel' && dl('next7')}{pop === 'pret' && rt('all')}

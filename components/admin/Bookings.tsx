@@ -134,7 +134,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       return <div className="bkm-pop" role="menu" aria-label="Booking actions" onClick={e => { e.stopPropagation(); if ((e.target as HTMLElement).closest('button')) setTimeout(() => setMenu(null), 0) }} style={{ position: 'fixed', right: Math.max(8, innerWidth - menu.x), ...(below ? { top: menu.y, maxHeight: space } : { bottom: 8, maxHeight: innerHeight - 16 }) }}>
         {ctx.sel(b, { noCancel: true })}
         {handled(b).length > 0 && <small>{handled(b).map(([l, n]) => <div key={l}>{l}: {n}</div>)}</small>}
-        {['pending', 'confirmed'].includes(b.status) ? <button type="button" className="bkm-cancel" role="menuitem" onClick={() => ctx.cancelBooking(b)}>Cancel booking…</button>
+        {['pending', 'confirmed'].includes(b.status) ? <button type="button" className="bkm-cancel" role="menuitem" onClick={() => ctx.cancelBooking(b)}>{ctx.owner ? 'Cancel booking' : 'Request cancellation'}</button>
           : b.status === 'out' ? <small className="bkm-cancel-note">Cancelling is not possible once the dress is out. Process the return instead.</small> : null}
       </div>})()}
   </div>)

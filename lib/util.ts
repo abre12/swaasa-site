@@ -7,7 +7,14 @@ export const price = (d: any, s: string, e: string) => { const n = nDays(s, e), 
 
 // ---- v2 additions -------------------------------------------------------------------------------------------------
 // Business dates are Indian Standard Time, so "today" never flips at the wrong hour.
-export const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+// OP-6: "today" and "the hour" come from the SERVER's clock, not the phone's. A phone with the wrong date or time would otherwise show the
+// wrong day's deliveries and fire alerts at the wrong time. The app measures the difference once at start-up (see syncClock in AdminApp).
+let clockOffset = 0
+export const setClockOffset = (ms: number) => { clockOffset = Number.isFinite(ms) && Math.abs(ms) < 30 * 864e5 ? ms : 0 }
+export const clockSkew = () => clockOffset
+export const nowMs = () => Date.now() + clockOffset
+export const todayIST = () => new Date(nowMs()).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+export const hourIST = () => Number(new Date(nowMs()).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false })) % 24
 export const istDate = (ts: string) => new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 export const istTime = (ts: string) => new Date(ts).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 export const dmy = (s?: string | null) => s ? new Date(s.slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '–'
@@ -39,7 +46,7 @@ export const dbMsg = (m?: string): string => {
   if (/FORBIDDEN|row-level security|permission denied/i.test(t)) return 'Your login is not allowed to do that. Ask the owner.'
   if (/BAD_AMOUNT/.test(t)) return 'That amount is not valid for this booking. Refresh and try again.'
   if (/MODE_REQUIRED/.test(t)) return 'Select the payment mode.'
-  if (/Could not find the function|PGRST202/i.test(t)) return 'The database update for this version (migration-v26) has not been applied yet.'
+  if (/Could not find the function|PGRST202/i.test(t)) return 'The database update for this version has not been applied yet (see supabase/README-migrations.md).'
   if (/BAD_PHONE/.test(t)) return PHONE_HELP
   if (/ALREADY_EXISTS/.test(t)) return 'A customer with this name and number already exists.'
   if (/NAME_REQUIRED/.test(t)) return 'Enter the customer name.'
@@ -55,3 +62,6 @@ export const phoneKey = (p?: string): string => {
 }
 export const phoneValid = (p?: string): boolean => { const k = phoneKey(p); return /^[6-9]\d{9}$/.test(k) || /^\+\d{8,15}$/.test(k) }
 export const PHONE_HELP = 'Enter a valid mobile number: 10 digits starting with 6, 7, 8 or 9 (or an international number starting with +).'
+
+/** N-17: one money symbol. Older booking history lines were written with "Rs"; show them with the rupee sign like everything else. */
+export const cleanMoneyText = (t?: string | null): string => String(t ?? '').replace(/(^|[^A-Za-z])Rs\.? ?(?=\d)/g, '$1₹')

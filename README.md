@@ -2,6 +2,34 @@
 
 Next.js + Supabase (database, logins, photo storage). Deploy on Vercel.
 
+## What is new in Phase 3
+
+**Order.** 1) Run `supabase/migration-v28-phase3.sql` in the Supabase SQL editor (after v27). 2) Upload this website. 3) Delete the old files listed below from your repository. v28 is safe to run before the upload; it only adds things, except OP-7 below.
+
+**Delete these from your repository.** Uploading files over a repository never deletes anything, so these old files came back in the last upload and must be removed by hand: `components/Booking.tsx`, `components/TryOn.tsx`, `components/Hero.tsx`, the folders `app/booking/`, `app/api/book/` and `app/api/tryon/`, and `tsconfig.tsbuildinfo`. The two `app/api/` folders use the server key and call database functions that no longer exist.
+
+| Item | What changed |
+| --- | --- |
+| SU-1 | The Dashboard starts with a **Countdown to delivery**: tabs Today / Tomorrow / Next 3 days, a D-0 to D-3 label, and a 4-step strip per dress (Measured, At tailor, Back & checked, Cleaned; a step that does not apply shows as not needed). The packed step is gone, as decided. "Next 3 days" shows tomorrow to 3 days ahead grouped by day. |
+| SU-5 | A search box at the top of every staff page: booking ID, phone number, name or dress code. It asks the database, so old bookings are found too. |
+| SU-2 | The role is called **Staff** everywhere. The "Preparation only" login can no longer be created (the staff screen and the server refuse it). |
+| CH-6 | Staff see **Request cancellation**; the owner sees Cancel booking. |
+| N-11 | **Handover notes**: add a note to a booking (it shows on the booking, and on the Countdown row) or to a day. A "Notes for the next days" card on the Dashboard; tick a note when done. |
+| BP-3 | **Receipt & agreement** on every booking: print or save as PDF, send on WhatsApp, or copy the text. It uses the same totals as the Payment Summary. Shop name, phone, address and the rental terms are set in Settings. The terms are a starting template, not legal advice: please read and change them to your own policy. |
+| IN-4 | Dashboard (owner): **To collect in 7 days**, the rent balance plus any deposit still to take on the next 7 days of deliveries, with the list behind it. |
+| IN-2 / N-15 | Owner page **Insights > Scorecard** and **Leakage**: delivery and return on-time rates, tailor and cleaner time against what was promised, discounts (by person), rent refunded, deposits kept, late fees and damage recovered, cash differences, and the same money measures month by month. Swaps are not shown: they are not recorded in the system. |
+| N-12 | **Insights > Stock**: what each dress cost (owner only, stored apart from the public dress data), what it has earned, payback %, use over the last year, last rented, and **dead stock** (no rental for 90 days). Add each dress's cost to start seeing payback. |
+| N-13 | **Missed enquiries**: anyone on staff can log one ("Log a missed enquiry" on the Dashboard, or one tap from the booking form when the dates are not free). The owner sees why customers did not book and which dresses and kinds are asked for and missed. |
+| N-10 | **End of day**: "Close the day" on the Dashboard. Cash tallied is checked automatically; staff confirm tomorrow's dresses and tick the overdue returns they called. The result is saved, shown under Insights > Day closes, and sent to the owner on Telegram (`TELEGRAM_OWNER_CHAT_ID`). |
+| OP-6 | "Today" and the hour now come from the **server's** clock, not the phone's. If a phone is more than 2 minutes off, a note says so. |
+| SA-5 | Security headers on every page (cannot be shown inside another website, no sniffing, strict referrer, no camera or microphone, https only). The sign-in and staff pages are hidden from search engines and `robots.txt` is added. A full Content-Security-Policy is **not** set yet: it needs testing against every page first. |
+| OP-5 | Staff get a compact booking page (no big banner, no film strip). The sign-in film (4.7 MB) is not downloaded on a slow connection, in data-saver mode, or when the phone asks for reduced motion. The unused `Hero` file is removed. |
+| OP-7 | The `admin_notifications` table and the three triggers that wrote to it are removed (nothing read it). |
+| CH-7 | The notifications panel is created once, not twice. Alterations looks bookings up once instead of scanning the whole list for every row. The question dialogs now put the cursor in the dialog, keep Tab inside it, close on Escape and return the cursor to the button. |
+| N-17 | One money symbol: every database message now says ₹, and older "Rs" lines in the booking history are shown with ₹. `AdminApp.tsx` is smaller: the Settings form and the day schedule popup are now their own files. More can be moved the same way over time. |
+
+**Not done (by choice):** SU-3, SU-4, BP-1, IN-5, N-9, N-14, N-16.
+
 ## Checks and safe releases (Phase 2, OP-3 / N-8)
 
 Nothing in this section changes how the shop's system behaves. It makes changes safer to release.
@@ -16,7 +44,7 @@ Nothing in this section changes how the shop's system behaves. It makes changes 
 
 **Needs your action:** create the staging Supabase project and the Vercel Preview variables (`docs/STAGING.md`), and in GitHub > Settings > Branches require the two checks to pass before a pull request can be merged. These cannot be done from the code.
 
-Lint prints about 30 warnings from older code (image tags, hook lists). They do not fail the check.
+Lint prints about 35 warnings from older code (image tags, hook lists). They do not fail the check.
 
 ## What is new in Phase 2, batch A2 (data load, customers, error screens, delivery confidence)
 

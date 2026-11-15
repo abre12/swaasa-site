@@ -3,7 +3,9 @@ import PrivatePhoto from './PrivatePhoto'
 import { useEffect, useMemo, useState } from 'react'
 import PaymentSummary from './PaymentSummary'
 import { buildPaymentSummary } from '@/lib/payments'
-import { dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
+import { BookingNotes } from './HandoverNotes'
+import ReceiptBar from './ReceiptBar'
+import { cleanMoneyText, dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
 import { bookingReadiness } from '@/lib/readiness'
 import DeliveryEdit from './DeliveryEdit'
@@ -211,8 +213,10 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             </div>}
           </section>
             {!limited && <>
+          {!limited && <ReceiptBar ctx={ctx} b={b} pays={pays} />}
+          {!limited && <BookingNotes ctx={ctx} b={b} />}
           {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
-            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
+            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {cleanMoneyText(l.m)}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
           {(b.return_notes || inspection) && <section className="bd-card bd-extra-card"><h3><Ic n="ret" s={19} />Return Condition</h3>
             {b.return_notes && <p className="bd-return-note">{b.return_notes}</p>}
             {inspection && <><div className="bd-inspection-condition"><span>Inspection</span><b>{({ good: 'Good', minor_marks: 'Minor Marks', needs_cleaning: 'Needs Cleaning', damage_repair: 'Damage / Repair Required' } as any)[inspection.condition] || inspection.condition}</b></div>
@@ -244,7 +248,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       <footer className="bd-actionbar">
         {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.selSecondary(b)}</div>
           : <span className="mut">Booking operations are managed by sales staff.</span>}
-        {!limited && ['pending', 'confirmed'].includes(b.status) && <button type="button" className="bd-cancel-link" onClick={() => ctx.cancelBooking(b)}>Cancel booking…</button>}
+        {!limited && ['pending', 'confirmed'].includes(b.status) && <button type="button" className="bd-cancel-link" onClick={() => ctx.cancelBooking(b)}>{ctx.owner ? 'Cancel booking' : 'Request cancellation'}</button>}
         <button type="button" className="bd-footer-close" onClick={onClose}>Close</button>
       </footer>
     </section>
