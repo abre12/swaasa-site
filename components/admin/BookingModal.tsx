@@ -3,9 +3,7 @@ import PrivatePhoto from './PrivatePhoto'
 import { useEffect, useMemo, useState } from 'react'
 import PaymentSummary from './PaymentSummary'
 import { buildPaymentSummary } from '@/lib/payments'
-import { BookingNotes } from './HandoverNotes'
-import ReceiptBar from './ReceiptBar'
-import { cleanMoneyText, dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
+import { dmy, inr, istDate, istTime, nDays, todayIST } from '@/lib/util'
 import { Ic } from './icons'
 import { bookingReadiness } from '@/lib/readiness'
 import DeliveryEdit from './DeliveryEdit'
@@ -65,16 +63,17 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
   const primary = useMemo(() => limited ? null : pickPrimary(ctx, b), [limited, ctx.AJ, ctx.CR, ctx.B, b.id, b.status, b.dress_id, b.start_date]) // eslint-disable-line react-hooks/exhaustive-deps
   async function runPrimary() {
     if (!primary || acting) return
+    let closeAfter = false
     setActing(true)
     try {
       if (primary.kind === 'confirm') await ctx.patch(b, { status: 'confirmed' }, 'Confirmed')
       else if (primary.kind === 'deliver') await ctx.pickup(b)
-      else if (primary.kind === 'return') await ctx.ret(b)
+      else if (primary.kind === 'return') closeAfter = await ctx.ret(b)
       else if (primary.kind === 'alt_dispatch') await dispatchAlteration(ctx, primary.job)
       else if (primary.kind === 'alt_open') ctx.focusWorkflow('alteration', primary.job.id)
       else if (primary.kind === 'clean_dispatch') await dispatchToCleaner(ctx, [primary.req])
       else if (primary.kind === 'clean_open') ctx.focusWorkflow('cleaning', primary.req.id)
-    } finally { setActing(false) }
+    } finally { setActing(false); if (closeAfter) onClose() }
   }
   // Dry cleaning is shown only while the dress is waiting in the queue to be sent. Once it is back in the shop nothing is shown.
   const wf = [primary?.current, primary?.secondary, primary?.view].filter((w: any) => w && w.module === 'cleaning' && w.status === 'to_be_sent') as any[]
@@ -213,10 +212,8 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
             </div>}
           </section>
             {!limited && <>
-          {!limited && <ReceiptBar ctx={ctx} b={b} pays={pays} />}
-          {!limited && <BookingNotes ctx={ctx} b={b} />}
           {!!b.log?.length && <details className="bd-card bd-history"><summary>Booking History</summary>
-            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {cleanMoneyText(l.m)}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
+            {b.log.slice().reverse().map((l: any, i: number) => <div key={i}>{new Date(l.t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.m}{l.by ? ` · ${l.by}` : ''}</div>)}</details>}
           {(b.return_notes || inspection) && <section className="bd-card bd-extra-card"><h3><Ic n="ret" s={19} />Return Condition</h3>
             {b.return_notes && <p className="bd-return-note">{b.return_notes}</p>}
             {inspection && <><div className="bd-inspection-condition"><span>Inspection</span><b>{({ good: 'Good', minor_marks: 'Minor Marks', needs_cleaning: 'Needs Cleaning', damage_repair: 'Damage / Repair Required' } as any)[inspection.condition] || inspection.condition}</b></div>
@@ -248,7 +245,7 @@ export default function BookingModal({ ctx, b, limited, onClose }: { ctx: any; b
       <footer className="bd-actionbar">
         {!limited ? <div className="bd-actions" aria-label="Booking actions">{ctx.selSecondary(b)}</div>
           : <span className="mut">Booking operations are managed by sales staff.</span>}
-        {!limited && ['pending', 'confirmed'].includes(b.status) && <button type="button" className="bd-cancel-link" onClick={() => ctx.cancelBooking(b)}>{ctx.owner ? 'Cancel booking' : 'Request cancellation'}</button>}
+        {!limited && ['pending', 'confirmed'].includes(b.status) && <button type="button" className="bd-cancel-link" onClick={() => ctx.cancelBooking(b)}>Cancel booking…</button>}
         <button type="button" className="bd-footer-close" onClick={onClose}>Close</button>
       </footer>
     </section>
