@@ -47,6 +47,13 @@ export default function Home() {
       </div>
       <CustomerBookingTracker />
 
+      <section className="ch-experience" id="experience" aria-labelledby="ch-experience-title">
+        <div className="ch-experience-heading"><p className="ch-kicker">A LITTLE MORE PERSONAL</p><h2 id="ch-experience-title">Choosing your look<br /><em>should feel special.</em></h2>
+          <p>From the first conversation to the fitting, we make space for you to explore at your own pace.</p>
+        </div>
+        <ol className="ch-steps">{steps.map(step => <li key={step.n}><span>{step.n}</span><div><h3>{step.title}</h3><p>{step.text}</p></div><b aria-hidden="true">↗</b></li>)}</ol>
+      </section>
+
       <section className="ch-wardrobe" id="wardrobe" aria-labelledby="ch-wardrobe-title">
         <div className="ch-section-head">
           <div><p className="ch-kicker">MADE FOR YOUR CELEBRATION</p><h2 id="ch-wardrobe-title">A wardrobe for every way<br />you celebrate.</h2></div>
@@ -62,13 +69,6 @@ export default function Home() {
           <h3>{item.title}</h3><p>{item.note}</p>
         </article>)}</div>
         <p className="ch-private-note"><span aria-hidden="true">✦</span> Our detailed catalogue is shared privately during a guided viewing.</p>
-      </section>
-
-      <section className="ch-experience" id="experience" aria-labelledby="ch-experience-title">
-        <div className="ch-experience-heading"><p className="ch-kicker">A LITTLE MORE PERSONAL</p><h2 id="ch-experience-title">Choosing your look<br /><em>should feel special.</em></h2>
-          <p>From the first conversation to the fitting, we make space for you to explore at your own pace.</p>
-        </div>
-        <ol className="ch-steps">{steps.map(step => <li key={step.n}><span>{step.n}</span><div><h3>{step.title}</h3><p>{step.text}</p></div><b aria-hidden="true">↗</b></li>)}</ol>
       </section>
 
       <section className="ch-visit" id="visit" aria-labelledby="ch-visit-title">
