@@ -69,7 +69,6 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
         <ul className="cl-feat">{FEATURES.map(f => <li key={f.t}>{f.i}<span>{f.t}</span></li>)}</ul>
       </section>}
       <section className="cl-shop" id="collection" aria-label="The collection">
-        <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
         <div className="cl-shop-cats"><h2>Browse by Category</h2>
           <nav className="cl-cats" aria-label="Categories">{MAIN_CATS.map((m, i) => {
             const c = info[i], inner = <><span className="pic">{c.pic ? <img src={c.pic} alt="" loading="lazy" decoding="async" /> : hanger}</span><span className="nm">{pretty(m.label)}</span><small>{c.n ? `${c.n} dress${c.n === 1 ? '' : 'es'}` : 'Coming soon'}</small></>
@@ -95,6 +94,7 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
             {!n && <p className="cl-none">No dresses match these filters. Try removing a filter or changing the dates.</p>}</div>
         </div>
       </section>
+      <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
     </div>
   </div>)
 }
