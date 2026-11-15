@@ -15,12 +15,6 @@ const occasions = [
   { n: '05', title: 'Other occasions', note: 'Find a look for the celebration ahead' },
 ]
 
-const steps = [
-  { n: '01', title: 'Tell us about your day', text: 'Share the occasion and event date so we can guide you to the right next step.' },
-  { n: '02', title: 'View styles privately', text: 'Arrange a personal viewing and explore the pieces that suit your plans.' },
-  { n: '03', title: 'Get ready with care', text: 'We will talk through fit, alteration support and rental dates before you decide.' },
-]
-
 const MAPS_URL = 'https://www.google.com/maps/dir/?api=1&destination=2nd%20Floor%2C%20SWAASA%20Boutique%2C%20opposite%20India%20Post%2C%20Karamana%2C%20Thiruvananthapuram%2C%20Kerala%20695002'
 
 export default function Home() {
@@ -37,7 +31,7 @@ export default function Home() {
           <span><b>Swaasa</b><small>Wedding Rentals</small></span>
         </a>
         <nav aria-label="Main navigation">
-          <a href="#experience">The experience</a>
+          <a href="#experience">What we offer</a>
           <a className="ch-nav-cta" href="#track-booking">Track a booking <span aria-hidden="true">↗</span></a>
         </nav>
       </header>
@@ -47,43 +41,29 @@ export default function Home() {
       </div>
       <CustomerBookingTracker />
 
-      <section className="ch-journey" id="experience" aria-labelledby="ch-experience-title">
-        <div className="ch-experience">
-          <div className="ch-experience-heading"><p className="ch-kicker">A LITTLE MORE PERSONAL</p><h2 id="ch-experience-title">Choosing your look<br /><em>should feel special.</em></h2>
-            <p>From the first conversation to the fitting, we make space for you to explore at your own pace.</p>
-          </div>
-          <ol className="ch-steps">{steps.map(step => <li key={step.n}><span>{step.n}</span><div><h3>{step.title}</h3><p>{step.text}</p></div><b aria-hidden="true">↗</b></li>)}</ol>
+      <section className="ch-offer" id="experience" aria-labelledby="ch-offer-title">
+        <div className="ch-offer-head">
+          <div><p className="ch-kicker">WEDDING &amp; OCCASION WEAR RENTALS</p><h2 id="ch-offer-title">Wedding looks to rent,<br /><em>for every celebration.</em></h2></div>
+          <p>Explore rental looks for the bride, bridesmaids and guests across our collection of lehengas, gowns, sarees and more.</p>
         </div>
-        <div className="ch-journey-divider" aria-hidden="true"><span>✳</span></div>
 
-        <div className="ch-wardrobe" id="wardrobe" role="region" aria-labelledby="ch-wardrobe-title">
-          <div className="ch-section-head">
-            <div><p className="ch-kicker">MADE FOR YOUR CELEBRATION</p><h2 id="ch-wardrobe-title">A wardrobe for every way<br />you celebrate.</h2></div>
-            <p>Explore the collection in person. Tell us what you are celebrating, and we will help you find a fitting place to begin.</p>
-          </div>
-          <div className="ch-promise" aria-label="Swaasa service highlights">
-            <span><b>01</b> Private guided viewings</span>
-            <span><b>02</b> Fit and alteration support</span>
-            <span><b>03</b> Flexible rental dates</span>
-          </div>
-          <div className="ch-occasion-grid">{occasions.map(item => <article className="ch-occasion" key={item.n}>
-            <span className="ch-occasion-n">{item.n}</span><span className="ch-occasion-mark" aria-hidden="true">✳</span>
-            <h3>{item.title}</h3><p>{item.note}</p>
-          </article>)}</div>
-          <p className="ch-private-note"><span aria-hidden="true">✦</span> Our detailed catalogue is shared privately during a guided viewing.</p>
+        <div className="ch-occasion-grid">{occasions.map(item => <article className="ch-occasion" key={item.n}>
+          <span className="ch-occasion-n">{item.n}</span><span className="ch-occasion-mark" aria-hidden="true">✳</span>
+          <h3>{item.title}</h3><p>{item.note}</p>
+        </article>)}</div>
+
+        <div className="ch-offer-support" aria-label="Rental service details">
+          <div><span>01</span><b>Private studio viewings</b><p>Explore styles with personal guidance.</p></div>
+          <div><span>02</span><b>Fitting and alteration support</b><p>Talk through fit before you decide.</p></div>
+          <div><span>03</span><b>Flexible rental dates</b><p>Plan around your celebration.</p></div>
         </div>
-      </section>
 
-      <section className="ch-visit" id="visit" aria-labelledby="ch-visit-title">
-        <div><p className="ch-kicker">YOUR MOMENT, YOUR WAY</p><h2 id="ch-visit-title">Let’s find the right<br /><em>look for your day.</em></h2></div>
-        <div className="ch-visit-content"><p>Tell us what you are celebrating and when. We’ll help you arrange a private viewing at Swaasa.</p>
-          <div className="ch-location">
-            <span className="ch-location-label">VISIT OUR STUDIO</span>
-            <address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span></address>
-            <a className="ch-directions" href={MAPS_URL} target="_blank" rel="noopener noreferrer">Get directions on Google Maps <span aria-hidden="true">↗</span></a>
+        <div className="ch-offer-contact" id="visit">
+          <div><p className="ch-kicker">VISIT OUR STUDIO</p><address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span></address></div>
+          <div className="ch-offer-actions"><a className="ch-directions" href={MAPS_URL} target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>
+            <a className="ch-button" href={contactHref} target={phoneHref ? undefined : '_blank'} rel={phoneHref ? undefined : 'noopener noreferrer'}>{contactLabel}<span aria-hidden="true">↗</span></a>
+            {!phoneHref && <a className="ch-offer-social" href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Message us on Instagram</a>}
           </div>
-          <a className="ch-button ch-button-light" href={contactHref} target={phoneHref ? undefined : '_blank'} rel={phoneHref ? undefined : 'noopener noreferrer'}>{contactLabel}<span aria-hidden="true">↗</span></a>
-          {!phoneHref && <a className="ch-visit-social" href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Visit us on Instagram <span aria-hidden="true">↗</span></a>}
         </div>
       </section>
 
