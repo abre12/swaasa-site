@@ -26,9 +26,13 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   const [known, setKnown] = useState<{ name: string; email: string; n: number }[] | null>(null), [showDisc, setShowDisc] = useState(false)
   // Booking inside the cleaning period: the owner can do it directly; anyone else needs the owner's approval first (SA-3).
   const isOwner = staff === 'owner'
+  const [gapHit, setGapHit] = useState(false)   // the database refused the booking because of the cleaning gap: offer the approval request right there
   const [gapAsk, setGapAsk] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none'), [gapWhy, setGapWhy] = useState('')
 
   useEffect(() => { supa().rpc('dress_busy', { p_dress: dress.id }).then(({ data }) => setBusy(data || [])) }, [dress.id])
+  // Who the neighbouring bookings belong to, so the cleaning-period notice can say who has the dress and when.
+  const [nbrs, setNbrs] = useState<{ start_date: string; end_date: string; customer_name: string }[]>([])
+  useEffect(() => { supa().from('bookings').select('start_date,end_date,customer_name').eq('dress_id', dress.id).neq('status', 'cancelled').then(({ data }) => setNbrs(data || [])) }, [dress.id])
   // What is happening with this dress RIGHT NOW (not just which dates are taken). Shown as a heads-up; it never blocks the booking.
   const [now, setNow] = useState<{ out: any | null; clean: any | null }>({ out: null, clean: null })
   useEffect(() => {
@@ -43,9 +47,12 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   if (now.out && !(s && e && now.out.start_date > e)) { const late = now.out.end_date < todayIST(); if (late || (s && now.out.end_date >= addDays(s, -2))) heads.push(`This dress is still with ${now.out.customer_name || 'another customer'}, due back ${dmy(now.out.end_date)}${late ? ' (overdue)' : ''}. It may not be back in time for the new booking.`) }
   if (now.clean && s && s <= addDays(todayIST(), 7)) heads.push(`This dress is in the cleaning workflow (${now.clean.status === 'to_be_sent' ? 'waiting to be sent to the cleaner' : now.clean.status === 'sent' ? 'with the cleaner' : 'back from the cleaner, to be checked'}). Check it will be ready by the delivery date.`)
   const valid = !!(s && e && e >= s)
-  const clash = valid ? busy.filter(b => s <= b.hold_end && e >= b.start_date) : []
+  // The cleaning gap works both ways: another booking's cleaning day (hold_end) must not touch these dates, AND this booking's own cleaning day after its return must not touch the next booking's start.
+  // The gap length is the difference between hold_end and end_date on a booking row (0 on blocks and dry-cleaning rows, which have no gap of their own).
+  const gapOf = (b: any) => b.end_date && b.hold_end ? Math.max(0, Math.round((Date.parse(b.hold_end) - Date.parse(b.end_date)) / 864e5)) : 0
+  const clash = valid ? busy.filter(b => s <= b.hold_end && addDays(e, gapOf(b)) >= b.start_date) : []
   const realClash = clash.some(b => !b.end_date || (s <= b.end_date && e >= b.start_date))
-  const gapOnly = clash.length > 0 && !realClash
+  const gapOnly = (clash.length > 0 || gapHit) && !realClash
   const avail = dress.status === 'available'
   const free = valid && avail && clash.length === 0
   const gapOk = isOwner ? checked : gapAsk === 'approved'
@@ -82,7 +89,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
   const cust = Math.max(0, Math.round(+f.custom || 0))
   const total = net + cust, received = +f.advance || 0, balance = Math.max(0, total - Math.max(0, received - depDue))
   const set = (k: string, v: string) => setF(x => ({ ...x, [k]: v }))
-  const setDates = (fn: (v: string) => void) => (x: any) => { fn(x.target.value); setChecked(false); setMsg('') }
+  const setDates = (fn: (v: string) => void) => (x: any) => { fn(x.target.value); setChecked(false); setMsg(''); setGapHit(false) }
 
   // Event date follows the delivery date until the staff member sets it themselves.
   useEffect(() => { if (!eventTouched && s) setF(x => ({ ...x, eventDate: e && addDays(s, 1) > e ? s : addDays(s, 1) })) }, [s, e, eventTouched])
@@ -137,22 +144,26 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
       p_event_date: f.eventDate, p_event_type: f.eventType, p_notes: f.notes || null,
       p_alt: alt !== 'none' ? { requirements: altText, checklist, measurements, measurements_pending: alt === 'later' && !hasMeas } : null,
       p_delivery: hasDelivery ? { mode: 'courier', address: f.dAddr } : null })
-    if (error) { setWait(false); const k = Object.keys(ERR).find(k => error.message.includes(k)); return setMsg(k ? ERR[k] : /Could not find the function|PGRST202|staff_create_booking_full/i.test(error.message) ? 'The booking update (migration-v17) has not been applied to the database yet, so nothing was saved.' : 'Something went wrong, so nothing was saved. Please try again.') }
+    if (error) { setWait(false); if (error.message.includes('GAP_CLASH')) { setGapHit(true); return setMsg('') } const k = Object.keys(ERR).find(k => error.message.includes(k)); return setMsg(k ? ERR[k] : /Could not find the function|PGRST202|staff_create_booking_full/i.test(error.message) ? 'The booking update (migration-v17) has not been applied to the database yet, so nothing was saved.' : 'Something went wrong, so nothing was saved. Please try again.') }
     setWait(false); setWarns(w); setDone({ id, total, received: amt, balance, depDue })
     setStep('done')
   }
 
   const stepper = (typeof step === 'number') && <ol className="bf-steps" aria-label="Booking progress">{STEPS.map((l, i) => <li key={l} className={step === i + 1 ? 'cur' : step > i + 1 ? 'done' : ''}><i>{step > i + 1 ? '✓' : i + 1}</i><span>{l}</span></li>)}</ol>
-  const avBanner = <>
-    {valid && !avail && <div className="bk-avail no"><div><b>Not available</b><span>This dress is currently marked {dress.status}.</span></div></div>}
-    {valid && avail && realClash && <div className="bk-avail no"><div><b>Not available for those dates</b><span>Try nearby dates or browse similar dresses. {missed === 'saved' ? 'Logged as a missed enquiry.' : <button type="button" className="textlink" onClick={logMissed}>Customer going away? Log a missed enquiry</button>}{missed === 'error' && ' Could not save, try again.'}</span></div></div>}
-    {valid && avail && gapOnly && <><div className="bk-avail no"><div><b>{GAP}</b><span>Each dress needs a day for cleaning and preparation between rentals.</span></div></div>
+  const gapWho = clash.map(c => { const n = nbrs.find(x => x.start_date === c.start_date && x.end_date === c.end_date)?.customer_name; if (!n) return ''
+    return c.start_date > e ? `${n} has booked the dress from ${dmy(c.start_date)}` : `${n} has the dress booked until ${dmy(c.end_date)}` }).filter(Boolean)
+  const gapHead = gapWho.length ? `${GAP} as ${gapWho.join(' and ')}` : GAP
+  const gapPanel = <><div className="bk-avail no"><div><b>{gapHead}</b><span>Each dress needs a day for cleaning and preparation between rentals.</span></div></div>
       {isOwner ? <label className="bf-check"><input type="checkbox" checked={checked} onChange={x => setChecked(x.target.checked)} />I have checked and confirmed availability. Book inside the cleaning period.</label>
         : gapAsk === 'approved' ? <div className="bk-avail"><div><b>Approved by the owner</b><span>You can book inside the cleaning period for these dates.</span></div></div>
         : gapAsk === 'pending' ? <div className="bk-avail no"><div><b>Waiting for the owner to approve</b><span>You will be able to book once it is approved. <button type="button" className="textlink" onClick={loadGap}>Check again</button></span></div></div>
         : <div className="bf-check" style={{ display: 'block' }}>{gapAsk === 'rejected' && <p style={{ color: 'var(--red)', margin: '0 0 6px' }}>The owner did not approve this. Choose other dates, or ask again with a reason.</p>}
             <input placeholder="Why should this be allowed inside the cleaning period?" value={gapWhy} onChange={x => setGapWhy(x.target.value)} style={{ width: '100%', marginBottom: 6 }} />
-            <button type="button" className="btn alt sm" onClick={askGap}>Request owner approval</button></div>}</>}
+            <button type="button" className="btn alt sm" onClick={askGap}>Request owner approval</button></div>}</>
+  const avBanner = <>
+    {valid && !avail && <div className="bk-avail no"><div><b>Not available</b><span>This dress is currently marked {dress.status}.</span></div></div>}
+    {valid && avail && realClash && <div className="bk-avail no"><div><b>Not available for those dates</b><span>Try nearby dates or browse similar dresses. {missed === 'saved' ? 'Logged as a missed enquiry.' : <button type="button" className="textlink" onClick={logMissed}>Customer going away? Log a missed enquiry</button>}{missed === 'error' && ' Could not save, try again.'}</span></div></div>}
+    {valid && avail && gapOnly && gapPanel}
     {free && <div className="bk-avail"><div><b>Available</b><span>Free on the selected dates</span></div></div>}
     {e && s && e < s && <div className="bk-avail no"><div><b>Return is before delivery</b><span>Choose a return date on or after the delivery date.</span></div></div>}
     {valid && avail && !realClash && heads.length > 0 && <div className="bk-avail no" style={{ borderColor: '#c58a2b', background: '#c58a2b14' }}><div><b>Check before confirming</b>{heads.map(h => <span key={h} style={{ display: 'block' }}>{h}</span>)}</div></div>}</>
@@ -230,6 +241,7 @@ export default function BookingFlow({ dress, advancePct, advanceMin = 1000, tail
           <div className="row"><span>Customization</span><span>{inr(cust)}</span></div><div className="row tot"><span>Total</span><span>{inr(total)}</span></div></div>
           <div><div className="row"><span>Refundable deposit</span><span>{inr(depDue)}</span></div><div className="row" style={{ color: 'var(--ok)' }}><span>Received now</span><span>{inr(received)}</span></div><div className="row bk-due"><span>Balance due at delivery</span><span>{inr(balance)}</span></div></div></section>}
         {alt === 'later' && !hasMeas && <p className="bf-note warn">Measurements are still to be taken. The booking will be flagged <b>Measurements pending</b>.</p>}
+        {gapHit && gapOnly && gapPanel}
         {msg && <p className="bad">{msg}</p>}
         <div className="bk-act"><button className="btn alt" onClick={() => { setMsg(''); setStep(alt === 'none' ? 1 : 2) }}>← {alt === 'none' ? 'Booking details' : 'Alterations'}</button><button className="btn wine" disabled={wait} onClick={confirm}>{wait ? 'Confirming…' : '✓ Confirm booking'}</button></div></div>}
     </div></div></section>
