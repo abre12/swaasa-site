@@ -1292,3 +1292,6 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
   .ch-occasion-grid{grid-template-columns:1fr}.ch-occasion{min-height:130px}.ch-occasion h3{margin-top:17px}
   .ch-showcase .cl-reels-txt p{font-size:13px}
 }
+
+/* Inventory: visible Edit button on every dress row (owner) */
+.inv-act{display:flex;align-items:center;justify-content:flex-end;gap:4px}.inv-edit{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;font-size:13px;white-space:nowrap}.inv-edit svg{color:var(--wine)}
