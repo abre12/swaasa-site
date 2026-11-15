@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Reel } from '@/lib/reels'
 
 const Chev = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
@@ -12,8 +12,6 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
   const videos = useRef<(HTMLVideoElement | null)[]>([])
   const activeRef = useRef(0)
   const scrollTimer = useRef<number | null>(null)
-  const touchOrigin = useRef<{ index: number; kind: 'poster' | 'sound'; x: number; y: number } | null>(null)
-  const lastTouchAction = useRef<{ index: number; kind: 'poster' | 'sound'; time: number } | null>(null)
   const [active, setActive] = useState(0)
   const [soundOn, setSoundOn] = useState(false)
   const [playing, setPlaying] = useState<number | null>(null)
@@ -36,6 +34,17 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     setActive(next)
     setSoundOn(false)
   }, [pauseOthers, reels.length])
+
+  const scrollToCard = useCallback((index: number, behavior: ScrollBehavior = 'smooth') => {
+    const scroller = track.current
+    const card = cards.current[index]
+    if (!scroller || !card) return
+    const trackRect = scroller.getBoundingClientRect()
+    const cardRect = card.getBoundingClientRect()
+    const trackCenter = trackRect.left + scroller.clientWidth / 2
+    const cardCenter = cardRect.left + cardRect.width / 2
+    scroller.scrollTo({ left: scroller.scrollLeft + cardCenter - trackCenter, behavior })
+  }, [])
 
   const pickCenteredCard = useCallback(() => {
     const scroller = track.current
@@ -105,18 +114,15 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
 
   useEffect(() => {
     const scroller = track.current
-    const card = cards.current[active]
-    if (!scroller || !card) return
-    scroller.scrollTo({ left: card.offsetLeft - (scroller.clientWidth - card.clientWidth) / 2, behavior: 'auto' })
-  }, [reels.length])
+    if (!scroller || !cards.current[activeRef.current]) return
+    scrollToCard(activeRef.current, 'auto')
+  }, [reels.length, scrollToCard])
 
   const go = (index: number) => {
-    const scroller = track.current
     const target = Math.max(0, Math.min(reels.length - 1, index))
-    const card = cards.current[target]
-    if (!scroller || !card) return
+    if (!track.current || !cards.current[target]) return
     changeActive(target)
-    scroller.scrollTo({ left: card.offsetLeft - (scroller.clientWidth - card.clientWidth) / 2, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    scrollToCard(target, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth')
   }
 
   const playWithSound = (index: number) => {
@@ -125,6 +131,7 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     if (!reel?.video || !video) return
 
     changeActive(index)
+    scrollToCard(index)
     pauseOthers(index)
     setVisible(previous => new Set(previous).add(index))
     setSoundOn(true)
@@ -171,31 +178,6 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
     }
   }
 
-  const beginTouch = (index: number, kind: 'poster' | 'sound', event: ReactTouchEvent<HTMLButtonElement>) => {
-    const touch = event.changedTouches[0]
-    touchOrigin.current = { index, kind, x: touch.clientX, y: touch.clientY }
-  }
-
-  const endTouch = (index: number, kind: 'poster' | 'sound', event: ReactTouchEvent<HTMLButtonElement>) => {
-    const origin = touchOrigin.current
-    touchOrigin.current = null
-    if (!origin || origin.index !== index || origin.kind !== kind) return
-    const touch = event.changedTouches[0]
-    const isTap = Math.abs(touch.clientX - origin.x) < 12 && Math.abs(touch.clientY - origin.y) < 12
-    // Touch browsers may omit the synthetic click after native horizontal panning.
-    // Handle a real tap here, then suppress the duplicate click if one follows.
-    lastTouchAction.current = { index, kind, time: Date.now() }
-    if (!isTap) return
-    if (kind === 'poster') playWithSound(index)
-    else toggleSound(index)
-  }
-
-  const consumeTouchClick = (index: number, kind: 'poster' | 'sound') => {
-    const last = lastTouchAction.current
-    lastTouchAction.current = null
-    return !!last && last.index === index && last.kind === kind && Date.now() - last.time < 750
-  }
-
   const previous = () => <button type="button" className="cl-arrow l" onClick={() => go(activeRef.current - 1)} disabled={active === 0} aria-label="Previous reel"><Chev d="m15 5-7 7 7 7" /></button>
   const next = () => <button type="button" className="cl-arrow r" onClick={() => go(activeRef.current + 1)} disabled={active >= reels.length - 1} aria-label="Next reel"><Chev d="m9 5 7 7-7 7" /></button>
 
@@ -208,12 +190,12 @@ export default function ReelsCarousel({ reels, instagram }: { reels: Reel[]; ins
           const shouldLoad = visible.has(index) || index === active
           const isMuted = index !== active || !soundOn
           return <div key={reel.video || reel.poster} ref={element => { cards.current[index] = element }} className={'cl-reel' + (index === active ? ' on' : '')}>
-            <button type="button" className="cl-reel-select" aria-label={`${playing === index ? 'Playing' : 'Play'} reel ${index + 1}: ${reel.alt}`} onTouchStart={event => beginTouch(index, 'poster', event)} onTouchEnd={event => endTouch(index, 'poster', event)} onTouchCancel={() => { touchOrigin.current = null }} onClick={() => { if (!consumeTouchClick(index, 'poster')) playWithSound(index) }}>
+            <button type="button" className="cl-reel-select" aria-label={`${playing === index ? 'Playing' : 'Play'} reel ${index + 1}: ${reel.alt}`} onClick={() => playWithSound(index)}>
               <img src={reel.poster} alt="" loading={index < 3 ? 'eager' : 'lazy'} decoding="async" />
               {reel.video && <video ref={element => { videos.current[index] = element }} src={shouldLoad ? reel.video : undefined} poster={reel.poster} preload={shouldLoad ? 'metadata' : 'none'} muted={isMuted} loop playsInline aria-label={reel.alt} onPlaying={() => setPlaying(index)} onPause={() => setPlaying(current => current === index ? null : current)} />}
               {reel.video && playing !== index && <span className="cl-reel-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg></span>}
             </button>
-            {reel.video && shouldLoad && <button type="button" className="cl-sound" aria-label={soundOn && index === active ? `Mute reel ${index + 1}` : `Turn sound on for reel ${index + 1}`} aria-pressed={soundOn && index === active} onTouchStart={event => beginTouch(index, 'sound', event)} onTouchEnd={event => endTouch(index, 'sound', event)} onTouchCancel={() => { touchOrigin.current = null }} onClick={() => { if (!consumeTouchClick(index, 'sound')) toggleSound(index) }}><Speaker muted={!(soundOn && index === active)} /></button>}
+            {reel.video && shouldLoad && <button type="button" className="cl-sound" aria-label={soundOn && index === active ? `Mute reel ${index + 1}` : `Turn sound on for reel ${index + 1}`} aria-pressed={soundOn && index === active} onClick={() => toggleSound(index)}><Speaker muted={!(soundOn && index === active)} /></button>}
           </div>
         })}
       </div>{next()}

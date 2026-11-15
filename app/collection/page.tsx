@@ -14,7 +14,7 @@ const ico = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke:
 const hico = { ...ico, width: 20, height: 20, strokeWidth: 1.8 }
 export default async function Collection({ searchParams }: { searchParams: P }) {
   const sb = supaServer(); const { q, cat, colour, sort, max, from, to } = searchParams
-  // OP-5: staff get a compact search layout; the lazy-loading reel carousel remains available below the categories.
+  // OP-5: staff get a compact search layout; the lazy-loading reel carousel stays above category browsing.
   const { data: { user } } = await sb.auth.getUser(), compact = !!user
   const main = MAIN_CATS.find(m => m.key === cat), okDates = !!(from && to && to >= from)
   let query = sb.from('dresses').select('id,code,name,category,price,images,thumbs,status,colour_tags').in('status', ['available', 'maintenance'])
@@ -69,6 +69,7 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
         <ul className="cl-feat">{FEATURES.map(f => <li key={f.t}>{f.i}<span>{f.t}</span></li>)}</ul>
       </section>}
       <section className="cl-shop" id="collection" aria-label="The collection">
+        <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
         <div className="cl-shop-cats"><h2>Browse by Category</h2>
           <nav className="cl-cats" aria-label="Categories">{MAIN_CATS.map((m, i) => {
             const c = info[i], inner = <><span className="pic">{c.pic ? <img src={c.pic} alt="" loading="lazy" decoding="async" /> : hanger}</span><span className="nm">{pretty(m.label)}</span><small>{c.n ? `${c.n} dress${c.n === 1 ? '' : 'es'}` : 'Coming soon'}</small></>
@@ -76,7 +77,6 @@ export default async function Collection({ searchParams }: { searchParams: P }) 
           })}</nav>
           <div className="cl-sw" role="list" aria-label="Filter by colour">{COLOURS.map(c => <Link key={c.label} role="listitem" title={c.label} aria-label={`${c.label}${colour === c.label ? ' (selected)' : ''}`} href={href({ ...cur, colour: colour === c.label ? undefined : c.label })} className={colour === c.label ? 'on' : ''}><i style={{ background: c.css }} /><b>{SHORT[c.label] || c.label}</b></Link>)}</div>
         </div>
-        <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
         <div className="cl-shop-main">
           <div className="cl-shop-head"><h2>The collection</h2><p><b>{n}</b> dress{n === 1 ? '' : 'es'} {any ? 'match your filters' : 'in the collection'}</p></div>
           <form className="cl-flt">{cat && <input type="hidden" name="cat" value={cat} />}{colour && <input type="hidden" name="colour" value={colour} />}
