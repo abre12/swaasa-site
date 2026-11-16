@@ -27,6 +27,9 @@ export default async function Home() {
   const contactLabel = phoneHref ? 'Call to plan a private viewing' : 'Message us to plan a private viewing'
 
   return <main className="customer-home">
+    {/* Always open at the top: stops the browser re-opening the page part-way down after a reload or Back.
+        Skipped when the link carries a #section, so deep links such as /#visit still work. */}
+    <script dangerouslySetInnerHTML={{ __html: "if(!location.hash){try{history.scrollRestoration='manual'}catch(e){}}" }} />
     <div className="ch-shell">
       <header className="ch-nav">
         <a className="ch-brand" href="/" aria-label="Swaasa Wedding Rentals home">
