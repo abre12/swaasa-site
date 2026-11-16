@@ -16,3 +16,29 @@ describe('pickReviews', () => {
     expect(out.map(x => x.id)).toEqual(['places/x/reviews/1', 'places/x/reviews/5'])
   })
 })
+
+import { pickManual, mergeReviews } from '@/lib/reviews'
+describe('manual reviews', () => {
+  const long = 'Rented a bridal lehenga for my sister wedding and the fitting support was wonderful'
+  it('applies the 11-word rule to hand-picked reviews', () => {
+    const out = pickManual([{ author: 'A', text: long }, { author: 'B', text: 'Lovely staff' }])
+    expect(out).toHaveLength(1)
+    expect(out[0].author).toBe('A')
+  })
+  it('shows a review once when it is both live and hand-picked, live first', () => {
+    const live = pickReviews([r(5, long + '.', 9)])
+    const manual = pickManual([{ author: 'Same person', text: long }, { author: 'B', text: 'Gorgeous collection and the team was so patient with every single alteration' }])
+    const out = mergeReviews(live, manual)
+    expect(out).toHaveLength(2)
+    expect(out[0].author).toBe('A')
+  })
+  it('caps the list', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ author: `P${i}`, text: `Review number ${i} has plenty of words in it to pass the filter easily` }))
+    expect(mergeReviews([], pickManual(many), 8)).toHaveLength(8)
+  })
+})
+
+import { MANUAL_REVIEWS } from '@/lib/reviews-manual'
+describe('the shipped hand-picked list', () => {
+  it('every entry passes the 11-word rule', () => { expect(pickManual(MANUAL_REVIEWS)).toHaveLength(MANUAL_REVIEWS.length) })
+})

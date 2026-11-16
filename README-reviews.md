@@ -3,7 +3,8 @@
 Sits inside the "Wedding looks to rent" card, directly above **VISIT OUR STUDIO**. It shows only **5-star reviews of 11 words or more** and hides itself if there are none (or if Google is not configured).
 
 ## Files
-- `lib/reviews.ts` (new): fetches and filters the reviews on the server, cached 24 hours.
+- `lib/reviews.ts` (new): fetches live reviews from Google (cached 24h), adds your hand-picked ones, filters (5-star, 11+ words), removes duplicates, shows at most 12.
+- `lib/reviews-manual.ts` (new): the list where YOU paste hand-picked reviews. Works even before the Google key is set up.
 - `components/ReviewsCarousel.tsx` (new): the swipeable carousel (arrows, touch swipe, keyboard scroll, Read more).
 - `app/page.tsx`, `app/globals.css`, `.env.example` (changed). `tests/reviews.test.ts` (new).
 
