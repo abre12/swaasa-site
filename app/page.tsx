@@ -1,6 +1,8 @@
 import ReelsCarousel from '@/components/ReelsCarousel'
 import CustomerBookingTracker from '@/components/CustomerBookingTracker'
+import ReviewsCarousel from '@/components/ReviewsCarousel'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
+import { getGoogleReviews } from '@/lib/reviews'
 
 export const metadata = {
   title: 'Swaasa Wedding Rentals | A Private Bridal Wardrobe',
@@ -17,7 +19,8 @@ const occasions = [
 
 const MAPS_URL = 'https://www.google.com/maps/dir/?api=1&destination=2nd%20Floor%2C%20SWAASA%20Boutique%2C%20opposite%20India%20Post%2C%20Karamana%2C%20Thiruvananthapuram%2C%20Kerala%20695002'
 
-export default function Home() {
+export default async function Home() {
+  const google = await getGoogleReviews()
   const phone = (process.env.STORE_PHONE || '').trim()
   const phoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : ''
   const contactHref = phoneHref || INSTAGRAM_URL
@@ -57,6 +60,8 @@ export default function Home() {
           <div><span>02</span><b>Fitting and alteration support</b><p>Talk through fit before you decide.</p></div>
           <div><span>03</span><b>Flexible rental dates</b><p>Plan around your celebration.</p></div>
         </div>
+
+        <ReviewsCarousel reviews={google.reviews} rating={google.rating} total={google.total} mapsUrl={google.mapsUrl} />
 
         <div className="ch-offer-contact" id="visit">
           <div><p className="ch-kicker">VISIT OUR STUDIO</p><address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span></address></div>

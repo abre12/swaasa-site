@@ -1287,3 +1287,25 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
   .ch-occasion-grid{grid-template-columns:1fr}.ch-occasion{min-height:130px}.ch-occasion h3{margin-top:17px}
   .ch-showcase .cl-reels-txt p{font-size:13px}
 }
+
+/* ===== Google reviews carousel (customer home, above "Visit our studio") ===== */
+.ch-reviews{margin-top:22px;padding:clamp(18px,3vw,28px);border:1px solid #eadfdb;border-radius:13px;background:#fcf7f3}
+.ch-reviews-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}
+.ch-reviews-head .ch-kicker{margin-bottom:10px}
+.ch-reviews-head h3{margin:0;color:#301522;font:500 clamp(26px,3vw,36px)/1.08 "Cormorant Garamond",Georgia,serif}.ch-reviews-head h3 em{color:#8d3c54;font-weight:500}
+.ch-reviews-side{display:flex;align-items:center;gap:18px;flex:none}
+.ch-reviews-score{display:flex;align-items:center;gap:8px;margin:0;flex-wrap:wrap}.ch-reviews-score b{color:#301522;font:600 26px/1 "Cormorant Garamond",Georgia,serif}.ch-reviews-score small{color:#796b70;font-size:11px}
+.ch-rv-stars{color:#c8932f;letter-spacing:.08em;font-size:14px;line-height:1}
+.ch-reviews-arrows{display:flex;gap:8px}
+.ch-reviews-arrows button{width:38px;height:38px;display:grid;place-items:center;border:1px solid #e0cfc9;border-radius:50%;background:#fffdfa;color:var(--cw);cursor:pointer;transition:background .18s,color .18s}
+.ch-reviews-arrows button:hover{background:var(--cw);color:#fff}.ch-reviews-arrows button:focus-visible,.ch-reviews-track:focus-visible,.ch-review-more:focus-visible{outline:3px solid var(--cw);outline-offset:2px}
+.ch-reviews-track{display:flex;gap:14px;margin:0;padding:2px 2px 8px;list-style:none;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.ch-reviews-track::-webkit-scrollbar{display:none}
+.ch-review{flex:0 0 clamp(250px,31%,360px);scroll-snap-align:start;display:flex;flex-direction:column;gap:10px;padding:18px;border:1px solid #eadfdb;border-radius:12px;background:#fffdfa;box-shadow:0 6px 18px #64162a0a}
+.ch-review-text{margin:0;color:#44333a;font-size:13px;line-height:1.7}.ch-review-text.is-clamped{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.ch-review-more{align-self:flex-start;padding:0;border:0;background:none;color:var(--cw);font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ch-review-by{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:6px}
+.ch-review-by img,.ch-review-initial{width:36px;height:36px;border-radius:50%;flex:none;object-fit:cover}.ch-review-initial{display:grid;place-items:center;background:#ecd6d4;color:#65132f;font:600 15px Inter,sans-serif}
+.ch-review-by span{display:grid;gap:2px;min-width:0}.ch-review-by b{color:#301522;font-size:12.5px;font-weight:650}.ch-review-by a{color:inherit;text-decoration:none}.ch-review-by a:hover b{text-decoration:underline}.ch-review-by small{color:#887a7d;font-size:10.5px}
+.ch-reviews-all{display:inline-block;margin-top:12px;color:var(--cw);font-size:12px;font-weight:600;text-underline-offset:4px}
+@media(max-width:760px){.ch-reviews-head{flex-direction:column;align-items:flex-start}.ch-reviews-side{width:100%;justify-content:space-between}.ch-review{flex-basis:84%}}
+@media(prefers-reduced-motion:reduce){.ch-reviews-track{scroll-behavior:auto}}
