@@ -13,6 +13,7 @@ import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
 import StaffAdmin from './admin/StaffAdmin'
 import MfaSetup from './admin/MfaSetup'
+import { mfaRequired } from '@/lib/mfa'
 import Finance from './admin/Finance'
 import Performance from './admin/Performance'
 import Confidence from './admin/Confidence'
@@ -597,7 +598,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     {tab === 'customers' && owner && <Customers ctx={ctx}/>}
     {tab === 'reports' && owner && <Performance ctx={ctx} />}
     {tab === 'settings' && owner && <div style={{ display: 'grid', gap: 16 }}>
-      <MfaSetup sb={sb} />
+      <MfaSetup sb={sb} required={mfaRequired(role)} />
       <StaffAdmin ctx={ctx} />
       {st && <SettingsForm sb={sb} st={st} say={say} load={load} />}</div>}
     </main>

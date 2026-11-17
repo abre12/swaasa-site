@@ -608,6 +608,7 @@ html:has(.adm){background:var(--bg)}
 .lg-link:hover{text-decoration:underline;text-underline-offset:3px}.lg-link:focus-visible{outline:2px solid #7b1738}
 .lg-err{margin:0;font-size:13.5px;color:#b42318;font-weight:600}
 .lg-help{margin:0;padding:11px 13px;border-radius:10px;background:#f8ecee;color:#4a3a40;font-size:13px;line-height:1.5}.lg-help b{color:#7b1738}
+.lg-qr{justify-self:center;background:#fff;padding:8px;border-radius:10px;border:1px solid #e6dcd6}.lg-key{word-break:break-all}
 @media(max-width:900px){
   .lg{padding:10px}
   .lg-stage{display:block;min-height:0;padding:0;background:none;box-shadow:none;border-radius:0;overflow:visible}
@@ -1309,3 +1310,5 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 .ch-reviews-all{display:inline-block;margin-top:12px;color:var(--cw);font-size:12px;font-weight:600;text-underline-offset:4px}
 @media(max-width:760px){.ch-reviews-head{flex-direction:column;align-items:flex-start}.ch-reviews-side{width:100%;justify-content:space-between}.ch-review{flex-basis:84%}}
 @media(prefers-reduced-motion:reduce){.ch-reviews-track{scroll-behavior:auto}}
+/* Text for screen readers and search engines only (used by the home page's <h1>). */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}

@@ -1,11 +1,16 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supa } from '@/lib/supabase/client'
 import LoginVideo from '@/components/LoginVideo'
 export default function Login() {
   const [email, setEmail] = useState(''), [pw, setPw] = useState(''), [busy, setBusy] = useState(false)
-  const [step, setStep] = useState<'pw' | 'code'>('pw'), [code, setCode] = useState(''), [show, setShow] = useState(false), [forgot, setForgot] = useState(false)
-  useEffect(() => { if (location.search.includes('mfa=1')) setStep('code') }, [])   // signed in with the password, still waiting for the 6-digit code
+  const [step, setStep] = useState<'pw' | 'code' | 'enroll'>('pw'), [code, setCode] = useState(''), [show, setShow] = useState(false), [forgot, setForgot] = useState(false)
+  const [factorId, setFactorId] = useState(''), [qr, setQr] = useState(''), [secret, setSecret] = useState(''), starting = useRef(false)
+  useEffect(() => {
+    if (location.search.includes('mfa=1')) setStep('code')   // signed in with the password, still waiting for the 6-digit code
+    else if (location.search.includes('mfa=setup')) { setStep('enroll'); beginEnroll() }   // owner and manager logins must set up two-step login before they can use the site
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [err, setErr] = useState(typeof window !== 'undefined' && location.search.includes('denied') ? 'This login does not have access to the site.' : '')
   async function go(ev?: React.FormEvent) {
     ev?.preventDefault(); if (busy) return
@@ -26,7 +31,30 @@ export default function Login() {
     const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.trim() })
     if (error) { setBusy(false); setCode(''); setErr('That code is not right or has expired. Enter the new code shown in your app.') } else location.replace('/admin')
   }
-  async function other() { await supa().auth.signOut(); setStep('pw'); setCode(''); setPw(''); setErr(''); history.replaceState(null, '', '/login') }
+  // First-time setup of two-step login (audit H1). Allowed with the password session alone because it is the person's first authenticator.
+  async function beginEnroll() {
+    if (starting.current) return; starting.current = true
+    const sb = supa(), { data: u } = await sb.auth.getUser()
+    if (!u.user) { starting.current = false; setStep('pw'); return }   // not signed in: the password form is the right place to start
+    const { data: a } = await sb.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (a?.currentLevel === 'aal2') { location.replace('/admin'); return }
+    const { data: f } = await sb.auth.mfa.listFactors()
+    if (f?.totp?.length) { starting.current = false; setStep('code'); return }   // already set up: they only need to enter the code
+    setBusy(true); setErr('')
+    for (const x of (f?.all || []).filter(x => x.status === 'unverified')) await sb.auth.mfa.unenroll({ factorId: x.id })   // clear an unfinished earlier attempt
+    const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Swaasa ' + new Date().toISOString().slice(0, 19) })
+    setBusy(false); starting.current = false
+    if (error || !data) return setErr('Could not start the setup. Reload this page and try again.')
+    setFactorId(data.id); setQr(data.totp.qr_code); setSecret(data.totp.secret); setCode('')
+  }
+  async function confirmEnroll(ev?: React.FormEvent) {
+    ev?.preventDefault(); if (busy || !factorId) return
+    if (!/^\d{6}$/.test(code.trim())) return setErr('Enter the 6-digit code shown in your authenticator app.')
+    setBusy(true); setErr('')
+    const { error } = await supa().auth.mfa.challengeAndVerify({ factorId, code: code.trim() })
+    if (error) { setBusy(false); setCode(''); setErr('That code is not right or has expired. Enter the new code shown in your app.') } else location.replace('/admin')
+  }
+  async function other() { await supa().auth.signOut(); setStep('pw'); setCode(''); setPw(''); setErr(''); setFactorId(''); setQr(''); setSecret(''); starting.current = false; history.replaceState(null, '', '/login') }
   const svg = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
   return <main className="lg">
     <div className="lg-stage">
@@ -34,7 +62,18 @@ export default function Login() {
         <div className="lg-brand"><img src="/logo-mark.png" alt="" /><span><b>Swaasa</b><i>Wedding Rentals</i></span></div>
         <div className="lg-cap"><h1>Elegant Bridal Looks<br />for Your Special Day</h1><span className="lg-rule" aria-hidden="true" /></div>
       </LoginVideo>
-      <section className="lg-side" aria-label="Staff sign in">{step === 'code' ? <form className="lg-card" onSubmit={verify} noValidate>
+      <section className="lg-side" aria-label="Staff sign in">{step === 'enroll' ? <form className="lg-card" onSubmit={confirmEnroll} noValidate>
+        <h2>Set up two-step login</h2><p className="lg-sub">Two-step login is required for your account. You only do this once.</p>
+        <p className="lg-help" role="note"><b>1.</b> Open an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or Authy) and scan this code.</p>
+        {qr ? <img className="lg-qr" src={qr} alt="QR code for your authenticator app" width={176} height={176} /> : !err && <p className="lg-sub" role="status">Preparing your code…</p>}
+        {secret && <p className="lg-help lg-key">Cannot scan? Enter this key in the app: <b>{secret}</b><br />Keep a copy somewhere safe. It is the only way to set the app up again on a new phone.</p>}
+        <p className="lg-help" role="note"><b>2.</b> Enter the 6-digit code your app now shows.</p>
+        <label className="lg-f"><span className="lg-in"><svg {...svg}><rect x="4" y="10.5" width="16" height="10" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></svg>
+          <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit code" aria-label="6-digit code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></span></label>
+        {err && <p className="lg-err" role="alert">{err}</p>}
+        <button className="lg-btn" type="submit" disabled={busy || !factorId}>{busy ? 'Checking…' : 'Turn on and continue'}</button>
+        <button type="button" className="lg-link" onClick={other}>Use a different account</button>
+      </form> : step === 'code' ? <form className="lg-card" onSubmit={verify} noValidate>
         <h2>Two-step verification</h2><p className="lg-sub">Open your authenticator app and enter the 6-digit code for Swaasa.</p>
         <label className="lg-f"><span className="lg-in"><svg {...svg}><rect x="4" y="10.5" width="16" height="10" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></svg>
           <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit code" aria-label="6-digit code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} autoFocus /></span></label>

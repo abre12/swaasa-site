@@ -4,7 +4,10 @@ Tick each line. Sign in as the **test owner** unless it says otherwise. Anything
 Reload the page before you start, and use the made-up sample data (`supabase/staging-sample-data.sql`).
 
 ## Sign-in and roles
-- [ ] The owner signs in (two-step if switched on) and lands on the Dashboard with no error screen.
+- [ ] The owner signs in, enters the 6-digit code, and lands on the Dashboard with no error screen.
+- [ ] **Two-step login is required for owner and manager.** Use a test login that has never set it up: after the password it goes to "Set up two-step login" (QR code + key), and typing `/admin` or `/collection` in the address bar does not get past that screen. Enter the code from the app: it opens the Dashboard. Sign out and in again: it now asks for the code.
+- [ ] Owner, Settings: the Two-step login box says it is required and has no "Turn off" button.
+- [ ] A **preparation** login can still sign in with the password alone (two-step is optional for that role).
 - [ ] A **preparation** login sees only the preparation pages, no bookings, no customer phone numbers.
 - [ ] A login that is not in the staff list sees "This login does not have access", not a blank page.
 

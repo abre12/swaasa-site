@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 // Two-step login with an authenticator app (Google Authenticator, Microsoft Authenticator, Authy). Free on every Supabase plan.
 // Once switched on, signing in needs the password AND the 6-digit code (the middleware and the login page enforce it).
-// If the phone is lost: Supabase dashboard, Authentication, Users, open this user and delete the factor. Nothing else is locked.
-export default function MfaSetup({ sb }: { sb: any }) {
+// Owner and manager logins must have it on (lib/mfa.ts), so for them there is no "Turn off" button here.
+// If the phone is lost: Supabase dashboard, Authentication, Users, open this user and delete the factor. Nothing else is locked:
+// at the next sign-in the person is taken through setup again with a new phone.
+export default function MfaSetup({ sb, required = false }: { sb: any; required?: boolean }) {
   const [on, setOn] = useState<boolean | null>(null), [factorId, setFactorId] = useState(''), [qr, setQr] = useState(''), [secret, setSecret] = useState('')
   const [pending, setPending] = useState(''), [code, setCode] = useState(''), [msg, setMsg] = useState(''), [busy, setBusy] = useState(false)
   const refresh = useCallback(async () => {
@@ -40,7 +42,8 @@ export default function MfaSetup({ sb }: { sb: any }) {
     <h3>Two-step login (owner)</h3>
     {on && !pending && <>
       <p><b>On.</b> Signing in needs your password and the 6-digit code from your authenticator app.</p>
-      <button className="btn alt" disabled={busy} onClick={turnOff}>Turn off</button></>}
+      {required ? <p className="mut" style={{ fontSize: 13, margin: 0 }}>Required for owner and manager logins, so it cannot be turned off here.</p>
+        : <button className="btn alt" disabled={busy} onClick={turnOff}>Turn off</button>}</>}
     {!on && !pending && <>
       <p className="mut" style={{ fontSize: 13 }}>Adds a 6-digit code from your phone to the password. Strongly recommended for the owner login, which can approve refunds and cancellations.</p>
       <button className="btn" disabled={busy} onClick={start}>Turn on two-step login</button></>}
