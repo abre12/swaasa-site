@@ -11,13 +11,11 @@ import { makeSizes, thumbOf, mediumOf } from '@/lib/images'
 import Dashboard from './admin/Dashboard'
 import PrepBoard from './admin/PrepBoard'
 import DryCleaning from './admin/DryCleaning'
-import StaffAdmin from './admin/StaffAdmin'
-import MfaSetup from './admin/MfaSetup'
 import { mfaRequired } from '@/lib/mfa'
 import Finance from './admin/Finance'
 import Performance from './admin/Performance'
 import Confidence from './admin/Confidence'
-import SettingsForm from './admin/SettingsForm'
+import SettingsPage from './admin/SettingsPage'
 import DaySchedule from './admin/DaySchedule'
 import Insights, { LOST_REASONS } from './admin/Insights'
 import GlobalSearch from './admin/GlobalSearch'
@@ -579,7 +577,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       <span className="sp" />
       <div className="adm-me"><i>{(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w.charAt(0)).join('').toUpperCase()}</i><div><b>{name}</b><span>{role === 'manager' ? 'Staff' : role}</span></div>
         <button type="button" className="adm-out" aria-label="Sign out" title="Sign out" onClick={async () => { await sb.auth.signOut(); location.href = '/login' }}><Ic n="out" s={18} /></button></div></aside>
-    <main className="adm-main">{ops && <GlobalSearch ctx={ctx} />}{Math.abs(skewMin) >= 2 && <div className="box" role="status" style={{ background: '#fff6e0', margin: '0 0 10px', padding: '8px 12px', fontSize: 13 }}>This device&rsquo;s clock is about {Math.abs(skewMin)} minute{Math.abs(skewMin) === 1 ? '' : 's'} {skewMin < 0 ? 'fast' : 'slow'}. Swaasa is using the server&rsquo;s time, so today&rsquo;s date and the alerts are right. Please also correct the date and time in this device&rsquo;s settings.</div>}{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Staff logins, cleaning period, refundable deposit rules and alert timing.' : 'Alterations to complete before delivery.'} />}
+    <main className="adm-main">{ops && <GlobalSearch ctx={ctx} />}{Math.abs(skewMin) >= 2 && <div className="box" role="status" style={{ background: '#fff6e0', margin: '0 0 10px', padding: '8px 12px', fontSize: 13 }}>This device&rsquo;s clock is about {Math.abs(skewMin)} minute{Math.abs(skewMin) === 1 ? '' : 's'} {skewMin < 0 ? 'fast' : 'slow'}. Swaasa is using the server&rsquo;s time, so today&rsquo;s date and the alerts are right. Please also correct the date and time in this device&rsquo;s settings.</div>}{(tab === 'settings' || tab === 'prep') && <PageHead icon={tab === 'settings' ? 'gear' : 'scissors'} title={title} sub={tab === 'settings' ? 'Business details, staff logins, deposit rules, booking policies and alerts.' : 'Alterations to complete before delivery.'} />}
     {note && <p style={{ background: 'var(--blush)', padding: '8px 12px' }}><b>{note}</b></p>}
     {tab === 'dashboard' && ops && <Dashboard ctx={ctx} />}
     {tab === 'prep' && <PrepBoard ctx={ctx} />}
@@ -597,10 +595,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
       extra={owner && D.some(d => (d.images || []).some((_: string, i: number) => !d.thumbs?.[i])) ? <div style={{ margin: '0 0 10px' }}><button className="btn alt sm" onClick={optimisePhotos}>Make photos load faster</button> <span className="mut" style={{ fontSize: 12 }}>One-time. Creates small copies of existing photos.</span></div> : null} />}
     {tab === 'customers' && owner && <Customers ctx={ctx}/>}
     {tab === 'reports' && owner && <Performance ctx={ctx} />}
-    {tab === 'settings' && owner && <div style={{ display: 'grid', gap: 16 }}>
-      <MfaSetup sb={sb} required={mfaRequired(role)} />
-      <StaffAdmin ctx={ctx} />
-      {st && <SettingsForm sb={sb} st={st} say={say} load={load} />}</div>}
+    {tab === 'settings' && owner && <SettingsPage ctx={ctx} mfaRequired={mfaRequired(role)} />}
     </main>
     {ops && <nav className="adm-bot" aria-label="Main">{BOT.map(([k, l, i]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => goNav(k)}><Ic n={i} s={22} /><span>{l}</span>{!!navCount[k] && <i className="bn">{navCount[k]}</i>}</button>)}<button className={drawer ? 'on' : ''} onClick={() => setDrawer(true)}><Ic n="menu" s={22} /><span>More</span></button></nav>}
     {drawer && <div className="adm-sheet" onClick={() => setDrawer(false)}><div className="in" onClick={e => e.stopPropagation()}><div className="hd"><img src="/logo-mark.png" alt="" /><div><b>Swaasa</b><span>Wedding Rentals</span></div><button onClick={() => setDrawer(false)} aria-label="Close menu">✕</button></div>

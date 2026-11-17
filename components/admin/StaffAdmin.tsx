@@ -27,16 +27,25 @@ export default function StaffAdmin({ ctx }: { ctx: any }) {
     const r = await fetch('/api/staff', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: s.user_id, password: v.p }) }); const j = await r.json().catch(() => ({}))
     ctx.say(r.ok ? `Password changed for ${s.name}` : j.error || 'Could not change the password.')
   }
-  return (<div className="box" style={{ margin: 0 }}><h3>Staff logins</h3>
-    <p className="mut" style={{ fontSize: 12, marginTop: 0 }}>Give each person their own login. Every booking, preparation, delivery, return and payment is recorded under the name of whoever did it. Change a name here at any time and all past records show the new name.</p>
-    <div className="scroll"><table><thead><tr><th>Name</th><th>Login email</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>
-      {ctx.STAFF.filter((s: any) => !s.deleted_at).map((s: any) => <tr key={s.user_id}><td><input key={s.name} defaultValue={s.name || ''} onBlur={e => rename(s, e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="Name" style={{ width: 170 }} /></td><td>{s.email || <span className="mut">–</span>}</td><td>{ROLE[s.role] || s.role}</td>
-        <td>{s.role === 'owner' ? <span className="ok">Always on</span> : <button className={'btn sm' + (s.active ? ' alt' : '')} onClick={() => toggle(s)}>{s.active ? 'On · turn off' : 'Off · turn on'}</button>}</td>
-        <td style={{ whiteSpace: 'normal' }}>{s.role !== 'owner' && <><button className="btn alt sm" onClick={() => reset(s)}>Reset password</button> <button className="btn alt sm" onClick={() => remove(s)}>Delete</button></>}</td></tr>)}</tbody></table></div>
-    {ctx.STAFF.some((s: any) => s.deleted_at) && <p className="mut" style={{ fontSize: 12 }}>Former staff (records kept): {ctx.STAFF.filter((s: any) => s.deleted_at).map((s: any) => s.name).join(', ')}</p>}
-    <h3 style={{ marginTop: 16, fontSize: 18 }}>Add a person</h3>
-    <div className="flt" style={{ justifyContent: 'flex-start' }}><input placeholder="Name (e.g. Staff 1)" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="Login email" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /><input placeholder="Password (8+ characters)" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} />
-      <select value={f.role} onChange={e => setF({ ...f, role: e.target.value })} style={{ width: 'auto' }}><option value="manager">Staff (bookings, payments, deliveries, returns)</option></select>
-      <button className="btn sm" disabled={busy} onClick={add}>{busy ? 'Creating…' : 'Create login'}</button></div>
-    <p className="mut" style={{ fontSize: 12, marginBottom: 0 }}>The email can be any address you control (for example sales1@yourdomain.in). No email is sent. Give the person their email and password, and ask them to keep the password private.</p></div>)
+  const team = ctx.STAFF.filter((s: any) => !s.deleted_at)
+  return (<div className="stg-staff">
+    <div className="stg-grp"><h3 className="stg-gh">Staff logins</h3>
+      <p className="stg-gd">Every booking, preparation, delivery, return and payment is recorded under the name of whoever did it. Change a name here at any time and all past records show the new name.</p>
+      <div className="scroll stg-table"><table><thead><tr><th>Name</th><th>Login email</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>
+        {team.map((s: any) => <tr key={s.user_id}><td><input className="stg-in" key={s.name} defaultValue={s.name || ''} onBlur={e => rename(s, e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="Name" /></td><td>{s.email || <span className="mut">–</span>}</td><td>{ROLE[s.role] || s.role}</td>
+          <td>{s.role === 'owner' ? <span className="ok">Always on</span> : <button type="button" className={'btn sm' + (s.active ? ' alt' : '')} onClick={() => toggle(s)}>{s.active ? 'On · turn off' : 'Off · turn on'}</button>}</td>
+          <td style={{ whiteSpace: 'normal' }}>{s.role !== 'owner' && <div className="stg-row-act"><button type="button" className="btn alt sm" onClick={() => reset(s)}>Reset password</button><button type="button" className="btn alt sm" onClick={() => remove(s)}>Delete</button></div>}</td></tr>)}</tbody></table></div>
+      {ctx.STAFF.some((s: any) => s.deleted_at) && <p className="mut" style={{ fontSize: 12, margin: 0 }}>Former staff (records kept): {ctx.STAFF.filter((s: any) => s.deleted_at).map((s: any) => s.name).join(', ')}</p>}
+    </div>
+    <div className="stg-grp"><h3 className="stg-gh">Add a person</h3>
+      <div className="stg-grid">
+        <label className="stg-f"><span className="stg-l">Name</span><input placeholder="e.g. Staff 1" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
+        <label className="stg-f"><span className="stg-l">Login email</span><input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /></label>
+        <label className="stg-f"><span className="stg-l">Password</span><input placeholder="At least 10 characters" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} /></label>
+        <label className="stg-f"><span className="stg-l">Role</span><select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value="manager">Staff (bookings, payments, deliveries, returns)</option></select></label>
+      </div>
+      <p className="stg-gd" style={{ margin: 0 }}>The email can be any address you control (for example sales1@yourdomain.in). No email is sent. Give the person their email and password, and ask them to keep the password private.</p>
+      <div className="stg-actions"><button type="button" className="btn" disabled={busy} onClick={add}>{busy ? 'Creating…' : 'Create login'}</button></div>
+    </div>
+  </div>)
 }

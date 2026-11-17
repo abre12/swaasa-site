@@ -1,3 +1,13 @@
-# New Booking carousel placement fix
+# Settings page redesign
 
-Replace `app/collection/page.tsx` and `app/globals.css` in the existing site with the versions in this ZIP. On the New Booking/collection page, “Swaasa in Motion” now appears after the categories and dress results as its own section at the bottom. The customer home page carousel is unchanged. No database update is required.
+Copy these files over the same paths in the site (keep the folder structure):
+
+- components/admin/SettingsPage.tsx   NEW: the tabbed Settings page
+- components/admin/StaffAdmin.tsx     layout only, same actions
+- components/admin/MfaSetup.tsx       layout only, same actions
+- components/admin/icons.tsx          adds two icons (lock, store)
+- components/AdminApp.tsx             now uses SettingsPage
+- app/globals.css                     new .stg-* styles added at the end
+
+Delete components/admin/SettingsForm.tsx (no longer used).
+No database change is needed.

@@ -38,8 +38,8 @@ export default function MfaSetup({ sb, required = false }: { sb: any; required?:
     setMsg(error ? 'Could not turn it off. ' + error.message : 'Two-step login is off.'); refresh()
   }
   if (on === null) return null
-  return <section className="box" style={{ margin: 0 }}>
-    <h3>Two-step login (owner)</h3>
+  return <section className="stg-mfa">
+    <h3 className="stg-gh">Two-step login (owner)</h3>
     {on && !pending && <>
       <p><b>On.</b> Signing in needs your password and the 6-digit code from your authenticator app.</p>
       {required ? <p className="mut" style={{ fontSize: 13, margin: 0 }}>Required for owner and manager logins, so it cannot be turned off here.</p>
