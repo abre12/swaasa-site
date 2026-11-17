@@ -13,3 +13,4 @@ Delete components/admin/SettingsForm.tsx (no longer used).
 No database change is needed.
 - app/login/page.tsx                 authenticator name set to SWAASA Wedding Rentals
 - components/admin/Notifications.tsx    compact tap-to-expand alert rows (bell panel)
+- lib/alerts.ts                       missed-delivery alert now says when the dress is still out with someone else

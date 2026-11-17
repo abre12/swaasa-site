@@ -156,17 +156,22 @@ export function computeAlerts(ctx: { B?: any[]; D?: any[]; AJ?: any[]; CR?: any[
   }
 
   // ---- E: a delivery whose date has passed without the dress going out ----
+  // If the dress is physically out with another booking, say so: that is usually the reason the delivery did not happen, and the return is
+  // the thing to chase. (The other booking can start on or after this one's date, so the link is made by dress, not by date order.)
+  const heldBy = (b: any) => live.find(x => x.dress_id === b.dress_id && x.status === 'out' && x.id !== b.id)
   for (const b of live.filter(x => upcoming(x) && x.start_date < today)) {
-    const n = days(b.start_date, today)
-    out.push({ key: `missed:${b.id}`, level: 'risk', rank: 96, short: 'Delivery missed', tag: `DELIVERY MISSED · ${n} DAY${n === 1 ? '' : 'S'} LATE`, dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [],
-      body: `Delivery was due on ${dmy(b.start_date)} and has not been recorded. Deliver it, or reschedule or cancel the booking.`, meta: b.customer_name ? `Customer: ${b.customer_name}` : undefined,
+    const n = days(b.start_date, today), h = heldBy(b)
+    const hold = h ? `The dress is still out with ${h.customer_name || 'another customer'}, ${h.end_date < today ? `was due back ${dmy(h.end_date)} and is overdue` : `due back ${dmy(h.end_date)}`}. ` : ''
+    out.push({ key: `missed:${b.id}`, level: 'risk', rank: 96, short: 'Delivery missed', tag: `DELIVERY MISSED · ${n} DAY${n === 1 ? '' : 'S'} LATE${h ? ' · DRESS STILL OUT' : ''}`, dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [],
+      body: `${hold}Delivery was due on ${dmy(b.start_date)} and has not been recorded. ${h ? 'Get the dress back, then deliver it, or reschedule or cancel the booking.' : 'Deliver it, or reschedule or cancel the booking.'}`, meta: b.customer_name ? `Customer: ${b.customer_name}` : undefined,
       action: { label: 'View Booking', kind: 'booking', bookingId: b.id } })
   }
 
   // ---- E2: DA-11 delivery date is today and it is 4 PM or later but nothing is recorded: do not wait until tomorrow to say so ----
   if (hourIST >= 16) for (const b of live.filter(x => upcoming(x) && x.start_date === today)) {
-    out.push({ key: `undelivered:${b.id}`, level: 'critical', rank: 65, short: 'Not delivered yet', tag: 'NOT DELIVERED YET · DELIVERY TODAY', dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [], event: eventNote(b, today),
-      body: `Delivery was due today and is not recorded. If it has gone out, mark it delivered; if not, call the customer.`, meta: b.delivery_slot ? `Slot ${b.delivery_slot}` : undefined,
+    const h = heldBy(b)
+    out.push({ key: `undelivered:${b.id}`, level: 'critical', rank: 65, short: 'Not delivered yet', tag: `NOT DELIVERED YET · DELIVERY TODAY${h ? ' · DRESS STILL OUT' : ''}`, dress: label(b), dressId: b.dress_id, bookingId: b.id, more: [], event: eventNote(b, today),
+      body: h ? `The dress is still out with ${h.customer_name || 'another customer'}, due back ${dmy(h.end_date)}. Delivery was due today and is not recorded: get it back, or call the customer.` : `Delivery was due today and is not recorded. If it has gone out, mark it delivered; if not, call the customer.`, meta: b.delivery_slot ? `Slot ${b.delivery_slot}` : undefined,
       action: { label: 'View Booking', kind: 'booking', bookingId: b.id } })
   }
 
