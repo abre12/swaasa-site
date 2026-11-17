@@ -12,3 +12,4 @@ Copy these files over the same paths in the site (keep the folder structure):
 Delete components/admin/SettingsForm.tsx (no longer used).
 No database change is needed.
 - app/login/page.tsx                 authenticator name set to SWAASA Wedding Rentals
+- components/admin/Notifications.tsx    compact tap-to-expand alert rows (bell panel)

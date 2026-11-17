@@ -812,8 +812,8 @@ html:has(.adm){background:var(--bg)}
 .ac-sum{grid-template-columns:30px minmax(0,1fr) auto;border-top:0;padding:12px}
 .ac-sum ul{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:2px;font-size:13px}
 .ac-sum li::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:#c9922a}.ac-sum li.ok::before{background:#3f8a55}
-.lvl-risk{--ac-line:#e3a49c;--ac-bg:#c0392b;--ac-ic:#c0392b;--ac-ic-bg:#fff;--ac-unread:#fff4f2}
-.lvl-risk .ac-ghd{color:#fff}.lvl-risk .ac-ghd small,.lvl-risk .ac-ghd .ac-chev{color:#ffe3df}.lvl-risk .ac-new{background:#fff;color:#b4332a}
+.lvl-risk{--ac-line:#e3a49c;--ac-bg:#fbe4e1;--ac-ic:#c0392b;--ac-ic-bg:#fff;--ac-unread:#fff4f2}
+.lvl-risk .ac-ghd{border-left:4px solid #c0392b;padding-left:8px}.lvl-risk .ac-gt b{color:#9c2519}
 .lvl-critical{--ac-line:#efc3bd;--ac-bg:#fdeeec;--ac-ic:#b4332a;--ac-ic-bg:#fbd9d4;--ac-unread:#fff8f7}
 .lvl-high{--ac-line:#f0d9b4;--ac-bg:#fdf5e6;--ac-ic:#a86a12;--ac-ic-bg:#f9e5bf;--ac-unread:#fffaf0}
 .lvl-summary{--ac-line:#cfdcf5;--ac-bg:#eef3fd;--ac-ic:#2f62c4;--ac-ic-bg:#d9e5fb;background:#f3f7fe}
@@ -951,7 +951,6 @@ html:has(.adm){background:var(--bg)}
 .adm-top .notif-pop .ap-title{font-size:14.5px;font-weight:700}
 .adm-top .notif-pop .ap-row .ap-main b{font-size:13.5px;font-weight:600}
 .adm-top .notif-pop .ac-clear b{font-size:15px;font-weight:700}
-.adm-top .notif-pop .lvl-risk .ac-ghd b{color:#fff}
 
 /* the sidebar (and the notification panel that opens from it) must sit above the page content, but below pop-up windows (75+) */
 @media(min-width:861px){.adm-side{z-index:40}}
@@ -1376,3 +1375,22 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 }
 .adm .stg-num input[type=number]{-moz-appearance:textfield;appearance:textfield}
 .adm .stg-num input::-webkit-outer-spin-button,.adm .stg-num input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+/* Notifications: one compact row per alert. Details and the action open on tap (works on phones, which have no hover). */
+.ac-row{border-top:1px solid #f0e8ea;position:relative}
+.ac-row.unread{background:var(--ac-unread,#fff8f8)}
+.ac-row.unread::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--ac-ic,#b4332a)}
+.ac-rh{display:flex;align-items:center;gap:10px;width:100%;min-height:64px;padding:8px 12px;border:0;background:none;text-align:left;cursor:pointer;font-family:Inter,system-ui,sans-serif;color:var(--ink)}
+.ac-rh:hover{background:#00000006}.ac-rh:focus-visible{outline:2px solid var(--wine);outline-offset:-2px}
+.ac-rh img,.ac-rh .ac-th{width:36px;height:48px;border-radius:6px;object-fit:cover;flex:none;border:1px solid var(--line);background:var(--blush)}
+.ac-rt{display:grid;gap:1px;min-width:0;flex:1}
+.ac-rt .ac-tag{font-size:10.5px;line-height:1.25}
+.ac-rt b,.adm-top .notif-pop .ac-rt b{font-size:14.5px;font-weight:700;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.ac-row:not(.unread) .ac-rt b{font-weight:600}
+.ac-sub{font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-rd{display:grid;gap:6px;justify-items:start;padding:0 14px 14px 58px}
+.ac-rd p{margin:0;font-size:13px;line-height:1.45;color:#51464c}
+.ac-rd .ac-dn{font-size:12.5px;font-weight:600;color:var(--ink)}
+.ac-lk{border:0;background:none;padding:2px 0;font:600 12.5px Inter,system-ui,sans-serif;color:var(--wine);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ac-rd .ac-act{margin-top:4px}
+@media(max-width:560px){.ac-rd{padding:0 12px 14px 12px}.ac-rd .ac-act{width:100%}}

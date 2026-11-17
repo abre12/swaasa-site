@@ -13,14 +13,14 @@ import { Ic } from './icons'
 // per action, decisions frozen once made, payments never editable) are enforced in the database.
 
 const GROUPS: { level: Exclude<Level, 'summary'>; title: string; icon: string; open: number }[] = [
-  { level: 'risk', title: 'Delivery at Risk', icon: 'warn', open: 3 },
-  { level: 'critical', title: 'Critical', icon: 'warn', open: 2 },
-  { level: 'high', title: 'High Priority', icon: 'clock', open: 2 },
+  { level: 'risk', title: 'Delivery at Risk', icon: 'warn', open: 6 },
+  { level: 'critical', title: 'Critical', icon: 'warn', open: 5 },
+  { level: 'high', title: 'High Priority', icon: 'clock', open: 3 },
 ]
 type Tab = 'approvals' | 'alerts' | 'recent' | 'mine'
 
 export default function Notifications({ ctx, placement }: { ctx: any; placement?: 'side' }) {
-  const [open, setOpen] = useState(false), [now, setNow] = useState(0), [tab, setTab] = useState<Tab>('alerts'), [folded, setFolded] = useState<Record<string, boolean>>({})
+  const [open, setOpen] = useState(false), [now, setNow] = useState(0), [tab, setTab] = useState<Tab>('alerts'), [folded, setFolded] = useState<Record<string, boolean>>({}), [openCard, setOpenCard] = useState<string | null | undefined>(undefined)
   const [read, setRead] = useState<Record<string, number>>({}), ref = useRef<HTMLDivElement>(null)
   const [rejecting, setRejecting] = useState<string | null>(null), [confirming, setConfirming] = useState<string | null>(null), [reason, setReason] = useState(''), [busy, setBusy] = useState<string | null>(null)
   const storeKey = `swaasa.actioncenter.read.${ctx.name || 'staff'}`
@@ -72,7 +72,7 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const total = alerts.length
 
   function toggleOpen() {
-    if (!open) { setTab(owner ? (pending.length > 0 || total === 0 ? 'approvals' : 'alerts') : 'alerts'); setRejecting(null); setConfirming(null); setReason('') }
+    if (!open) { setOpenCard(undefined); setTab(owner ? (pending.length > 0 || total === 0 ? 'approvals' : 'alerts') : 'alerts'); setRejecting(null); setConfirming(null); setReason('') }
     setOpen(!open)
   }
   function save(next: Record<string, number>) {
@@ -102,6 +102,28 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
   const whoDecided = (a: any) => a.decided_by_name || ctx.staffName?.(a.decided_by) || 'Owner'
   const when = (iso?: string) => iso ? `${dmy(istDate(iso))}, ${istTime(iso)}` : ''
   const clock = now >= 0 ? Date.now() : 0
+  // The most urgent alert opens by itself so its details and action are one tap away; every other row is a single compact line.
+  // Tapping a row opens it (and closes the previous one). Tap, not hover: most staff use phones, which have no hover.
+  const firstKey = GROUPS.map(g => alerts.find(a => a.level === g.level)).find(Boolean)?.key
+  const expandedKey = openCard === undefined ? firstKey : openCard
+  const alertRow = (a: Alert) => {
+    const b = a.bookingId ? bookingOf(a.bookingId) : null, d = ctx.dmap?.[a.dressId], src = d ? (thumbOf(d) || mediumOf(d)) : ''
+    const isExp = expandedKey === a.key, code = d?.code || a.dress.split(' · ')[0]
+    return <article key={a.key} className={'ac-row' + (isRead(a) ? '' : ' unread') + (isExp ? ' exp' : '')}>
+      <button type="button" className="ac-rh" aria-expanded={isExp} title={a.body} onClick={() => { if (!isExp) markRead(a); setOpenCard(isExp ? null : a.key) }}>
+        {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <span className="ac-th" />}
+        <span className="ac-rt"><small className="ac-tag">{a.tag}</small><b>{b?.customer_name || code}</b><small className="ac-sub">{[b ? code : '', a.event].filter(Boolean).join(' · ') || a.dress}</small></span>
+        <span className={'ac-chev' + (isExp ? ' up' : '')}><Ic n="down" s={16} /></span>
+      </button>
+      {isExp && <div className="ac-rd">
+        <p className="ac-dn">{a.dress}</p>
+        <p>{a.body}</p>
+        {(() => { const m = a.meta && a.meta === `Customer: ${b?.customer_name}` ? '' : a.meta, line = [m, a.more.length > 0 && `Also: ${a.more.join(', ').toLowerCase()}`].filter(Boolean).join(' · '); return line ? <small className="ac-meta">{line}</small> : null })()}
+        {b && a.action.kind !== 'booking' && <button type="button" className="ac-lk" onClick={() => { markRead(a); setOpen(false); ctx.openBooking(b.id) }}>Booking {b.id}</button>}
+        <button type="button" className="ac-act" onClick={() => run(a)}>{a.action.label}</button>
+      </div>}
+    </article>
+  }
   // Small dress photo with the customer's name and booking number. Click opens the booking (or the workflow when no booking is behind the alert).
   const refBlock = (a: Alert) => {
     const b = a.bookingId ? bookingOf(a.bookingId) : null, d = ctx.dmap?.[a.dressId], src = d ? (thumbOf(d) || mediumOf(d)) : ''
@@ -187,11 +209,7 @@ export default function Notifications({ ctx, placement }: { ctx: any; placement?
                 <span className="ac-gt"><b>{g.title} ({list.length}){fresh > 0 && <i className="ac-new">{fresh} new</i>}</b><small>{breakdown(list)}</small></span>
                 <span className={'ac-chev' + (expanded ? ' up' : '')}><Ic n="down" s={16} /></span>
               </button>
-              {expanded && <div className="ac-list">{list.map(a => <article key={a.key} className={'ac-card' + (isRead(a) ? '' : ' unread')} onClick={() => markRead(a)}>
-                <div className="ac-main"><span className="ac-tag">{a.tag}</span>{a.event && <span className="ac-event">{a.event}</span>}<b>{a.dress}</b>{refBlock(a)}<p>{a.body}</p>
-                  {(a.meta || a.more.length > 0) && <small className="ac-meta">{[a.meta, a.more.length > 0 && `Also: ${a.more.join(', ').toLowerCase()}`].filter(Boolean).join(' · ')}</small>}</div>
-                <button type="button" className="ac-act" onClick={e => { e.stopPropagation(); run(a) }}>{a.action.label}</button>
-              </article>)}</div>}
+              {expanded && <div className="ac-list">{list.map(alertRow)}</div>}
             </section> })}
           {summary && <section className="ac-group lvl-summary"><div className="ac-sum ac-sum-slim">
             <span className="ac-gic"><Ic n="truck" s={18} /></span>
