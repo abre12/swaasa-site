@@ -11,4 +11,5 @@ const headers = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
 ]
-module.exports = { poweredByHeader: false, async headers() { return [{ source: '/:path*', headers }] } }
+// The shop phone number is already public on the home page. Passing it to the browser build lets the public error page show it (error pages run in the browser).
+module.exports = { poweredByHeader: false, env: { NEXT_PUBLIC_STORE_PHONE: process.env.STORE_PHONE || '' }, async headers() { return [{ source: '/:path*', headers }] } }
