@@ -19,7 +19,7 @@ export default function MfaSetup({ sb, required = false }: { sb: any; required?:
     setBusy(true); setMsg('')
     const all = (await sb.auth.mfa.listFactors()).data?.all || []
     for (const f of all.filter((x: any) => x.status === 'unverified')) await sb.auth.mfa.unenroll({ factorId: f.id })   // clear an unfinished earlier attempt
-    const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Swaasa owner ' + new Date().toISOString().slice(0, 10) })
+    const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', issuer: 'SWAASA Wedding Rentals', friendlyName: 'Swaasa owner ' + new Date().toISOString().slice(0, 10) })
     setBusy(false)
     if (error || !data) return setMsg('Could not start. ' + (error?.message || ''))
     setPending(data.id); setQr(data.totp.qr_code); setSecret(data.totp.secret); setCode('')

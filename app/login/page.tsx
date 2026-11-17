@@ -42,7 +42,7 @@ export default function Login() {
     if (f?.totp?.length) { starting.current = false; setStep('code'); return }   // already set up: they only need to enter the code
     setBusy(true); setErr('')
     for (const x of (f?.all || []).filter(x => x.status === 'unverified')) await sb.auth.mfa.unenroll({ factorId: x.id })   // clear an unfinished earlier attempt
-    const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Swaasa ' + new Date().toISOString().slice(0, 19) })
+    const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', issuer: 'SWAASA Wedding Rentals', friendlyName: 'Swaasa ' + new Date().toISOString().slice(0, 19) })
     setBusy(false); starting.current = false
     if (error || !data) return setErr('Could not start the setup. Reload this page and try again.')
     setFactorId(data.id); setQr(data.totp.qr_code); setSecret(data.totp.secret); setCode('')
