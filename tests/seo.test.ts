@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import { inflateSync } from 'node:zlib'
 import { HOME_DESCRIPTION, jsonLdString, localBusinessGraph, OG_IMAGE, schemaPhone, shareMeta, siteUrl } from '@/lib/site'
 import sitemap from '@/app/sitemap'
 import robots from '@/app/robots'
@@ -19,6 +20,13 @@ function jpegSize(f: string) {                      // read width/height from th
   const b = readFileSync(f); let i = 2
   while (i < b.length) { if (b[i] !== 0xff) { i++; continue } const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m)) return { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) }; i += 2 + b.readUInt16BE(i + 2) }
   throw new Error('no SOF')
+}
+// Alpha of the top-left pixel of a PNG (0 = fully transparent). On the first row every PNG filter leaves the first pixel as stored, so no unfiltering is needed.
+function pngCornerAlpha(png: Buffer) {
+  expect(png.readUInt8(25)).toBe(6)                                   // colour type 6 = RGBA, i.e. has an alpha channel
+  const idat: Buffer[] = []
+  for (let i = 8; i < png.length;) { const len = png.readUInt32BE(i), type = png.toString('ascii', i + 4, i + 8); if (type === 'IDAT') idat.push(png.subarray(i + 8, i + 8 + len)); i += 12 + len }
+  return inflateSync(Buffer.concat(idat))[4]
 }
 const pngSize = (f: string) => { const b = readFileSync(f); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) } }
 
@@ -101,6 +109,18 @@ describe('image and icon files', () => {
     expect(pngSize(pub('icon-192.png'))).toEqual({ w: 192, h: 192 })
     expect(pngSize(pub('icon-512.png'))).toEqual({ w: 512, h: 512 })
     expect(pngSize(pub('apple-touch-icon.png'))).toEqual({ w: 180, h: 180 })
+  })
+  it('tab icons have a transparent background (no dark square in the browser tab)', () => {
+    expect(pngCornerAlpha(readFileSync(pub('icon-192.png')))).toBe(0)
+    const b = readFileSync(pub('favicon.ico'))
+    for (let i = 0; i < b.readUInt16LE(4); i++) {
+      const off = b.readUInt32LE(6 + i * 16 + 12), len = b.readUInt32LE(6 + i * 16 + 8)
+      expect(b.subarray(off, off + 4).toString('hex'), 'ICO entries are PNG images').toBe('89504e47')
+      expect(pngCornerAlpha(b.subarray(off, off + len)), `ICO image ${i}`).toBe(0)
+    }
+  })
+  it('the home-screen icon stays opaque, because iOS fills transparency with black', () => {
+    expect(readFileSync(pub('apple-touch-icon.png')).readUInt8(25)).toBe(2)   // colour type 2 = RGB with no alpha channel
   })
   it('favicon.ico is a real ICO holding 16, 32 and 48 pixel images', () => {
     const b = readFileSync(pub('favicon.ico'))
