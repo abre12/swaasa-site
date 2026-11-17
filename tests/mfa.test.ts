@@ -111,7 +111,7 @@ describe('middleware two-step gate', () => {
     expect(await run('/admin', { staff: { role: 'manager', active: false }, aal: NO_FACTOR })).toMatchObject({ to: '/login?denied=1' })
   })
   it('leaves the public pages and the cron route alone', async () => {
-    for (const p of ['/', '/booking', '/robots.txt', '/api/customer-booking/track', '/reels/reel-3.mp4', '/api/cron/digest'])
+    for (const p of ['/', '/booking', '/robots.txt', '/sitemap.xml', '/api/customer-booking/track', '/reels/reel-3.mp4', '/api/cron/digest'])
       expect((await run(p, { user: null })).passes).toBe(true)
   })
 })

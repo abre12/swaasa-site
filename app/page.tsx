@@ -3,10 +3,15 @@ import CustomerBookingTracker from '@/components/CustomerBookingTracker'
 import ReviewsCarousel from '@/components/ReviewsCarousel'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 import { getGoogleReviews } from '@/lib/reviews'
+import { HOME_DESCRIPTION, HOME_TITLE, jsonLdString, localBusinessGraph, shareMeta } from '@/lib/site'
+import type { Metadata } from 'next'
 
-export const metadata = {
-  title: 'Swaasa Wedding Rentals | A Private Bridal Wardrobe',
-  description: 'Discover Swaasa Wedding Rentals in Thiruvananthapuram. Arrange a private viewing for bridal and occasion wear, with personal fitting support.',
+// Audit M2: canonical address, WhatsApp/Instagram/Facebook/X link preview, and (below) local-business structured data.
+export const metadata: Metadata = {
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  alternates: { canonical: '/' },
+  ...shareMeta(HOME_TITLE, HOME_DESCRIPTION, '/'),
 }
 
 const occasions = [
@@ -30,6 +35,7 @@ export default async function Home() {
     {/* Always open at the top: stops the browser re-opening the page part-way down after a reload or Back.
         Skipped when the link carries a #section, so deep links such as /#visit still work. */}
     <script dangerouslySetInnerHTML={{ __html: "if(!location.hash){try{history.scrollRestoration='manual'}catch(e){}}" }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(localBusinessGraph(phone)) }} />
     <div className="ch-shell">
       {/* The page's one <h1> (audit M1). It comes first so screen-reader and search-engine outlines start with it; the visible headings below are all <h2>/<h3>.
           Hidden visually on purpose: the design opens straight on the reels. Wording matches the page title and description. */}

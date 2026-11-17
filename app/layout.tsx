@@ -1,6 +1,14 @@
 import './globals.css'
 import Link from 'next/link'
-export const metadata = { title: 'Swaasa Wedding Rentals · Breathe your fashion', description: 'Bridal and occasion wear rentals in Trivandrum, Kerala.' }
+import type { Metadata } from 'next'
+import { SITE_DESCRIPTION, SITE_NAME, shareMeta, siteUrl } from '@/lib/site'
+const TITLE = 'Swaasa Wedding Rentals · Breathe your fashion'
+// metadataBase turns every relative link in the page tags (canonical, share image) into a full address. Audit M2: favicon, app icons and default share tags.
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()), applicationName: SITE_NAME, title: TITLE, description: SITE_DESCRIPTION,
+  icons: { icon: [{ url: '/favicon.ico', sizes: '48x48' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }], apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }] },
+  ...shareMeta(TITLE, SITE_DESCRIPTION),
+}
 export const viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' as const }
 export default function Root({ children }: { children: React.ReactNode }) {
   return (<html lang="en"><head><link rel="preconnect" href="https://fonts.googleapis.com" />{process.env.NEXT_PUBLIC_SUPABASE_URL && <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="" />}

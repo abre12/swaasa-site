@@ -1,11 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { mfaGate } from '@/lib/mfa'
-// The customer landing page, booking tracker, crawl rules and selected promotional reels are public. Inventory,
+// The customer landing page, booking tracker, crawl rules (robots.txt, sitemap.xml) and selected promotional reels are public. Inventory,
 // dress pages, admin pages and other APIs stay behind active-staff authentication (with two-step login for owner and manager, see lib/mfa.ts); dress photos are protected in Storage.
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname, isApi = path.startsWith('/api/')
-  if (path === '/' || path === '/booking' || path === '/booking/' || path === '/robots.txt' || path === '/api/customer-booking/track' || /^\/reels\/reel-[1-8](?:\.mp4|-poster\.(?:webp|jpg))$/i.test(path)) return NextResponse.next()
+  if (path === '/' || path === '/booking' || path === '/booking/' || path === '/robots.txt' || path === '/sitemap.xml' || path === '/api/customer-booking/track' || /^\/reels\/reel-[1-8](?:\.mp4|-poster\.(?:webp|jpg))$/i.test(path)) return NextResponse.next()
   // The scheduled reminders (GitHub Actions) have no browser login. That route checks its own secret (CRON_SECRET) and nothing else is open.
   if (path.startsWith('/api/cron/')) return NextResponse.next()
   let res = NextResponse.next({ request: req })
@@ -30,4 +30,4 @@ export async function middleware(req: NextRequest) {
   if (!st || !st.active) return deny('/login?denied=1')
   return res
 }
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logo-mark.png|logo-full.jpg|poster.jpg).*)'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logo-mark.png|logo-full.jpg|poster.jpg|og-image.jpg|apple-touch-icon.png|icon-192.png|icon-512.png).*)'] }

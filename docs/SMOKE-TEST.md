@@ -49,6 +49,13 @@ Reload the page before you start, and use the made-up sample data (`supabase/sta
 ## Reminders (only if reminders were touched)
 - [ ] `curl -H "Authorization: Bearer YOUR_STAGING_CRON_SECRET" "https://YOUR-PREVIEW-LINK/api/cron/digest?slot=morning&dry=1"` returns the message text and sends nothing.
 
+## Search and sharing (after the first release that has them, then only if the home page tags change)
+- [ ] Signed out (private window): `/sitemap.xml` opens and lists the home page. `/robots.txt` ends with a `Sitemap:` line with the same address. Both show the live address, not localhost or a preview address.
+- [ ] `/og-image.jpg` and `/favicon.ico` open without a login. The browser tab shows the gold Swaasa mark.
+- [ ] Paste the home page link into a WhatsApp chat (to yourself): it shows the Swaasa card with the title and description. WhatsApp keeps old previews, so test with a link not shared before, e.g. add `?v=1` to the address.
+- [ ] Run the live home page through Google's Rich Results Test (search.google.com/test/rich-results): it finds the local business with no errors.
+- [ ] Once: add the site to Google Search Console and submit `/sitemap.xml`. If a custom domain is connected, set `SITE_URL` in Vercel first.
+
 ## After release (5 minutes, on the live site, as the owner)
 - [ ] Sign in; the Dashboard loads; no error screen.
 - [ ] Open one real booking and one real customer; open the bell.
