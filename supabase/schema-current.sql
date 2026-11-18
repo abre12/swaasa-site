@@ -497,6 +497,58 @@ begin
 end $$;
 
 --
+-- Name: customer_booking_track(text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.customer_booking_track(p_booking_id text, p_phone text, p_ip_hash text) RETURNS TABLE(allowed boolean, booking_id text, booking_status text, prep_status text, start_date date, end_date date, event_date date, event_type text)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $_$
+declare
+  v_attempts integer;
+  v_phone text := regexp_replace(coalesce(p_phone, ''), '\D', '', 'g');
+begin
+  if coalesce(p_ip_hash, '') !~ '^[0-9a-f]{64}$' then
+    raise exception 'BAD_REQUEST';
+  end if;
+
+  insert into public.booking_tracking_rate_limits as lim (ip_hash, window_started_at, attempts, updated_at)
+  values (p_ip_hash, now(), 1, now())
+  on conflict (ip_hash) do update set
+    window_started_at = case
+      when lim.window_started_at <= now() - interval '15 minutes' then now()
+      else lim.window_started_at
+    end,
+    attempts = case
+      when lim.window_started_at <= now() - interval '15 minutes' then 1
+      else lim.attempts + 1
+    end,
+    updated_at = now()
+  returning attempts into v_attempts;
+
+  if v_attempts = 1 then
+    delete from public.booking_tracking_rate_limits where updated_at < now() - interval '30 days';
+  end if;
+
+  if v_attempts > 20 then
+    return query select false, null::text, null::text, null::text, null::date, null::date, null::date, null::text;
+    return;
+  end if;
+
+  if length(trim(coalesce(p_booking_id, ''))) not between 3 and 32 or length(v_phone) not between 10 and 15 then
+    return;
+  end if;
+
+  return query
+  select true, b.id, b.status, b.prep_status, b.start_date, b.end_date, b.event_date, b.event_type
+  from public.bookings as b
+  where b.id = upper(trim(p_booking_id))
+    and right(regexp_replace(coalesce(b.phone, ''), '\D', '', 'g'), 10) = right(v_phone, 10)
+  limit 1;
+end;
+$_$;
+
+--
 -- Name: ist_today(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1656,6 +1708,20 @@ begin
 end $$;
 
 --
+-- Name: staff_deliveries_per_month(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.staff_deliveries_per_month() RETURNS TABLE(month text, delivered_by uuid, n integer)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  select to_char((b.picked_up_at at time zone 'Asia/Kolkata')::date, 'YYYY-MM'), b.delivered_by, count(*)::int
+  from bookings b
+  where is_ops() and b.picked_up_at is not null and b.delivered_by is not null
+    and (b.picked_up_at at time zone 'Asia/Kolkata')::date >= (date_trunc('month', (now() at time zone 'Asia/Kolkata')::date) - interval '12 months')::date
+  group by 1, 2 $$;
+
+--
 -- Name: staff_name(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1923,6 +1989,19 @@ CREATE TABLE public.blocks (
     reason text,
     created_by uuid DEFAULT auth.uid(),
     CONSTRAINT blocks_check CHECK ((end_date >= start_date))
+);
+
+--
+-- Name: booking_tracking_rate_limits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.booking_tracking_rate_limits (
+    ip_hash text NOT NULL,
+    window_started_at timestamp with time zone DEFAULT now() NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT booking_tracking_rate_limits_attempts_check CHECK ((attempts >= 0)),
+    CONSTRAINT booking_tracking_rate_limits_ip_hash_check CHECK ((ip_hash ~ '^[0-9a-f]{64}$'::text))
 );
 
 --
@@ -2497,6 +2576,13 @@ ALTER TABLE ONLY public.blocks
     ADD CONSTRAINT blocks_pkey PRIMARY KEY (id);
 
 --
+-- Name: booking_tracking_rate_limits booking_tracking_rate_limits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.booking_tracking_rate_limits
+    ADD CONSTRAINT booking_tracking_rate_limits_pkey PRIMARY KEY (ip_hash);
+
+--
 -- Name: bookings bookings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2731,6 +2817,12 @@ CREATE INDEX approvals_pending_idx ON public.approvals USING btree (requested_at
 --
 
 CREATE INDEX blocks_end_date_idx ON public.blocks USING btree (end_date);
+
+--
+-- Name: booking_tracking_rate_limits_updated_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX booking_tracking_rate_limits_updated_at_idx ON public.booking_tracking_rate_limits USING btree (updated_at);
 
 --
 -- Name: bookings_customer_idx; Type: INDEX; Schema: public; Owner: -
@@ -3316,6 +3408,12 @@ ALTER TABLE public.blocks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY blocks_staff ON public.blocks USING (public.is_staff()) WITH CHECK (public.is_staff());
 
 --
+-- Name: booking_tracking_rate_limits; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.booking_tracking_rate_limits ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: bookings; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3681,6 +3779,7 @@ CREATE POLICY staff_read ON public.staff FOR SELECT USING (public.is_staff());
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
 revoke all on all functions in schema public from public, anon, authenticated;
+revoke all on table public.booking_tracking_rate_limits from service_role;
 grant DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public.alert_reads to anon;
 grant DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public.alert_reads to authenticated;
 grant DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public.alteration_jobs to anon;
@@ -4056,6 +4155,7 @@ grant execute on function similarity_op(text,text) to authenticated;
 grant execute on function staff_bookings_per_month() to authenticated;
 grant execute on function staff_create_booking(uuid,date,date,text,text,text,text,integer,text,integer,boolean,integer) to authenticated;
 grant execute on function staff_create_booking_full(uuid,date,date,text,text,text,text,integer,text,integer,boolean,integer,integer,text,integer,date,text,text,jsonb,jsonb) to authenticated;
+grant execute on function staff_deliveries_per_month() to authenticated;
 grant execute on function staff_name() to authenticated;
 grant execute on function stock_performance() to authenticated;
 grant execute on function strict_word_similarity(text,text) to authenticated;
@@ -4078,6 +4178,7 @@ grant execute on function word_similarity_commutator_op(text,text) to authentica
 grant execute on function word_similarity_dist_commutator_op(text,text) to authenticated;
 grant execute on function word_similarity_dist_op(text,text) to authenticated;
 grant execute on function word_similarity_op(text,text) to authenticated;
+grant execute on function customer_booking_track(text,text,text) to service_role;
 
 
 -- ───────────── SEED (new project only) ─────────────
@@ -4088,61 +4189,3 @@ insert into storage.buckets(id, name, public) values ('return-inspection-photos'
 --   insert into public.staff(user_id, name, role) values ('<the new user id>', 'Owner name', 'owner');
 -- The storage access rules live outside the public schema export. Apply migration-v30-private-dress-images.sql for dress photos and
 -- migration-v10.sql / migration-v20-controls.sql for return-inspection-photos.
-
--- ───────────── CUSTOMER BOOKING TRACKER (v31) ─────────────
-CREATE TABLE public.booking_tracking_rate_limits (
-    ip_hash text NOT NULL,
-    window_started_at timestamp with time zone DEFAULT now() NOT NULL,
-    attempts integer DEFAULT 0 NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT booking_tracking_rate_limits_pkey PRIMARY KEY (ip_hash),
-    CONSTRAINT booking_tracking_rate_limits_ip_hash_check CHECK ((ip_hash ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT booking_tracking_rate_limits_attempts_check CHECK ((attempts >= 0))
-);
-
-CREATE INDEX booking_tracking_rate_limits_updated_at_idx ON public.booking_tracking_rate_limits USING btree (updated_at);
-
-ALTER TABLE public.booking_tracking_rate_limits ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.booking_tracking_rate_limits FROM public, anon, authenticated, service_role;
-
-CREATE FUNCTION public.customer_booking_track(p_booking_id text, p_phone text, p_ip_hash text)
-RETURNS TABLE(allowed boolean, booking_id text, booking_status text, prep_status text, start_date date, end_date date, event_date date, event_type text)
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
-AS $$
-declare
-  v_attempts integer;
-  v_phone text := regexp_replace(coalesce(p_phone, ''), '\D', '', 'g');
-begin
-  if coalesce(p_ip_hash, '') !~ '^[0-9a-f]{64}$' then raise exception 'BAD_REQUEST'; end if;
-
-  insert into public.booking_tracking_rate_limits as lim (ip_hash, window_started_at, attempts, updated_at)
-  values (p_ip_hash, now(), 1, now())
-  on conflict (ip_hash) do update set
-    window_started_at = case when lim.window_started_at <= now() - interval '15 minutes' then now() else lim.window_started_at end,
-    attempts = case when lim.window_started_at <= now() - interval '15 minutes' then 1 else lim.attempts + 1 end,
-    updated_at = now()
-  returning attempts into v_attempts;
-
-  if v_attempts = 1 then
-    delete from public.booking_tracking_rate_limits where updated_at < now() - interval '30 days';
-  end if;
-
-  if v_attempts > 20 then
-    return query select false, null::text, null::text, null::text, null::date, null::date, null::date, null::text;
-    return;
-  end if;
-
-  if length(trim(coalesce(p_booking_id, ''))) not between 3 and 32 or length(v_phone) not between 10 and 15 then return; end if;
-
-  return query
-  select true, b.id, b.status, b.prep_status, b.start_date, b.end_date, b.event_date, b.event_type
-  from public.bookings as b
-  where b.id = upper(trim(p_booking_id))
-    and right(regexp_replace(coalesce(b.phone, ''), '\D', '', 'g'), 10) = right(v_phone, 10)
-  limit 1;
-end;
-$$;
-
-REVOKE ALL ON FUNCTION public.customer_booking_track(text, text, text) FROM public, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.customer_booking_track(text, text, text) TO service_role;

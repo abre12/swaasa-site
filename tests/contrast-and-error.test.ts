@@ -11,7 +11,7 @@ function lum(hex: string) {
 }
 const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
 const rootBlocks = css.match(/:root\{[^}]*\}/g) || []
-const light = rootBlocks[0], dark = rootBlocks[1]
+const light = rootBlocks[0]!, dark = rootBlocks[1]!
 const pick = (block: string, name: string) => (block.match(new RegExp(`--${name}:(#[0-9a-fA-F]{6})`)) || [])[1]
 
 describe('colour contrast (audit M7)', () => {

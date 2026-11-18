@@ -1,14 +1,18 @@
-# Team Momentum: bookings AND actual deliveries, smaller (15 Nov 2026)
+# Swaasa Wedding Rentals
 
-1. Run supabase/migration-v29-staff-deliveries.sql in Supabase > SQL Editor (one new read-only function; safe to run again).
-2. Replace these files (same paths) and upload to GitHub:
-   - components/admin/BookingsByStaff.tsx
-   - components/admin/Dashboard.tsx
-   - app/globals.css   (this file also carries the earlier Dashboard changes; it replaces the one in swaasa-changes-dashboard-merge.zip)
+Next.js 14 (App Router) site and staff app on Supabase, deployed on Vercel. The public side is the customer home page and booking tracker;
+everything else is staff-only behind login (two-step for owner and manager).
 
-What changed
-- This Month: each staff member now has two bars side by side, fresh bookings (burgundy) and deliveries (green); the staff summary shows "bookings · deliveries".
-- Month on Month: each month has the stacked bookings bar (by staff) with a green deliveries bar next to it.
-- A delivery = a dress actually handed over (marked delivered), counted in the month of hand-over, for the staff member who recorded it. Bookings still count by booking date.
-- Smaller: shorter chart, smaller heading, no second box inside the folded Team Momentum panel.
-- Until the migration is run, deliveries are counted from the last 90 days of bookings the device already holds.
+## Commands
+
+- `npm run dev` runs the site locally (copy `.env.example` to `.env.local` first)
+- `npm run check` runs types, lint and unit tests; `npm run build` builds
+- `npm run test:db` runs the database rule tests (needs a local Postgres)
+
+## Documentation
+
+- `docs/CHANGELOG.md` what changed and when, including setup notes for older features
+- `docs/RELEASE.md` how to release; `docs/SMOKE-TEST.md` what to check afterwards; `docs/STAGING.md` the staging project
+- `docs/MEDIA.md` videos and keeping them out of git
+- `supabase/README-migrations.md` database scripts and their order; `supabase/BACKUP-AND-RESTORE.md`
+- `.env.example` every setting, including the Telegram reminders (`CRON_SECRET`, bot token, chat IDs)

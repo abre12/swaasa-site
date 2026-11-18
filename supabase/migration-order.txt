@@ -15,8 +15,8 @@ migration-v10.sql
 migration-v11.sql
 migration-v12.sql
 migration-v13.sql
-migrationcpt-v13b.sql
-migrationcpt-v13c.sql
+migration-v13b.sql
+migration-v13c.sql
 migration-v14.sql
 migration-v15.sql
 migration-v16-performance.sql

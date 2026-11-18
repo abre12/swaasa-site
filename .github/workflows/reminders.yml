@@ -1,0 +1,71 @@
+name: Telegram reminders
+
+# Calls /api/cron/digest on the live site at the five reminder times. The site reads the live records and posts to Telegram
+# (see app/api/cron/digest/route.ts). If this file is missing or the secrets below are not set, NO reminder is ever sent.
+#
+# Set once under GitHub > Settings > Secrets and variables > Actions > "Repository secrets":
+#   APP_URL      the live address with no trailing slash, e.g. https://www.yourdomain.in
+#   CRON_SECRET  the same value as CRON_SECRET in the Vercel environment variables
+#
+# GitHub cron is in UTC; India is UTC+5:30 all year. Times are a few minutes past the hour on purpose: GitHub queues are busiest on the hour.
+# GitHub can start a scheduled run several minutes late (rarely it skips one under heavy load). The 4 PM and 5 PM messages are written for
+# "after 4 PM" / "after 5 PM", so a late start is safe. To change a time, edit BOTH the cron line and the matching case line below.
+on:
+  schedule:
+    - cron: "35 2 * * *"    # 08:05 IST  morning briefing
+    - cron: "35 4 * * *"    # 10:05 IST  tomorrow check (D-1)
+    - cron: "35 6 * * *"    # 12:05 IST  midday check (owner only)
+    - cron: "35 10 * * *"   # 16:05 IST  4 PM check
+    - cron: "35 11 * * *"   # 17:05 IST  evening summary
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: Which reminder to run now
+        type: choice
+        options: [morning, dminus1, noon, afternoon, evening]
+        default: morning
+      dry:
+        description: Dry run (returns the text, sends nothing)
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  digest:
+    name: Send reminder
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the digest
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_SLOT: ${{ inputs.slot }}
+          INPUT_DRY: ${{ inputs.dry }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Set the APP_URL and CRON_SECRET repository secrets (see the top of this file). Nothing was sent."; exit 1
+          fi
+          if [ -n "${INPUT_SLOT:-}" ]; then
+            slot="$INPUT_SLOT"; dry=""; [ "${INPUT_DRY:-}" = "true" ] && dry="&dry=1"
+          else
+            dry=""
+            case "$SCHEDULE" in
+              "35 2 * * *")  slot=morning ;;
+              "35 4 * * *")  slot=dminus1 ;;
+              "35 6 * * *")  slot=noon ;;
+              "35 10 * * *") slot=afternoon ;;
+              "35 11 * * *") slot=evening ;;
+              *) echo "::error::Unknown schedule '$SCHEDULE'. Update the case lines to match the cron lines."; exit 1 ;;
+            esac
+          fi
+          echo "Running slot: $slot${dry:+ (dry run)}"
+          # --fail-with-body: a 401 (wrong secret), 503 (server not configured) or 502 (Telegram refused) turns this job red, so GitHub emails you.
+          # --retry: covers a cold start or a brief network error. Trade-off: if Telegram fails half-way, a retry can deliver the same message twice.
+          # A duplicate is better than a missed reminder.
+          curl --silent --show-error --fail-with-body --max-time 90 --retry 2 --retry-delay 10 --retry-connrefused \
+            -H "Authorization: Bearer ${CRON_SECRET}" "${APP_URL%/}/api/cron/digest?slot=${slot}${dry}"
+          echo

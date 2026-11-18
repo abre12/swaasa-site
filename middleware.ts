@@ -30,4 +30,4 @@ export async function middleware(req: NextRequest) {
   if (!st || !st.active) return deny('/login?denied=1')
   return res
 }
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logo-mark.png|logo-full.jpg|poster.jpg|og-image.jpg|apple-touch-icon.png|icon-192.png|icon-512.png).*)'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|logo-mark.png|logo-full.jpg|poster.jpg|hero.mp4|og-image.jpg|apple-touch-icon.png|icon-192.png|icon-512.png).*)'] }

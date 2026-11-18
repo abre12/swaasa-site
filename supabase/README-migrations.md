@@ -22,8 +22,8 @@ This list was checked by applying every script below, in this order, to an empty
 | 11 | `migration-v11.sql` | Alteration queue fills itself from bookings | |
 | 12 | `migration-v12.sql` | Alteration checklist and measurements | |
 | 13 | `migration-v13.sql` | Damaged queue in Alterations | |
-| 14 | `migrationcpt-v13b.sql` | Booking wizard fields, atomic payment capture | **File name says v13b, README says v14.** Run it right after v13. |
-| 15 | `migrationcpt-v13c.sql` | Event type/date in the booking details view | Header says "v14". Run it right after v13b. |
+| 14 | `migration-v13b.sql` | Booking wizard fields, atomic payment capture | Renamed from `migrationcpt-v13b.sql`; the content is unchanged. Run it right after v13. |
+| 15 | `migration-v13c.sql` | Event type/date in the booking details view | Renamed from `migrationcpt-v13c.sql`; the content is unchanged. Run it right after v13b. |
 | 16 | `migration-v14.sql` | Booking flow overhaul | |
 | 17 | `migration-v15.sql` | Owner approvals in the bell | |
 | 18 | `migration-v16-performance.sql` | Speed (indexes) | |

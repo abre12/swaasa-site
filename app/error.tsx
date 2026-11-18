@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 
 // N-4 / audit M6: a failure while drawing a public page shows this instead of a blank white screen.
 // It is written for customers: no staff wording, a way back to the home page, and a way to reach the shop.
-// (Staff screens under /admin have their own error page in app/admin/error.tsx.)
+// (Staff screens have their own error page, in the admin folder.)
 // NEXT_PUBLIC_STORE_PHONE is filled from STORE_PHONE in next.config.js.
 const PHONE = (process.env.NEXT_PUBLIC_STORE_PHONE || '').trim()
 const PHONE_HREF = PHONE ? `tel:${PHONE.replace(/[^\d+]/g, '')}` : ''

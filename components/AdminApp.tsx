@@ -93,7 +93,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
         if (!k.error) setK(k.data || []); if (!d.error) setD(await signDressRows(sb, d.data || [], 3600)); if (!s.error) { setSt(s.data); setBuf(s.data?.buffer_days ?? 1) }
         if (!b.error) {
           let rows: any[] = b.data || []
-          // booking_view already carries event_date / event_type (migrationcpt-v13c). Only an older database needs the extra lookup.
+          // booking_view already carries event_date / event_type (migration-v13c). Only an older database needs the extra lookup.
           if (rows.length && !('event_date' in rows[0])) {
             const ev = await fetchAll(() => sb.from('bookings').select('id,event_date,event_type').order('id')); const em = new Map((ev.data || []).map((x: any) => [x.id, x]))
             rows = rows.map((x: any) => ({ ...x, event_date: em.get(x.id)?.event_date ?? null, event_type: em.get(x.id)?.event_type ?? null }))
