@@ -3,7 +3,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { inflateSync } from 'node:zlib'
-import { HOME_DESCRIPTION, jsonLdString, localBusinessGraph, OG_IMAGE, schemaPhone, shareMeta, siteUrl } from '@/lib/site'
+import { GEO, HOME_DESCRIPTION, MAPS_DIRECTIONS_URL, hoursText, jsonLdString, localBusinessGraph, OG_IMAGE, schemaPhone, shareMeta, siteUrl, whatsappHref, whatsappNumber } from '@/lib/site'
 import sitemap from '@/app/sitemap'
 import robots from '@/app/robots'
 import { metadata as layoutMeta } from '@/app/layout'
@@ -11,6 +11,7 @@ import { metadata as homeMeta } from '@/app/page'
 import { config as middlewareConfig } from '@/middleware'
 
 // Audit M2: sitemap, Open Graph/Twitter tags, structured data, canonical URL and favicon.
+vi.mock('@/app/fonts', () => ({ fontVariables: '' }))     // next/font only works inside a Next build
 vi.mock('@/lib/reviews', () => ({ getGoogleReviews: async () => ({ reviews: [], rating: 0, total: 0, mapsUrl: '' }) }))
 const env = { ...process.env }
 afterEach(() => { process.env = { ...env } })
@@ -147,9 +148,33 @@ describe('structured data', () => {
     expect(biz.sameAs[0]).toMatch(/^https:\/\/www\.instagram\.com\//)
     for (const k of ['image', 'logo', 'url']) expect(biz[k]).toMatch(/^https:\/\/www\.example\.in\//)
   })
-  it('leaves the telephone out when none is configured, and invents no hours or coordinates', () => {
+  it('leaves the telephone out when none is configured, and invents no hours or price range', () => {
     const biz: any = localBusinessGraph('')['@graph'][1]
-    expect('telephone' in biz).toBe(false); expect(biz.openingHours).toBeUndefined(); expect(biz.geo).toBeUndefined()
+    expect('telephone' in biz).toBe(false); expect(biz.openingHoursSpecification).toBeUndefined(); expect(biz.priceRange).toBeUndefined()
+  })
+  it('gives the exact map pin the owner supplied, and a link to it', () => {
+    const biz: any = localBusinessGraph('')['@graph'][1]
+    expect(GEO).toEqual({ latitude: 8.481036937748145, longitude: 76.96942945344524 })
+    expect(biz.geo).toEqual({ '@type': 'GeoCoordinates', latitude: 8.481036937748145, longitude: 76.96942945344524 })
+    expect(biz.hasMap).toContain('8.481036937748145,76.96942945344524')
+    expect(MAPS_DIRECTIONS_URL).toBe('https://www.google.com/maps/dir/?api=1&destination=8.481036937748145,76.96942945344524')
+  })
+  it('publishes opening hours and price range once they are filled in', () => {
+    const hours = [{ days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as any, opens: '10:00', closes: '19:00' }]
+    const biz: any = localBusinessGraph('', { hours, priceRange: '₹₹' })['@graph'][1]
+    expect(biz.openingHoursSpecification).toEqual([{ '@type': 'OpeningHoursSpecification', dayOfWeek: hours[0].days, opens: '10:00', closes: '19:00' }])
+    expect(biz.priceRange).toBe('₹₹')
+    expect(hoursText(hours)).toBe('Mon–Sat, 10:00 am – 7:00 pm')
+    expect(hoursText([])).toBe('')
+  })
+  it('builds a WhatsApp link only from a number that can receive WhatsApp', () => {
+    expect(whatsappNumber('98765 43210')).toBe('919876543210')
+    expect(whatsappNumber('+91 98765-43210')).toBe('919876543210')
+    expect(whatsappNumber('09876543210')).toBe('919876543210')
+    expect(whatsappNumber('0471 2345678')).toBeUndefined()          // a landline
+    expect(whatsappNumber('')).toBeUndefined(); expect(whatsappNumber(undefined)).toBeUndefined()
+    expect(whatsappHref('9876543210', 'Hi there')).toBe('https://wa.me/919876543210?text=Hi%20there')
+    expect(whatsappHref('')).toBeUndefined()
   })
   it('cannot be broken out of its script tag', () => {
     const s = jsonLdString({ name: '</script><script>alert(1)</script>' })
@@ -164,9 +189,28 @@ describe('structured data', () => {
     const data = JSON.parse(m![1]); expect(data['@graph'].map((n: any) => n['@type'])).toEqual(['WebSite', 'LocalBusiness'])
     expect(data['@graph'][1].telephone).toBe('+919876543210')
   })
+  it('shows the viewing request form, a WhatsApp link and directions to the exact pin', async () => {
+    ;(globalThis as any).React = React
+    process.env.STORE_PHONE = '9876543210'; delete process.env.STORE_WHATSAPP
+    const html = renderToStaticMarkup(await (await import('@/app/page')).default())
+    expect(html).toContain('id="private-viewing"')
+    expect(html).toContain('href="#private-viewing"')
+    expect(html).toContain('https://wa.me/919876543210?text=')
+    expect(html).toContain('destination=8.481036937748145,76.96942945344524')
+  })
+  it('leaves the WhatsApp buttons out when there is no number to use', async () => {
+    ;(globalThis as any).React = React
+    delete process.env.STORE_PHONE; delete process.env.STORE_WHATSAPP
+    const html = renderToStaticMarkup(await (await import('@/app/page')).default())
+    expect(html).not.toContain('wa.me')
+    expect(html).toContain('id="private-viewing"')                  // the form itself does not need a number
+  })
 })
 
 describe('middleware lets crawlers reach the new files', () => {
+  it('lets visitors without a login reach the viewing request form', () => {
+    expect(readFileSync('middleware.ts', 'utf8')).toContain("path === '/api/viewing-request'")
+  })
   // Next compiles the matcher as a path pattern; this is the same rule as a regular expression.
   const re = new RegExp('^' + middlewareConfig.matcher[0] + '$')
   it('skips the login check for the share image, favicon and icons', () => {

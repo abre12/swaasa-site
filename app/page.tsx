@@ -1,9 +1,10 @@
 import ReelsCarousel from '@/components/ReelsCarousel'
 import CustomerBookingTracker from '@/components/CustomerBookingTracker'
 import ReviewsCarousel from '@/components/ReviewsCarousel'
+import ViewingRequest from '@/components/ViewingRequest'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 import { getGoogleReviews } from '@/lib/reviews'
-import { HOME_DESCRIPTION, HOME_TITLE, jsonLdString, localBusinessGraph, shareMeta } from '@/lib/site'
+import { HOME_DESCRIPTION, HOME_TITLE, MAPS_DIRECTIONS_URL, hoursText, jsonLdString, localBusinessGraph, shareMeta, whatsappHref } from '@/lib/site'
 import type { Metadata } from 'next'
 
 // Audit M2: canonical address, WhatsApp/Instagram/Facebook/X link preview, and (below) local-business structured data.
@@ -22,14 +23,14 @@ const occasions = [
   { n: '05', title: 'Other occasions', note: 'Find a look for the celebration ahead' },
 ]
 
-const MAPS_URL = 'https://www.google.com/maps/dir/?api=1&destination=2nd%20Floor%2C%20SWAASA%20Boutique%2C%20opposite%20India%20Post%2C%20Karamana%2C%20Thiruvananthapuram%2C%20Kerala%20695002'
-
 export default async function Home() {
   const google = await getGoogleReviews()
   const phone = (process.env.STORE_PHONE || '').trim()
   const phoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : ''
   const contactHref = phoneHref || INSTAGRAM_URL
-  const contactLabel = phoneHref ? 'Call to plan a private viewing' : 'Message us to plan a private viewing'
+  const whatsapp = whatsappHref(process.env.STORE_WHATSAPP || phone)
+  const hours = hoursText()
+  const contactLabel = phoneHref ? 'Call us' : 'Message us to plan a private viewing'
 
   return <main className="customer-home">
     {/* Always open at the top: stops the browser re-opening the page part-way down after a reload or Back.
@@ -47,7 +48,8 @@ export default async function Home() {
         </a>
         <nav aria-label="Main navigation">
           <a href="#experience">What we offer</a>
-          <a className="ch-nav-cta" href="#track-booking">Track a booking <span aria-hidden="true">↗</span></a>
+          <a href="#track-booking">Track a booking</a>
+          <a className="ch-nav-cta" href="#private-viewing">Request a viewing <span aria-hidden="true">↗</span></a>
         </nav>
       </header>
 
@@ -73,11 +75,14 @@ export default async function Home() {
           <div><span>03</span><b>Flexible rental dates</b><p>Plan around your celebration.</p></div>
         </div>
 
+        <ViewingRequest whatsapp={whatsapp} phoneHref={phoneHref || undefined} />
+
         <ReviewsCarousel reviews={google.reviews} rating={google.rating} total={google.total} mapsUrl={google.mapsUrl} />
 
         <div className="ch-offer-contact" id="visit">
-          <div><p className="ch-kicker">VISIT OUR STUDIO</p><address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span></address></div>
-          <div className="ch-offer-actions"><a className="ch-directions" href={MAPS_URL} target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>
+          <div><p className="ch-kicker">VISIT OUR STUDIO</p><address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span>{hours && <span>{hours}</span>}</address></div>
+          <div className="ch-offer-actions"><a className="ch-directions" href={MAPS_DIRECTIONS_URL} target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>
+            {whatsapp && <a className="ch-button" href={whatsapp} target="_blank" rel="noopener noreferrer">Message us on WhatsApp<span aria-hidden="true">↗</span></a>}
             <a className="ch-button" href={contactHref} target={phoneHref ? undefined : '_blank'} rel={phoneHref ? undefined : 'noopener noreferrer'}>{contactLabel}<span aria-hidden="true">↗</span></a>
             {!phoneHref && <a className="ch-offer-social" href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Message us on Instagram</a>}
           </div>

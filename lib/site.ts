@@ -40,6 +40,47 @@ export const ADDRESS = {
   addressCountry: 'IN',
 }
 
+// Map pin of the boutique, supplied by the owner. Used for the structured data and for the "Get directions" link, so a customer lands on the exact door.
+export const GEO = { latitude: 8.481036937748145, longitude: 76.96942945344524 }
+export const MAPS_DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${GEO.latitude},${GEO.longitude}`
+export const MAPS_PIN_URL = `https://www.google.com/maps/search/?api=1&query=${GEO.latitude},${GEO.longitude}`
+
+// Opening hours and price level. Left empty until the owner confirms them: nothing is published (in the page or in Google's data) while they are empty.
+//   OPENING_HOURS: one entry per block of identical days, times in 24-hour "HH:MM", e.g.
+//     { days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], opens: '10:00', closes: '19:00' }
+//   PRICE_RANGE: the usual rupee scale, e.g. '₹₹₹'.
+export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'
+export type OpeningHours = { days: DayName[]; opens: string; closes: string }
+export const OPENING_HOURS: OpeningHours[] = []
+export const PRICE_RANGE = ''
+
+const WEEK: DayName[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const clock = (t: string) => { const h = Number(t.slice(0, 2)), m = t.slice(3, 5); return `${h % 12 || 12}:${m} ${h < 12 ? 'am' : 'pm'}` }
+
+/** Printed form of the hours, e.g. "Mon–Sat, 10:00 am – 7:00 pm". Empty string when no hours are set. */
+export function hoursText(hours: OpeningHours[] = OPENING_HOURS): string {
+  return hours.map(h => {
+    const idx = h.days.map(d => WEEK.indexOf(d)).filter(i => i >= 0).sort((a, b) => a - b)
+    const run = idx.length >= 3 && idx.every((v, i) => i === 0 || v === idx[i - 1] + 1)
+    const short = (i: number) => WEEK[i].slice(0, 3)
+    const days = run ? `${short(idx[0])}–${short(idx[idx.length - 1])}` : idx.map(short).join(', ')
+    return `${days}, ${clock(h.opens)} – ${clock(h.closes)}`
+  }).join('; ')
+}
+
+// WhatsApp wants the number with its country code and nothing else. A bare Indian mobile number (10 digits starting 6-9) gets 91;
+// landlines and anything that is not plausibly a mobile number give no link, so the page never shows a WhatsApp button that cannot work.
+export function whatsappNumber(raw?: string | null): string | undefined {
+  const d = (raw || '').replace(/\D/g, '').replace(/^0+/, '')
+  if (/^[6-9]\d{9}$/.test(d)) return `91${d}`
+  if (/^91[6-9]\d{9}$/.test(d)) return d
+  return d.length >= 11 && d.length <= 15 ? d : undefined
+}
+export function whatsappHref(raw?: string | null, text = 'Hello Swaasa, I would like to arrange a private viewing.'): string | undefined {
+  const n = whatsappNumber(raw)
+  return n ? `https://wa.me/${n}?text=${encodeURIComponent(text)}` : undefined
+}
+
 // International format for the structured data. A bare 10-digit Indian number gets +91; anything else is passed through as typed.
 export function schemaPhone(raw?: string | null): string | undefined {
   const n = (raw || '').replace(/[^\d+]/g, '')
@@ -48,9 +89,9 @@ export function schemaPhone(raw?: string | null): string | undefined {
 }
 
 // Structured data (schema.org) that lets Google show the business as a local listing.
-// Only facts already printed on the site are used. Opening hours and map coordinates are left out until the owner supplies them.
-export function localBusinessGraph(phone?: string | null) {
-  const base = siteUrl(), telephone = schemaPhone(phone)
+// Only facts the owner has supplied are used. Opening hours and price range appear only once they are filled in above.
+export function localBusinessGraph(phone?: string | null, extra: { hours?: OpeningHours[]; priceRange?: string } = {}) {
+  const base = siteUrl(), telephone = schemaPhone(phone), hours = extra.hours ?? OPENING_HOURS, priceRange = extra.priceRange ?? PRICE_RANGE
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -61,6 +102,9 @@ export function localBusinessGraph(phone?: string | null) {
         image: `${base}${OG_IMAGE.url}`, logo: `${base}/icon-512.png`,
         ...(telephone ? { telephone } : {}),
         address: { '@type': 'PostalAddress', ...ADDRESS },
+        geo: { '@type': 'GeoCoordinates', ...GEO }, hasMap: MAPS_PIN_URL,
+        ...(hours.length ? { openingHoursSpecification: hours.map(h => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: h.days, opens: h.opens, closes: h.closes })) } : {}),
+        ...(priceRange ? { priceRange } : {}),
         areaServed: { '@type': 'City', name: 'Thiruvananthapuram', alternateName: 'Trivandrum' },
         sameAs: [INSTAGRAM_URL],
       },
