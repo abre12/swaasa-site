@@ -2,12 +2,18 @@
 // Pure functions with no imports, so the rules can be unit tested on their own. The route app/api/viewing-request/route.ts does the sending.
 
 export const LOOKING_FOR = ['Bridal lehenga', 'Gown', 'Saree', 'Bridesmaid looks', 'Other'] as const
+// The form has two ways in: visit the studio on a chosen day, or just ask the team to ring back. Times are loose windows on purpose, so the site
+// never promises opening hours it does not know.
+export const REQUEST_KINDS = ['viewing', 'callback'] as const
+export const CALL_TIMES = ['Any time', 'Morning', 'Afternoon', 'Evening'] as const
 export type ViewingRequest = {
+  kind: 'viewing' | 'callback'
+  callTime: string | null     // one of CALL_TIMES; always set for a call-back request, and for a viewing only when the visitor chose one
   name: string
   phone: string               // "+91" and ten digits for an Indian mobile; "+" and the digits for an overseas number
   lookingFor: string          // one of LOOKING_FOR, or 'Not specified'
   eventDate: string | null    // YYYY-MM-DD
-  visitDate: string | null    // YYYY-MM-DD
+  visitDate: string | null    // YYYY-MM-DD (only for a viewing request)
   note: string
 }
 export type ViewingParse = { ok: true; value: ViewingRequest } | { ok: false; error: string; spam?: boolean }
@@ -48,11 +54,18 @@ export function parseViewingRequest(body: unknown, today = istToday()): ViewingP
   const phone = normalisePhone(b.phone)
   if (!phone) return { ok: false, error: 'Please enter a valid mobile number, for example 98765 43210.' }
 
+  const kindRaw = oneLine(b.kind, 12) || 'viewing'
+  if (!(REQUEST_KINDS as readonly string[]).includes(kindRaw)) return { ok: false, error: 'Please choose one of the options listed.' }
+  const kind = kindRaw as ViewingRequest['kind']
+  const callRaw = oneLine(b.callTime, 12)
+  if (callRaw && !(CALL_TIMES as readonly string[]).includes(callRaw)) return { ok: false, error: 'Please choose one of the options listed.' }
+
   const lookingRaw = oneLine(b.lookingFor, 40)
   if (lookingRaw && !(LOOKING_FOR as readonly string[]).includes(lookingRaw)) return { ok: false, error: 'Please choose one of the options listed.' }
 
   const dates: Record<'eventDate' | 'visitDate', string | null> = { eventDate: null, visitDate: null }
   for (const [key, label] of [['eventDate', 'event date'], ['visitDate', 'visit date']] as const) {
+    if (key === 'visitDate' && kind === 'callback') continue      // a call-back has no visit day, so a leftover value is ignored, not checked
     const raw = oneLine(b[key], 10)
     if (!raw) continue
     const bad = validDate(raw, today, label)
@@ -61,7 +74,7 @@ export function parseViewingRequest(body: unknown, today = istToday()): ViewingP
   }
 
   const note = String(b.note ?? '').replace(CONTROL, '').replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 500)
-  return { ok: true, value: { name, phone, lookingFor: lookingRaw || 'Not specified', eventDate: dates.eventDate, visitDate: dates.visitDate, note } }
+  return { ok: true, value: { kind, callTime: callRaw || (kind === 'callback' ? 'Any time' : null), name, phone, lookingFor: lookingRaw || 'Not specified', eventDate: dates.eventDate, visitDate: dates.visitDate, note } }
 }
 
 const show = (s: string | null) => s ? new Date(`${s}T00:00:00Z`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'Not given'
@@ -69,6 +82,17 @@ const show = (s: string | null) => s ? new Date(`${s}T00:00:00Z`).toLocaleDateSt
 /** Plain text (no formatting characters), so nothing a visitor types can change how the message is shown. */
 export function viewingMessage(v: ViewingRequest): string {
   const wa = `https://wa.me/${v.phone.replace(/\D/g, '')}`
+  if (v.kind === 'callback') return [
+    'New call-back request from the website',
+    `Name: ${v.name}`,
+    `Mobile: ${v.phone}`,
+    `WhatsApp: ${wa}`,
+    `Best time to call: ${v.callTime || 'Any time'}`,
+    `Looking for: ${v.lookingFor}`,
+    `Event date: ${show(v.eventDate)}`,
+    ...(v.note ? [`Note: ${v.note}`] : []),
+    'Please call them back. They have not picked a visit day yet.',
+  ].join('\n')
   return [
     'New viewing request from the website',
     `Name: ${v.name}`,
@@ -77,6 +101,7 @@ export function viewingMessage(v: ViewingRequest): string {
     `Looking for: ${v.lookingFor}`,
     `Event date: ${show(v.eventDate)}`,
     `Preferred visit day: ${show(v.visitDate)}`,
+    ...(v.callTime && v.callTime !== 'Any time' ? [`Best time to call: ${v.callTime}`] : []),
     ...(v.note ? [`Note: ${v.note}`] : []),
     'Please call or message them to fix a time.',
   ].join('\n')

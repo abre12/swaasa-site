@@ -5,7 +5,7 @@ import { sendTelegram } from '@/lib/telegram'
 // Public "Request a private viewing" form. It is open to everyone, so it does three things before anything is sent:
 //  - checks the form came from this website (not another site's page) and is small
 //  - ignores bots that fill the hidden field, and limits how many requests one visitor (and the whole site) can send per hour
-//  - sends one request per phone number every ten minutes, so a double tap does not message the team twice
+//  - sends one request of each kind (viewing or call-back) per phone number every ten minutes, so a double tap does not message the team twice
 // The message goes to the owner's and staff's Telegram chats (the same chats the reminders use). Nothing is stored in the database and
 // nothing about the visitor is written to the logs. The limits live in server memory, so they are best-effort: they stop floods and
 // repeat taps, not a determined attacker on many connections (a Turnstile check would be the next step for that).
@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
 
   const now = Date.now()
   const visitor = request.headers.get('x-vercel-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
-  const last = byPhone.get(parsed.value.phone)
+  const repeatKey = `${parsed.value.kind}:${parsed.value.phone}`
+  const last = byPhone.get(repeatKey)
   if (last && now - last < REPEAT_GAP) return reply({ ok: true })        // already sent a moment ago
   if (!allowed(visitor, now)) return reply({ error: 'Too many requests just now. Please call or WhatsApp us instead.' }, 429)
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     console.error('Viewing request could not be sent to Telegram:', (results[0] as PromiseRejectedResult).reason?.message || 'unknown error')
     return reply({ error: 'We could not send your request. Please call or WhatsApp us.' }, 502)
   }
-  byPhone.set(parsed.value.phone, now)
+  byPhone.set(repeatKey, now)
   if (byPhone.size > 500) for (const [k, t] of byPhone) if (now - t > REPEAT_GAP) byPhone.delete(k)
   return reply({ ok: true })
 }

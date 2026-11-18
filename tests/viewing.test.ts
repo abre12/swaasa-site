@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { LOOKING_FOR, istToday, normalisePhone, parseViewingRequest, viewingMessage } from '@/lib/viewing'
+import { CALL_TIMES, LOOKING_FOR, REQUEST_KINDS, istToday, normalisePhone, parseViewingRequest, viewingMessage } from '@/lib/viewing'
 
 const TODAY = '2026-11-18'
 const good = { name: 'Anjali Nair', phone: '98765 43210', lookingFor: 'Gown', eventDate: '2027-02-14', visitDate: '2026-11-20', note: 'Size 12' }
@@ -7,7 +7,7 @@ const good = { name: 'Anjali Nair', phone: '98765 43210', lookingFor: 'Gown', ev
 describe('viewing request: checking the form', () => {
   it('accepts a complete request and tidies it', () => {
     const r = parseViewingRequest({ ...good, name: '  Anjali   Nair ', note: 'Need\r\n\r\n\r\n\r\nsize 12\u0007' }, TODAY)
-    expect(r).toEqual({ ok: true, value: { name: 'Anjali Nair', phone: '+919876543210', lookingFor: 'Gown', eventDate: '2027-02-14', visitDate: '2026-11-20', note: 'Need\n\nsize 12' } })
+    expect(r).toEqual({ ok: true, value: { kind: 'viewing', callTime: null, name: 'Anjali Nair', phone: '+919876543210', lookingFor: 'Gown', eventDate: '2027-02-14', visitDate: '2026-11-20', note: 'Need\n\nsize 12' } })
   })
   it('needs only a name and a mobile number', () => {
     const r: any = parseViewingRequest({ name: 'Anjali', phone: '9876543210' }, TODAY)
@@ -41,6 +41,42 @@ describe('viewing request: checking the form', () => {
   it('works out today in India, not in the server\'s time zone', () => {
     expect(istToday(Date.UTC(2026, 10, 18, 19, 0))).toBe('2026-11-19')      // 00:30 on the 19th in India
     expect(istToday(Date.UTC(2026, 10, 18, 5, 0))).toBe('2026-11-18')
+  })
+})
+
+describe('call-back requests', () => {
+  const cb = { kind: 'callback', name: 'Anjali Nair', phone: '98765 43210', callTime: 'Evening', lookingFor: 'Saree', eventDate: '2027-02-14', note: 'Budget question' }
+  it('defaults to a viewing, so older forms keep working', () => {
+    expect((parseViewingRequest(good, TODAY) as any).value.kind).toBe('viewing')
+    expect(REQUEST_KINDS).toEqual(['viewing', 'callback'])
+  })
+  it('accepts a call-back with a best time and no visit day', () => {
+    const r: any = parseViewingRequest(cb, TODAY)
+    expect(r.ok).toBe(true); expect(r.value).toMatchObject({ kind: 'callback', callTime: 'Evening', visitDate: null, phone: '+919876543210' })
+  })
+  it('ignores a leftover visit day on a call-back instead of refusing it', () => {
+    const r: any = parseViewingRequest({ ...cb, visitDate: '2020-01-01' }, TODAY)
+    expect(r.ok).toBe(true); expect(r.value.visitDate).toBeNull()
+  })
+  it('uses "Any time" when no time is chosen, and refuses unknown kinds or times', () => {
+    expect((parseViewingRequest({ ...cb, callTime: '' }, TODAY) as any).value.callTime).toBe('Any time')
+    expect(parseViewingRequest({ ...cb, kind: 'refund' }, TODAY).ok).toBe(false)
+    expect(parseViewingRequest({ ...cb, callTime: 'Midnight' }, TODAY).ok).toBe(false)
+    expect(CALL_TIMES).toEqual(['Any time', 'Morning', 'Afternoon', 'Evening'])
+  })
+  it('still needs a valid name and number', () => {
+    expect(parseViewingRequest({ ...cb, phone: '123' }, TODAY).ok).toBe(false)
+    expect(parseViewingRequest({ ...cb, name: '' }, TODAY).ok).toBe(false)
+  })
+  it('tells the team it is a call-back, with the best time and no visit day line', () => {
+    const text = viewingMessage((parseViewingRequest(cb, TODAY) as any).value)
+    expect(text).toContain('New call-back request'); expect(text).toContain('Best time to call: Evening'); expect(text).toContain('WhatsApp: https://wa.me/919876543210')
+    expect(text).not.toContain('Preferred visit day'); expect(text).toContain('Note: Budget question')
+  })
+  it('mentions the best time on a viewing only when one was chosen', () => {
+    expect(viewingMessage((parseViewingRequest({ ...good, callTime: 'Morning' }, TODAY) as any).value)).toContain('Best time to call: Morning')
+    expect(viewingMessage((parseViewingRequest({ ...good, callTime: 'Any time' }, TODAY) as any).value)).not.toContain('Best time to call')
+    expect(viewingMessage((parseViewingRequest(good, TODAY) as any).value)).toContain('New viewing request')
   })
 })
 
@@ -116,6 +152,11 @@ describe('viewing request: the route', () => {
   it('does not message the team twice when the same number is sent again straight away', async () => {
     await call(future); send.mockClear()
     const r = await call(future); expect(r.status).toBe(200); expect(send).not.toHaveBeenCalled()
+  })
+  it('treats a call-back and a viewing from the same number as two requests', async () => {
+    await call({ ...future }); await call({ ...future, kind: 'callback', callTime: 'Morning' })
+    expect(send.mock.calls.filter(c => String(c[1]).includes('call-back request')).length).toBe(2)   // owner and staff chats
+    expect(send.mock.calls.length).toBe(4)
   })
   it('limits one visitor to four different requests an hour', async () => {
     const ip = { 'x-forwarded-for': '203.0.113.7' }
