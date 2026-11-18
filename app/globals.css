@@ -1414,3 +1414,27 @@ body:has(.customer-home)>header.top,body:has(.customer-home)>footer{display:none
 @media(max-width:760px){.ch-viewing{grid-template-columns:1fr;gap:20px;padding:24px 16px 20px}.ch-viewing:before{inset:16px auto 16px 0}}
 @media(max-width:540px){.ch-viewing-form{grid-template-columns:1fr}.ch-viewing-form .ch-button{width:100%}}
 @media(max-width:400px){.ch-vf-mode{grid-template-columns:1fr}}
+
+/* ===== Phone comfort pass (Nov 2026): touch-device refinements only. No change to what any screen does or shows. ===== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media(pointer:coarse){
+  /* iPhone zooms the whole page when a field under 16px is tapped; 16px stops that everywhere (staff screens, booking flow, login, viewing form) */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]):not([type=hidden]),select,textarea{font-size:16px!important}
+  /* no double-tap zoom on controls, so quick repeat taps don't zoom the page */
+  a,button,input,select,textarea,label,summary,[role=button]{touch-action:manipulation}
+  /* bigger invisible tap area (about 44px) on the small controls staff use most, without changing how they look or the layout */
+  .dotb,.bd-close,.notif-bell,.adm-top .ham,.btn.sm{position:relative}
+  .dotb::after,.bd-close::after,.notif-bell::after,.adm-top .ham::after,.btn.sm::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+}
+/* pop-ups sized to the visible screen, so their bottom buttons are not hidden behind the browser toolbar */
+@supports(height:100dvh){
+  .rw{max-height:94dvh}.inv-dlg,.dry-modal .box{max-height:90dvh}
+  .cl-page,.customer-home{min-height:100dvh}
+}
+/* phone held sideways: keep content clear of the notch / rounded corners (the page extends to the screen edge) */
+@media(max-width:860px){
+  .adm-top{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+  .adm-main{padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important}
+  .adm-bot{padding-left:max(2px,env(safe-area-inset-left));padding-right:max(2px,env(safe-area-inset-right))}
+}
+@media(max-width:700px){.bd-header{padding-top:calc(12px + env(safe-area-inset-top))}}
