@@ -5,7 +5,7 @@ import AdminApp from '@/components/AdminApp'
 export const dynamic = 'force-dynamic'
 
 export default async function DressPerformancePage() {
-  const sb = supaServer()
+  const sb = await supaServer()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
   const { data: staff } = await sb.from('staff').select('role,name,active').eq('user_id', user.id).single()

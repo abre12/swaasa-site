@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 // N-10: records the end-of-day close (the database checks who is calling and works out what it can) and tells the owner on Telegram.
 export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin'); if (origin && new URL(origin).host !== req.headers.get('host')) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 })
-  const sb = supaServer(); const { data: { user } } = await sb.auth.getUser(); if (!user) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 401 })
+  const sb = await supaServer(); const { data: { user } } = await sb.auth.getUser(); if (!user) return NextResponse.json({ error: 'FORBIDDEN' }, { status: 401 })
   let body: any; try { body = await req.json() } catch { return NextResponse.json({ error: 'BAD_REQUEST' }, { status: 400 }) }
   const { data, error } = await sb.rpc('close_day', { p_day: String(body.day || ''), p_tomorrow_not_ready: Math.max(0, Math.round(+body.notReady || 0)), p_tomorrow_checked: !!body.checked, p_overdue_called: Math.max(0, Math.round(+body.called || 0)), p_note: body.note ? String(body.note).slice(0, 500) : null })
   if (error) return NextResponse.json({ error: error.message }, { status: error.message.includes('FORBIDDEN') ? 403 : 400 })

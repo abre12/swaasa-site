@@ -6,10 +6,11 @@ import Gallery from '@/components/Gallery'
 import BookedDates from '@/components/BookedDates'
 import { signDressImageValues } from '@/lib/dressImages'
 export const dynamic = 'force-dynamic'
-export default async function DressPage({ params, searchParams }: { params: { id: string }; searchParams: Record<string, string | undefined> }) {
-  const sb = supaServer()
+export default async function DressPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
+  const { id } = await params; const sp = await searchParams
+  const sb = await supaServer()
   // Fetch everything at the same time instead of one after another (each call has a round trip to the database).
-  const [{ data: d }, { data: s }, { data: { user } }] = await Promise.all([sb.from('dresses').select('*').eq('id', params.id).maybeSingle(), sb.from('settings').select('advance_pct,advance_min,tailor_days').single(), sb.auth.getUser()])
+  const [{ data: d }, { data: s }, { data: { user } }] = await Promise.all([sb.from('dresses').select('*').eq('id', id).maybeSingle(), sb.from('settings').select('advance_pct,advance_min,tailor_days').single(), sb.auth.getUser()])
   if (!d) notFound()
   const [images, medium, thumbs] = await Promise.all([
     signDressImageValues(sb, d.images || [], 3600),
@@ -30,5 +31,5 @@ export default async function DressPage({ params, searchParams }: { params: { id
   const info = <details className="bf-dd" open><summary>Dress details</summary>{dress.description && <p>{dress.description}</p>}
     <dl><div><dt>Colour</dt><dd>{dress.colour}</dd></div><div><dt>Sizes</dt><dd>{dress.sizes?.join(', ')}</dd></div><div><dt>Alterations</dt><dd>{dress.alterations || 'On request'}</dd></div></dl></details>
   if (viewOnly || !st) return (<section className="sec"><div className="bk-top"><h1>{dress.name}</h1><span className="chip-id">Dress ID: {dress.code}</span></div><div className="bk-page"><div>{left}</div><div><p className="mut">Your login can view dresses but not make bookings.</p></div></div></section>)
-  return <BookingFlow dress={dress} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} tailorDays={s?.tailor_days ?? 3} staff={st.role} initialFrom={searchParams.from} initialTo={searchParams.to} left={left} info={info} />
+  return <BookingFlow dress={dress} advancePct={s?.advance_pct ?? 50} advanceMin={s?.advance_min ?? 1000} tailorDays={s?.tailor_days ?? 3} staff={st.role} initialFrom={sp.from} initialTo={sp.to} left={left} info={info} />
 }

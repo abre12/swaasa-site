@@ -1,6 +1,6 @@
 # Swaasa Wedding Rentals
 
-Next.js 14 (App Router) site and staff app on Supabase, deployed on Vercel. The public side is the customer home page and booking tracker;
+Next.js 15 (App Router) site and staff app on Supabase, deployed on Vercel. The public side is the customer home page and booking tracker;
 everything else is staff-only behind login (two-step for owner and manager).
 
 ## Commands

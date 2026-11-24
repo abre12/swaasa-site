@@ -4,7 +4,7 @@ import AdminApp from '@/components/AdminApp'
 import { mfaGate } from '@/lib/mfa'
 export const dynamic = 'force-dynamic'
 export default async function Admin() {
-  const sb = supaServer(); const { data: { user } } = await sb.auth.getUser()
+  const sb = await supaServer(); const { data: { user } } = await sb.auth.getUser()
   if (!user) redirect('/login')
   // N-4: a login with no staff row (or a deactivated one) gets a clear message instead of a crash.
   const { data: st, error } = await sb.from('staff').select('role,name,active').eq('user_id', user.id).maybeSingle()

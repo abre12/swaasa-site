@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { supaAdmin, supaServer } from '@/lib/supabase/server'
 // Owner-only: create staff logins, and reset a password. Uses the server-side service key, which never reaches the browser.
 async function ownerOnly() {
-  const { data: { user } } = await supaServer().auth.getUser(); if (!user) return false
-  const { data } = await supaServer().from('staff').select('role,active').eq('user_id', user.id).maybeSingle()
+  const { data: { user } } = await (await supaServer()).auth.getUser(); if (!user) return false
+  const { data } = await (await supaServer()).from('staff').select('role,active').eq('user_id', user.id).maybeSingle()
   return data?.role === 'owner' && data.active === true
 }
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status })

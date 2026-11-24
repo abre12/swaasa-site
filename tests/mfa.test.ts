@@ -76,7 +76,7 @@ describe('middleware two-step gate', () => {
   it('staff APIs answer 403 mfa_required until setup is done, and 401 while the code is still owed', async () => {
     const a = await run('/api/staff', { staff: owner, aal: NO_FACTOR })
     expect(a.status).toBe(403); expect(a.body).toMatchObject({ code: 'mfa_required' })
-    const b = await run('/api/book', { staff: manager, aal: NEEDS_CODE })
+    const b = await run('/api/close-day', { staff: manager, aal: NEEDS_CODE })
     expect(b.status).toBe(401)
   })
   it('still asks for the code when an authenticator exists', async () => {

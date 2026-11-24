@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 
 // CH-7: a dialog should (1) put the cursor in it when it opens, (2) keep Tab inside it, (3) close on Escape and
 // (4) give the cursor back to the button that opened it. `dep` changes whenever a (new) dialog opens; falsy means closed.
-export function useDialogFocus(ref: RefObject<HTMLElement>, dep: unknown, onEscape: () => void) {
+export function useDialogFocus(ref: RefObject<HTMLElement | null>, dep: unknown, onEscape: () => void) {
   const esc = useRef(onEscape); esc.current = onEscape
   useEffect(() => {
     const el = ref.current; if (!dep || !el) return

@@ -4,6 +4,17 @@ Release notes, newest first. Until November 2026 each change shipped with its ow
 (headings only moved down a level). Steps in the older entries such as "upload these files" or "delete file X" were done at the time and are kept for the record only.
 Database scripts are listed in `supabase/README-migrations.md`; how to release is in `docs/RELEASE.md`.
 
+## Tracker progress, Next.js security upgrade, dead code (24 Nov 2026)
+
+*Source: this change. Apply `supabase/migration-v32-tracker-derived-prep.sql` in the Supabase SQL editor (any time; it replaces one function in place), then deploy the website.*
+
+- **Customer tracker:** it used to read `bookings.prep_status`, which the app stopped maintaining, so customers jumped from "Booking confirmed" to "Rental in progress". Migration v32 now works out the stage from the live alteration, cleaning and repair records (the same rules as `lib/readiness.ts`): Alterations in progress, Final preparation, and Ready. "Ready" only shows within 3 days of delivery (`v_ready_window_days` in the migration). A request that is not confirmed yet never shows a preparation stage. The final "Returned" step is now ticked instead of left as "current". The step logic moved to `lib/tracking.ts` with unit tests (`tests/tracking.test.ts`) and database tests (`supabase/tests/003_tracker.sql`).
+- **Next.js 14.2.35 to 15.5.29, React 18 to 19:** clears every Next.js advisory that `npm audit` reported (including the image-optimizer remote code execution, middleware cache poisoning and the Server Function disclosure). A pinned `postcss` override in `package.json` clears the last two build-time findings, so `npm audit --omit=dev` reports 0. Code changes were only the Next 15 asynchronous request APIs: `supaServer()` is now `async` and is awaited (`await supaServer()`), and `params` / `searchParams` on the collection and dress pages are awaited. Next 16 is not needed for these fixes.
+- **Removed:** `app/api/book/route.ts` (it called `create_booking`, dropped in v22; it was the one dead route the 18 Nov clean-up missed). The earlier-listed dead components and `/api/tryon`, two `.patch` files, `tsconfig.tsbuildinfo` and the duplicate `migrationcpt-*` files are also gone from the working folder (git already had them removed).
+- **Tests:** `tests/mfa.test.ts` now uses `/api/close-day` as its example staff API.
+
+---
+
 ## Clean-up and reliability (18 Nov 2026)
 
 *Source: this change.*

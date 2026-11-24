@@ -13,6 +13,7 @@ fresh swaasa_test
 q -d swaasa_test -f "$sup/schema-current.sql"
 q -d swaasa_test -f "$here/001_core.sql"
 q -d swaasa_test -f "$here/002_phase3.sql"
+q -d swaasa_test -f "$here/003_tracker.sql"
 
 echo "== 2. the migration chain builds the same database as schema-current.sql"
 fresh swaasa_chain

@@ -12,8 +12,8 @@ const href = (p: P) => { const u = new URLSearchParams(); Object.entries(p).forE
 const pretty = (t: string) => t.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())      // LEHENGAS -> Lehengas, OTHER OCCASIONS -> Other Occasions
 const ico = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
 const hico = { ...ico, width: 20, height: 20, strokeWidth: 1.8 }
-export default async function Collection({ searchParams }: { searchParams: P }) {
-  const sb = supaServer(); const { q, cat, colour, sort, max, from, to } = searchParams
+export default async function Collection({ searchParams }: { searchParams: Promise<P> }) {
+  const sb = await supaServer(); const { q, cat, colour, sort, max, from, to } = await searchParams
   // OP-5: staff get a compact search layout; the lazy-loading reel carousel stays above category browsing.
   const { data: { user } } = await sb.auth.getUser(), compact = !!user
   const main = MAIN_CATS.find(m => m.key === cat), okDates = !!(from && to && to >= from)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { currentStep, statusLabel, TRACKING_STEPS } from '@/lib/tracking'
 
 type BookingResult = {
   bookingId: string
@@ -10,32 +11,6 @@ type BookingResult = {
   endDate: string
   eventDate: string | null
   eventType: string | null
-}
-
-const STEPS = ['Request received', 'Confirmed', 'Being prepared', 'Ready', 'Rental in progress', 'Returned']
-
-function currentStep(booking: BookingResult) {
-  const status = booking.bookingStatus.toLowerCase()
-  const prep = booking.prepStatus.toLowerCase()
-  if (status === 'returned') return 5
-  if (status === 'out' || prep === 'delivered') return 4
-  if (prep === 'ready') return 3
-  if (prep === 'alterations_pending' || prep === 'cleaning_pending') return 2
-  if (status === 'confirmed') return 1
-  return 0
-}
-
-function statusLabel(booking: BookingResult) {
-  const status = booking.bookingStatus.toLowerCase()
-  const prep = booking.prepStatus.toLowerCase()
-  if (status === 'cancelled') return 'Cancelled'
-  if (status === 'returned') return 'Returned to Swaasa'
-  if (status === 'out' || prep === 'delivered') return 'Rental in progress'
-  if (prep === 'ready') return 'Ready for collection or delivery'
-  if (prep === 'cleaning_pending') return 'Final preparation'
-  if (prep === 'alterations_pending') return 'Alterations in progress'
-  if (status === 'confirmed') return 'Booking confirmed'
-  return 'Request received'
 }
 
 function formatDate(value: string | null) {
@@ -99,7 +74,7 @@ export default function CustomerBookingTracker() {
 
       {result && <div className="ch-tracking-result" aria-live="polite">
         <div className="ch-tracking-result-head"><span>BOOKING {result.bookingId}</span><b className={isCancelled ? 'cancelled' : ''}>{statusLabel(result)}</b></div>
-        {!isCancelled && <ol className="ch-tracking-steps" aria-label="Booking progress">{STEPS.map((step, index) => <li key={step} className={index < activeStep ? 'done' : index === activeStep ? 'current' : ''}><span>{index < activeStep ? '✓' : index + 1}</span><small>{step}</small></li>)}</ol>}
+        {!isCancelled && <ol className="ch-tracking-steps" aria-label="Booking progress">{TRACKING_STEPS.map((step, index) => <li key={step} className={index < activeStep ? 'done' : index === activeStep ? 'current' : ''}><span>{index < activeStep ? '✓' : index + 1}</span><small>{step}</small></li>)}</ol>}
         <div className="ch-tracking-dates">
           {result.eventDate && <div><small>Event date</small><b>{formatDate(result.eventDate)}{result.eventType ? ` · ${result.eventType}` : ''}</b></div>}
           <div><small>Rental period</small><b>{formatDate(result.startDate)} – {formatDate(result.endDate)}</b></div>
