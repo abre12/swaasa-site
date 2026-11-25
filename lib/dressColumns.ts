@@ -1,0 +1,30 @@
+// The dress columns the staff app and the dress page read. Named on purpose instead of select('*'): a column added to the database later
+// (a supplier price, a private note) does not start flowing to every staff browser until someone decides it should and adds it here.
+// tests/dressColumns.test.ts compares this list with supabase/schema-current.sql, so adding a column to the table without deciding fails CI.
+export const DRESS_COLUMNS = [
+  'id',
+  'code',
+  'name',
+  'category',
+  'colour',
+  'sizes',
+  'alterations',
+  'price',
+  'deposit',
+  'included_days',
+  'extra_day_fee',
+  'description',
+  'policy',
+  'condition',
+  'notes',
+  'status',
+  'images',
+  'popularity',
+  'created_at',
+  'colour_tags',
+  'acquired_on',
+  'dry_clean_charge',
+  'thumbs',
+  'medium',
+  'location',
+].join(',')

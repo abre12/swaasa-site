@@ -34,6 +34,16 @@ jobs:
           # Placeholders only: the build needs these to exist, it never contacts Supabase.
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key
+      - name: Start the built site and run the signed-out smoke test
+        # The signed-out half of docs/SMOKE-TEST.md: public pages, login redirects, closed APIs, refused cross-site and bad requests, security headers.
+        run: |
+          npm start -- -p 3000 &
+          for i in $(seq 1 30); do curl -fs http://localhost:3000/robots.txt > /dev/null && break; sleep 2; done
+          npm run smoke -- http://localhost:3000
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-key
 
   database:
     name: Database (rules, schema file, migrations)

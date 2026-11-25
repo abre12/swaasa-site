@@ -1,13 +1,16 @@
 'use client'
 import { useState } from 'react'
+import { generatePassword, passwordProblem } from '@/lib/password'
 const ROLE: Record<string, string> = { owner: 'Owner', manager: 'Staff', preparation: 'Preparation only (no longer used)' }
 // Owner only: one login per person, so every booking, preparation, delivery and return is recorded against the right name.
+// The password typed here is TEMPORARY: the person must choose their own the first time they sign in (middleware.ts, /account/password).
 export default function StaffAdmin({ ctx }: { ctx: any }) {
   const [f, setF] = useState({ name: '', email: '', password: '', role: 'manager' }); const [busy, setBusy] = useState(false)
   async function add() {
-    if (!f.name.trim() || !/^\S+@\S+\.\S+$/.test(f.email) || f.password.length < 10) return ctx.say('Enter a name, an email and a password of at least 10 characters.')
+    if (!f.name.trim() || !/^\S+@\S+\.\S+$/.test(f.email)) return ctx.say('Enter a name and a valid email.')
+    const weak = passwordProblem(f.password, f.email); if (weak) return ctx.say(weak)
     setBusy(true); const r = await fetch('/api/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) }); const j = await r.json().catch(() => ({})); setBusy(false)
-    if (r.ok) { ctx.say(`${f.name} can now sign in with ${f.email}`); setF({ ...f, name: '', email: '', password: '' }); ctx.load() } else ctx.say(j.error || 'Could not create the login.')
+    if (r.ok) { ctx.say(`${f.name} can sign in with ${f.email} and the temporary password. They will be asked to choose their own.`); setF({ ...f, name: '', email: '', password: '' }); ctx.load() } else ctx.say(j.error || 'Could not create the login.')
   }
   async function rename(s: any, v: string) {
     const name = v.trim(); if (!name || name === s.name) return
@@ -23,9 +26,9 @@ export default function StaffAdmin({ ctx }: { ctx: any }) {
     ctx.say(r.ok ? `${s.name} deleted. Their records are kept.` : j.error || 'Could not delete.'); ctx.load()
   }
   async function reset(s: any) {
-    const v = await ctx.ask(`New password for ${s.name}`, [{ name: 'p', label: 'New password (at least 10 characters)', required: true }], { ok: 'Set password' }); if (!v) return
+    const v = await ctx.ask(`New password for ${s.name}`, [{ name: 'p', label: 'Temporary password (at least 10 characters). They will choose their own at next sign-in.', required: true }], { ok: 'Set password' }); if (!v) return
     const r = await fetch('/api/staff', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: s.user_id, password: v.p }) }); const j = await r.json().catch(() => ({}))
-    ctx.say(r.ok ? `Password changed for ${s.name}` : j.error || 'Could not change the password.')
+    ctx.say(r.ok ? `Temporary password set for ${s.name}. They will choose their own at next sign-in.` : j.error || 'Could not change the password.')
   }
   const team = ctx.STAFF.filter((s: any) => !s.deleted_at)
   return (<div className="stg-staff">
@@ -41,10 +44,10 @@ export default function StaffAdmin({ ctx }: { ctx: any }) {
       <div className="stg-grid">
         <label className="stg-f"><span className="stg-l">Name</span><input placeholder="e.g. Staff 1" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
         <label className="stg-f"><span className="stg-l">Login email</span><input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /></label>
-        <label className="stg-f"><span className="stg-l">Password</span><input placeholder="At least 10 characters" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} /></label>
+        <label className="stg-f"><span className="stg-l">Temporary password</span><input placeholder="At least 10 characters" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} /><button type="button" className="btn alt sm" onClick={() => setF({ ...f, password: generatePassword() })}>Generate one</button></label>
         <label className="stg-f"><span className="stg-l">Role</span><select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value="manager">Staff (bookings, payments, deliveries, returns)</option></select></label>
       </div>
-      <p className="stg-gd" style={{ margin: 0 }}>The email can be any address you control (for example sales1@yourdomain.in). No email is sent. Give the person their email and password, and ask them to keep the password private.</p>
+      <p className="stg-gd" style={{ margin: 0 }}>The email can be any address you control (for example sales1@yourdomain.in). No email is sent. Give the person their email and this temporary password. The first time they sign in they will be asked to choose their own, so you never need to know it again. If someone forgets their password, use Reset password. If you lose your own authenticator app, see docs/ACCOUNT-RECOVERY.md.</p>
       <div className="stg-actions"><button type="button" className="btn" disabled={busy} onClick={add}>{busy ? 'Creating…' : 'Create login'}</button></div>
     </div>
   </div>)

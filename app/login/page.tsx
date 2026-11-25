@@ -92,7 +92,7 @@ export default function Login() {
         {err && <p className="lg-err" role="alert">{err}</p>}
         <button className="lg-btn" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Login'}</button>
         <button type="button" className="lg-link" onClick={() => setForgot(v => !v)} aria-expanded={forgot}>Forgot Password?</button>
-        {forgot && <p className="lg-help" role="note">Passwords are reset by the owner. Ask them to use <b>Reset password</b> in Staff Admin, then sign in with the new password.</p>}
+        {forgot && <p className="lg-help" role="note">Passwords are reset by the owner. Ask them to use <b>Reset password</b> in Staff Admin, then sign in with the temporary password. You will be asked to choose your own.</p>}
       </form>}</section>
     </div>
   </main>

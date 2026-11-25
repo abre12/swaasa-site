@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 // Two-step login with an authenticator app (Google Authenticator, Microsoft Authenticator, Authy). Free on every Supabase plan.
 // Once switched on, signing in needs the password AND the 6-digit code (the middleware and the login page enforce it).
 // Owner and manager logins must have it on (lib/mfa.ts), so for them there is no "Turn off" button here.
-// If the phone is lost: Supabase dashboard, Authentication, Users, open this user and delete the factor. Nothing else is locked:
+// If the phone is lost: remove the factor (Supabase dashboard, Authentication, Users, or the SQL in docs/ACCOUNT-RECOVERY.md). Nothing else is locked:
 // at the next sign-in the person is taken through setup again with a new phone.
 export default function MfaSetup({ sb, required = false }: { sb: any; required?: boolean }) {
   const [on, setOn] = useState<boolean | null>(null), [factorId, setFactorId] = useState(''), [qr, setQr] = useState(''), [secret, setSecret] = useState('')

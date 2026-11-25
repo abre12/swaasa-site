@@ -1,1 +1,8 @@
-{ "extends": "next/core-web-vitals" }
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    // The site shows photos with a plain <img> on purpose. Dress photos are private Supabase links that change on every visit (so Next's image
+    // optimiser could never cache them), the home-page pictures are already small WebP/JPEG files, and the optimiser is an extra thing to keep patched.
+    "@next/next/no-img-element": "off"
+  }
+}

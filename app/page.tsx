@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import ReelsCarousel from '@/components/ReelsCarousel'
 import CustomerBookingTracker from '@/components/CustomerBookingTracker'
 import ReviewsCarousel from '@/components/ReviewsCarousel'
@@ -42,10 +43,10 @@ export default async function Home() {
           Hidden visually on purpose: the design opens straight on the reels. Wording matches the page title and description. */}
       <h1 className="sr-only">Swaasa Wedding Rentals: a private bridal wardrobe in Thiruvananthapuram</h1>
       <header className="ch-nav">
-        <a className="ch-brand" href="/" aria-label="Swaasa Wedding Rentals home">
+        <Link className="ch-brand" href="/" aria-label="Swaasa Wedding Rentals home">
           <img src="/logo-mark.png" alt="" />
           <span><b>Swaasa</b><small>Wedding Rentals</small></span>
-        </a>
+        </Link>
         <nav aria-label="Main navigation">
           <a href="#experience">What we offer</a>
           <a href="#track-booking">Track a booking</a>
@@ -89,7 +90,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <footer className="ch-footer"><a className="ch-brand" href="/" aria-label="Swaasa home"><img src="/logo-mark.png" alt="" /><span><b>Swaasa</b><small>Wedding Rentals</small></span></a>
+      <footer className="ch-footer"><Link className="ch-brand" href="/" aria-label="Swaasa home"><img src="/logo-mark.png" alt="" /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
         <span>Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
       </footer>
     </div>

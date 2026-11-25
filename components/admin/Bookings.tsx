@@ -50,7 +50,7 @@ export default function Bookings({ ctx, flt, setFlt }: { ctx: any; flt: string; 
       && (!f.status || (f.status === 'overdue' ? lateRet(b) || lateDel(b) : b.status === f.status)) && (!f.pay || (f.pay === 'due' ? owe(b) > 0 : owe(b) === 0)) && (!f.staff || b.taken_by === f.staff) && (!f.cat || mainCatOf(b.category) === f.cat))
     const s = sort === 'del' ? (cur === 'returns' || cur === 'out' || cur === 'rettoday' ? byNear('end_date') : prio) : sort === 'ret' ? byNear('end_date') : sort === 'new' ? (a: any, b: any) => b.created_at.localeCompare(a.created_at) : (a: any, b: any) => owe(b) - owe(a)
     return l.slice().sort(s)
-  }, [B, q, f, cur, sort, month, today])
+  }, [B, q, f, cur, sort, month, today]) // eslint-disable-line react-hooks/exhaustive-deps -- inScope, prio and byNear are rebuilt every render from exactly these values
   useEffect(() => { setLimit(PAGE) }, [flt, q, sort, month, f])
   const shown = useMemo(() => rows.slice(0, limit), [rows, limit])
   const T = { adv: sum(rows, b => adv[b.id] || 0), dep: sum(rows, b => Math.max(0, b.deposit_held)), rent: sum(rows, b => b.rent), cus: sum(rows, b => b.custom_charge || 0), dmg: sum(rows, b => b.damage_charge || 0), late: sum(rows, b => b.late_fee || 0), tot: sum(rows, total), rec: sum(rows, b => b.paid), pend: sum(rows, owe) }

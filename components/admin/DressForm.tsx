@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CATS, COLOURS, mainCatOf } from '@/lib/util'
 import { autoColours } from '@/lib/colours'
 import { makeSizes } from '@/lib/images'
@@ -30,8 +30,11 @@ export default function DressForm({ ctx, ed, onClose }: { ctx: any; ed: any | nu
       if (r.tags.length) { setTags(r.tags); setNote(r.source === 'words' ? 'Worked out from the colour words and name.' : 'Detected from the photo.') } else setNote('')
     }, 700)
     return () => clearTimeout(t)
-  }, [f.colour, f.name, f.description, mainKey, news.length, old.length, touched])
-  useEffect(() => () => news.forEach(n => URL.revokeObjectURL(n.preview)), [])
+  }, [f.colour, f.name, f.description, mainKey, news.length, old.length, touched]) // eslint-disable-line react-hooks/exhaustive-deps -- photoSrc reads the main photo, which mainKey and the photo counts already track
+  // Free the preview pictures when the form closes: the LATEST list (a plain effect would only see the empty list from the first render).
+  const newsNow = useRef(news)
+  newsNow.current = news
+  useEffect(() => () => newsNow.current.forEach(n => URL.revokeObjectURL(n.preview)), [])
   function addFiles(list: FileList | null) {
     const add = Array.from(list || []).filter(x => x.type.startsWith('image/')).map(file => ({ file, preview: URL.createObjectURL(file) })); if (!add.length) return
     setNews(n => [...n, ...add]); if (!items.length) setMain('new:0')

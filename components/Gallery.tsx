@@ -1,11 +1,11 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 // One main photo with small photos underneath. The page loads the small and medium sizes; the full-size original
 // is fetched only when someone clicks the main photo for full screen.
 export default function Gallery({ images, medium = [], thumbs = [], name }: { images: string[]; medium?: string[]; thumbs?: string[]; name: string }) {
   const [cur, setCur] = useState(0); const [full, setFull] = useState(false); const box = useRef<HTMLDivElement>(null)
   const n = images.length
-  const go = (d: number) => setCur(c => (c + d + n) % n)
+  const go = useCallback((d: number) => setCur(c => (c + d + n) % n), [n])
   const close = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setFull(false) }
   useEffect(() => {
     if (!full) return
@@ -14,7 +14,7 @@ export default function Gallery({ images, medium = [], thumbs = [], name }: { im
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1) }
     document.addEventListener('fullscreenchange', onFs); window.addEventListener('keydown', key); document.body.style.overflow = 'hidden'
     return () => { document.removeEventListener('fullscreenchange', onFs); window.removeEventListener('keydown', key); document.body.style.overflow = '' }
-  }, [full, n])
+  }, [full, go])   // go changes only when the number of photos does
   if (!n) return <div style={{ height: 420, width: '100%', background: 'var(--blush)' }} />
   const nav: React.CSSProperties = { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: '#0009', color: '#fff', border: 0, width: 46, height: 46, fontSize: 28, cursor: 'pointer', borderRadius: 23 }
   return (<>

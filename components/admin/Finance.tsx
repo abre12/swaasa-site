@@ -93,7 +93,7 @@ export default function Finance({ ctx, initialTab = 'tx' }: { ctx: any; initialT
       if (cb.error) setErr(cb.error.message.includes('FORBIDDEN') ? 'Only the owner can open dates before this month.' : 'Could not load the cash book. Please refresh.'); else if (p.error || x.error) setErr('Could not load this date. Please refresh.')
       setPays(p.data || []); setExps(x.data || []); setBook(cb.data?.[0] || null)
     }
-    setLoading(false) })(); return () => { off = true } }, [tab, month, date, txStart, txEnd, ctx.fullTick, ctx.sb])   // date-range reports refresh with each full load, not every 30s poll
+    setLoading(false) })(); return () => { off = true } }, [tab, month, date, txStart, txEnd, ctx.fullTick, ctx.sb, today])   // date-range reports refresh with each full load, not every 30s poll
   useEffect(() => { setCnt(book?.counted != null ? String(book.counted) : ''); setCnote(book?.note || '') }, [book])
 
   const B: any[] = ctx.B, owe = (b: any) => Math.max(0, b.rent + b.charges - b.paid)
@@ -147,7 +147,7 @@ export default function Finance({ ctx, initialTab = 'tx' }: { ctx: any; initialT
     const groups: Record<string, any> = {}
     for (const t of txRows) { const g = (groups[t.booking] ||= { booking: t.booking, who: t.who, latest: t.at, items: [], cats: {}, modes: new Set<string>(), remarks: new Set<string>(), staff: new Set<string>() }); g.items.push(t); if (t.at > g.latest) g.latest = t.at; g.cats[t.cat] = (g.cats[t.cat] || 0) + t.amount; if (t.mode) g.modes.add(modeKey(t.mode)); if (t.rem) g.remarks.add(t.rem); if (t.by) g.staff.add(by(t.by)) }
     return Object.values(groups).sort((a: any, b: any) => b.latest.localeCompare(a.latest)).map((g: any) => ({ ...g, items: g.items.sort((a: any, b: any) => a.at.localeCompare(b.at)), modes: [...g.modes], remarks: [...g.remarks], staff: [...g.staff] }))
-  }, [txRows])
+  }, [txRows]) // eslint-disable-line react-hooks/exhaustive-deps -- by() only looks up staff names, which do not change while a report is open
   const received = pays.filter(r => ['rent', 'deposit'].includes(r.kind)), collected = received.reduce((s, r) => s + r.amount, 0)
   const cashToday = todayPays.filter(r => ['rent', 'deposit'].includes(r.kind) && modeKey(r.mode) === 'cash').reduce((s, r) => s + r.amount, 0)
   const pending = B.filter(b => b.status !== 'cancelled').reduce((s, b) => s + owe(b), 0), depHeld = B.reduce((s, b) => s + Math.max(0, b.deposit_held), 0), refPending = B.filter(b => b.status === 'out').reduce((s, b) => s + ctx.refundRef(b), 0)

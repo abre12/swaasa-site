@@ -18,7 +18,7 @@ A green tick on both means the change is safe to try. **A red cross means do not
 ## 3. Try it on staging
 - Vercel builds a **Preview** link for every pull request automatically. It is connected to the **staging** Supabase project, never the live one (set up once, see `STAGING.md`).
 - If the change includes a new database script (`migration-v..`), run it on the **staging** project first, in the SQL editor.
-- Go through `SMOKE-TEST.md` on the Preview link. It takes about 25 minutes. If you only changed one area you may do only the sections for that area, but do the **Money** section whenever money, returns or approvals were touched.
+- Run `npm run smoke -- <the Preview link>` (10 seconds, no sign-in), then go through the rest of `SMOKE-TEST.md` on the Preview link. It takes about 25 minutes. If you only changed one area you may do only the sections for that area, but do the **Money** section whenever money, returns or approvals were touched.
 
 ## 4. Release to live
 1. **Take a backup:** GitHub > Actions > "Database backup" > Run workflow. Wait for the green tick.

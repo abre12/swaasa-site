@@ -34,7 +34,7 @@ export async function dispatchAlteration(ctx: any, j: any): Promise<boolean> {
 
 export default function Alterations({ ctx }: { ctx: any }) {
   const [openId, setOpenId] = useState<string | null>(null), [tab, setTab] = useState<Queue>('all'), [q, setQ] = useState(''), [due, setDue] = useState(''), [category, setCategory] = useState('all'), [status, setStatus] = useState('all'), [page, setPage] = useState(1), [rcv, setRcv] = useState<{ j: any; res: (v: ReceiveResult) => void } | null>(null)
-  const jobs: any[] = ctx.AJ || [], bookings: any[] = ctx.B || [], today = todayIST(), pageSize = 15
+  const jobs: any[] = useMemo(() => ctx.AJ || [], [ctx.AJ]), bookings: any[] = useMemo(() => ctx.B || [], [ctx.B]), today = todayIST(), pageSize = 15
   const isDmg = (j: any) => j.source === 'damage'
   const daysTo = (d: string) => Math.round((+new Date(d) - +new Date(today)) / 864e5)
   // CH-2: ONE rule for "critical for delivery". This page no longer has its own: it reads the same alerts as the bell and Today

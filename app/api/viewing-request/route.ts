@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { parseViewingRequest, viewingMessage } from '@/lib/viewing'
 import { sendTelegram } from '@/lib/telegram'
+import { sameOrigin } from '@/lib/apiGuard'
 
 // Public "Request a private viewing" form. It is open to everyone, so it does three things before anything is sent:
 //  - checks the form came from this website (not another site's page) and is small
@@ -28,8 +29,7 @@ function allowed(visitor: string, now: number) {
 }
 
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get('origin')
-  if (origin) { try { if (new URL(origin).host !== request.nextUrl.host) return reply({ error: 'Not allowed.' }, 403) } catch { return reply({ error: 'Not allowed.' }, 403) } }
+  if (!sameOrigin(request)) return reply({ error: 'Not allowed.' }, 403)
   if (Number(request.headers.get('content-length') || 0) > 4096) return reply({ error: 'Your message is too long.' }, 413)
 
   let body: unknown

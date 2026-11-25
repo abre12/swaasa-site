@@ -3,6 +3,9 @@
 Tick each line. Sign in as the **test owner** unless it says otherwise. Anything that does not behave as written: stop and do not release.
 Reload the page before you start, and use the made-up sample data (`supabase/staging-sample-data.sql`).
 
+## Automatic part (about 10 seconds)
+Run `npm run smoke -- <the Preview link>`. It checks, without signing in: the home page, tracker and viewing form are there; the staff pages send a signed-out visitor to the login; the staff APIs answer 401; another website and broken or invalid requests are refused (and send nothing); the security headers are on. **CI also runs it after every build.** If it passes you can skip those checks below and do the signed-in ones.
+
 ## Sign-in and roles
 - [ ] The owner signs in, enters the 6-digit code, and lands on the Dashboard with no error screen.
 - [ ] **Two-step login is required for owner and manager.** Use a test login that has never set it up: after the password it goes to "Set up two-step login" (QR code + key), and typing `/admin` or `/collection` in the address bar does not get past that screen. Enter the code from the app: it opens the Dashboard. Sign out and in again: it now asks for the code.

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { supaServer } from '@/lib/supabase/server'
+import { DRESS_COLUMNS } from '@/lib/dressColumns'
 import { inr } from '@/lib/util'
 import BookingFlow from '@/components/BookingFlow'
 import Gallery from '@/components/Gallery'
@@ -10,7 +11,7 @@ export default async function DressPage({ params, searchParams }: { params: Prom
   const { id } = await params; const sp = await searchParams
   const sb = await supaServer()
   // Fetch everything at the same time instead of one after another (each call has a round trip to the database).
-  const [{ data: d }, { data: s }, { data: { user } }] = await Promise.all([sb.from('dresses').select('*').eq('id', id).maybeSingle(), sb.from('settings').select('advance_pct,advance_min,tailor_days').single(), sb.auth.getUser()])
+  const [{ data: d }, { data: s }, { data: { user } }] = await Promise.all([sb.from('dresses').select<string, any>(DRESS_COLUMNS).eq('id', id).maybeSingle(), sb.from('settings').select('advance_pct,advance_min,tailor_days').single(), sb.auth.getUser()])
   if (!d) notFound()
   const [images, medium, thumbs] = await Promise.all([
     signDressImageValues(sb, d.images || [], 3600),

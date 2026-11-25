@@ -34,7 +34,7 @@ export default function Inventory({ ctx, D, owner, onAdd, onEdit, form, extra }:
     return stage === 'damaged' ? 'maintenance' : (STAGE_KEY[stage] || 'available')
   }
   const detailOf = (d: any) => d ? dressStage(ctx, d).detail : undefined
-  const rows = useMemo(() => dresses.filter(Boolean).map(d => ({ d, s: stateOf(d) })), [D, B, DC, ctx.AJ, ctx.CR])
+  const rows = useMemo(() => dresses.filter(Boolean).map(d => ({ d, s: stateOf(d) })), [D, B, DC, ctx.AJ, ctx.CR]) // eslint-disable-line react-hooks/exhaustive-deps -- dresses comes from D, and stateOf reads only the data listed here
   const isIn = (s: string, k: string) => k === 'away' ? s === 'at_tailor' || s === 'at_cleaner' : s === k
   const count = (k: string) => k ? rows.filter(r => isIn(r.s, k)).length : rows.length
   const sizeOpts = [...new Set([...SIZES, ...dresses.flatMap(d => asArray(d?.sizes).filter((s): s is string => typeof s === 'string'))])]

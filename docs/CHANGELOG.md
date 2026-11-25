@@ -4,6 +4,22 @@ Release notes, newest first. Until November 2026 each change shipped with its ow
 (headings only moved down a level). Steps in the older entries such as "upload these files" or "delete file X" were done at the time and are kept for the record only.
 Database scripts are listed in `supabase/README-migrations.md`; how to release is in `docs/RELEASE.md`.
 
+## Staff sign-in, API hardening, tests and tidy-up (24 Nov 2026, second change)
+
+*Source: this change. No database script. Apply by copying the files and running `npm install`.*
+
+- **A correction to the change below:** with Next 15's lint rules, `npm run lint` reported 5 errors (plain `<a href="/">` links), so CI would have gone red. They are fixed (`Link` on the home and not-found pages; the two crash pages keep a plain link on purpose, with a comment). `npm run lint` now allows **zero warnings**.
+- **Choose-your-own password:** a password the owner types (new person, or Reset password) is now temporary. The login is marked `must_change_password` (server-only `app_metadata`, so it cannot be cleared from the browser) and the person is sent to **/account/password** at first sign-in; every other page and API is closed until they choose their own (`middleware.ts`, `lib/passwordGate.ts`, `app/api/account/password`). The owner can press **Generate one**. Rules (`lib/password.ts`): 10+ characters, not a common password, not built from the email name. Anyone can change their own password later from the menu ("Change password"). Existing logins are not affected.
+- **Recovery:** new `docs/ACCOUNT-RECOVERY.md` (forgotten password, lost authenticator, owner locked out, and what to do once to prevent it).
+- **API consistency:** one shared guard (`lib/apiGuard.ts`). Every route that changes something (`/api/staff`, `/api/close-day`, `/api/account/password`, `/api/viewing-request`, `/api/customer-booking/track`) refuses another website, including the literal `null` origin that used to crash `new URL(origin)`, and answers a clear 400 for a body that is not a JSON object.
+- **Tidy-up:** removed the 15 root `README-*.md` fragments (all already in this CHANGELOG; the last one, mobile comfort, is now here too), unused pictures (`login-poster.jpg`, `logo-full.jpg`, `reel-N.jpg`, `reel-N-poster.JPG`), added `.gitattributes` (LF line endings everywhere) and `.prettierrc.json`.
+- **Staff app code:** `AdminApp.tsx` is formatted (it was 619 very long lines), and its menu, background jobs (idle sign-out, clock check, photo-link renewal, phone-screen check) and customer summary moved to `components/admin/adminNav.ts`, `components/admin/useAdminSession.ts` and `lib/customers.ts`. Dresses are read with a named column list (`lib/dressColumns.ts`, checked against the schema by a test) instead of `select('*')`. Behaviour is unchanged.
+- **Lint:** the 13 hook-dependency warnings are fixed or carry a one-line reason; one was a real (small) bug, the dress form's photo previews were never freed. The `<img>` rule is switched off on purpose (private photo links change on every visit, so Next's image optimiser could not cache them); the reason is in `.eslintrc.json`.
+- **Tests:** 144 to about 240. New: every API route (guard, staff, account password, close-day, viewing request, tracker, daily digest, time), the password-change gate in the middleware, the tracker, viewing and password screens, and a screen test that opens the whole staff app and visits every menu page for each role. New `npm run smoke` (also run by CI after the build) covers the signed-out half of the smoke test.
+- **Known:** a signed-out visitor who mistypes a web address is sent to the staff login rather than a 404 page (the middleware refuses unknown addresses by default).
+
+---
+
 ## Tracker progress, Next.js security upgrade, dead code (24 Nov 2026)
 
 *Source: this change. Apply `supabase/migration-v32-tracker-derived-prep.sql` in the Supabase SQL editor (any time; it replaces one function in place), then deploy the website.*
@@ -12,6 +28,33 @@ Database scripts are listed in `supabase/README-migrations.md`; how to release i
 - **Next.js 14.2.35 to 15.5.29, React 18 to 19:** clears every Next.js advisory that `npm audit` reported (including the image-optimizer remote code execution, middleware cache poisoning and the Server Function disclosure). A pinned `postcss` override in `package.json` clears the last two build-time findings, so `npm audit --omit=dev` reports 0. Code changes were only the Next 15 asynchronous request APIs: `supaServer()` is now `async` and is awaited (`await supaServer()`), and `params` / `searchParams` on the collection and dress pages are awaited. Next 16 is not needed for these fixes.
 - **Removed:** `app/api/book/route.ts` (it called `create_booking`, dropped in v22; it was the one dead route the 18 Nov clean-up missed). The earlier-listed dead components and `/api/tryon`, two `.patch` files, `tsconfig.tsbuildinfo` and the duplicate `migrationcpt-*` files are also gone from the working folder (git already had them removed).
 - **Tests:** `tests/mfa.test.ts` now uses `/api/close-day` as its example staff API.
+
+---
+
+## Mobile comfort pass (19 Nov 2026)
+
+*Source: README-mobile-comfort.md (gathered here unchanged, headings moved down one level).*
+
+One file changed: `app/globals.css` (full file, built on the version in swaasa-site.rar, so nothing from earlier fixes is lost). A short block was added at the very end. No component, database or functionality change.
+
+### What it does (phones and tablets only; desktop with a mouse is unchanged)
+1. **No zoom when tapping a field.** iPhone zooms the page when a field under 16px is tapped. Many staff fields were 12-14px (return wizard, booking and calendar filters, date pickers, alteration filters). All fields are now 16px on touch devices.
+2. **Easier taps on small buttons.** The 3-dot row menu (about 25 x 23px), the menu icon, the bell, the popup close button and the small buttons get an invisible tap area of about 44px. Look and layout are unchanged.
+3. **No double-tap zoom** on buttons, links and fields.
+4. **Popups fit the visible screen.** Return wizard, inventory and dry-cleaning popups now use the visible height, so bottom buttons are not hidden behind the browser toolbar. Collection and home pages too.
+5. **Sideways phone fix.** Top bar, content and bottom bar keep clear of the notch and rounded corners when the phone is turned sideways; the booking popup header clears the status bar when installed to the home screen.
+6. Stops iOS from enlarging text when the phone is rotated.
+
+### Apply
+Replace `app/globals.css` in GitHub with the one in this zip, then let Vercel build.
+
+### Check on a phone after the build
+- Tap a field in Return a dress, Bookings filters and Calendar: the page should not zoom.
+- Tap the 3-dot menu on an Inventory or Bookings row, and the bell: should open on the first try.
+- Open Return a dress: the bottom buttons are visible without scrolling the page.
+
+### Not in this zip (needs screen-by-screen work, see review)
+Phone card views for Alterations, Dry Cleaning, Finance and Deliveries tables; aligning the 700px / 860px switch points.
 
 ---
 

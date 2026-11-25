@@ -13,6 +13,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
       <p style={{ margin: '0 0 18px', color: '#6b5f4e', fontSize: 16 }}>We could not show this page just now. Please try again in a moment, or go back to our home page.</p>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
         <button onClick={() => reset()} style={{ ...BTN, background: '#2b241c', color: '#faf6ef', border: '1px solid #2b241c' }}>Try again</button>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a full page load on purpose: it starts the site clean after an error */}
         <a href="/" style={{ ...BTN, background: 'transparent', color: '#2b241c', border: '1px solid #2b241c' }}>Back to home page</a>
       </div>
       <p style={{ margin: '22px 0 0', color: '#6b5f4e', fontSize: 15 }}>

@@ -81,7 +81,7 @@ export default function Calendar({ ctx, onBlock, onBlockInfo }: { ctx: any; onBl
     }
     affected.sort((a, b) => (a.delivery || '').localeCompare(b.delivery || ''))
     return { events: ev, affected }
-  }, [B, K, DC, CR, AJ, dmap, today, state])
+  }, [B, K, DC, CR, AJ, dmap, today, state]) // eslint-disable-line react-hooks/exhaustive-deps -- ctx is rebuilt every render; the data it carries (B, K, DC, CR, AJ) is listed
 
   const pass = (e: Ev) => filter === 'all' || (filter === 'attention' ? e.risk : e.kind === filter)
   const byDate = useMemo(() => { const m = new Map<string, Ev[]>(); for (const e of events) { if (!pass(e)) continue; const l = m.get(e.date); l ? l.push(e) : m.set(e.date, [e]) } return m }, [events, filter]) // eslint-disable-line react-hooks/exhaustive-deps

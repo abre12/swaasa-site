@@ -1,6 +1,7 @@
 import { createHmac } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { supaAdmin } from '@/lib/supabase/server'
+import { sameOrigin } from '@/lib/apiGuard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 10
@@ -11,6 +12,7 @@ const reply = (body: Record<string, unknown>, status = 200) => NextResponse.json
 })
 
 export async function POST(request: NextRequest) {
+  if (!sameOrigin(request)) return reply({ error: 'Not allowed.' }, 403)
   const contentLength = Number(request.headers.get('content-length') || 0)
   if (contentLength > 2048) return reply({ error: 'Request is too large.' }, 413)
 
