@@ -4,6 +4,17 @@ Release notes, newest first. Until November 2026 each change shipped with its ow
 (headings only moved down a level). Steps in the older entries such as "upload these files" or "delete file X" were done at the time and are kept for the record only.
 Database scripts are listed in `supabase/README-migrations.md`; how to release is in `docs/RELEASE.md`.
 
+## Build fix: fonts bundled, Node pinned, stale routes (25 Nov 2026)
+
+*Source: this change. No database script. After copying the files, run `npm install`.*
+
+- **The Vercel build failed in `next/font`** ("Cannot read properties of null (reading '1')"): while building, Next downloads each font from Google and crashed on the reply. The three typefaces are now **bundled in `app/fonts/`** (unmodified `.woff2` files from `@fontsource`, SIL Open Font License, texts in `app/fonts/licenses/`) and loaded with `next/font/local`, so a build no longer needs Google at all. Same families and weights as before; Inter's latin and latin-ext files keep Google's character ranges, so the rupee sign still comes from the latin-ext file (joined by `--font-inter` in `globals.css`). `tests/fonts.test.ts` checks the files exist and nothing loads from Google.
+- **Node is pinned to 24.x** (`engines` in `package.json`, and CI). `>=20` made Vercel ignore the project setting and move to Node 26.x on its own.
+- **Stale routes:** `app/api/book` and `app/api/tryon` must be deleted from the repository. They call `supaServer()` the old synchronous way and stop the type-check (the second deploy error).
+- **Lesson for the checks:** the earlier "build passes" runs stubbed the font step because the test machine could not reach Google, so this failure was invisible there. The build is now run for real, with no stub.
+
+---
+
 ## Staff sign-in, API hardening, tests and tidy-up (24 Nov 2026, second change)
 
 *Source: this change. No database script. Apply by copying the files and running `npm install`.*

@@ -1,6 +1,6 @@
 :root{--card:#ffffff;--bg:#faf6ef;--ink:#2b241c;--mut:#6b5f4e;--gold:#7a5c2a;--line:#e8dfd0;--blush:#f1dcd6;--bad:#b4493f;--ok:#4f8a5b}
 @media(prefers-color-scheme:dark){:root{--card:#26201b;--bg:#1c1814;--ink:#f1e8d8;--mut:#b0a38e;--gold:#d2b074;--line:#3a3128;--blush:#3b2d2a}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-inter),system-ui,sans-serif}
+html{--font-inter:var(--font-inter-latin),var(--font-inter-ext)}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-inter),system-ui,sans-serif}
 h1,h2,h3{font-family:var(--font-cormorant),Georgia,serif;font-weight:500;margin:0}a{color:inherit}
 header.top{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;letter-spacing:.36em;font:500 21px var(--font-cormorant),serif}.brand img{height:34px}
