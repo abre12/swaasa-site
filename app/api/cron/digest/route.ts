@@ -7,6 +7,8 @@ import { fetchAll } from '@/lib/fetchAll'
 import { computeAlerts } from '@/lib/alerts'
 import { bookingReadiness } from '@/lib/readiness'
 import { addD, dmy, todayIST } from '@/lib/util'
+import { pingHeartbeat } from '@/lib/heartbeat'
+import { report } from '@/lib/monitor'
 
 // Scheduled reminders. GitHub Actions (.github/workflows/reminders.yml) calls this at set times; it reads the live records with the
 // server key, applies the SAME alert and readiness rules as the app (lib/alerts.ts, lib/readiness.ts) and posts a message to Telegram,
@@ -26,7 +28,29 @@ const hourIST = () => Number(new Date().toLocaleString('en-GB', { timeZone: 'Asi
 const send = sendTelegram
 
 export async function POST(req: Request) { return GET(req) }
+
+// Every real (non-dry) run is written to reminder_runs and, when it worked, pinged to the outside monitor (lib/heartbeat.ts). The daily watchdog
+// (app/api/cron/watchdog) reads that log and tells the owner which reminder never ran. Logging and pinging can never change the reply.
 export async function GET(req: Request) {
+  const res = await run(req)
+  try {
+    const url = new URL(req.url), slot = url.searchParams.get('slot')
+    const secret = process.env.CRON_SECRET, authorised = !!secret && same(req.headers.get('authorization') || '', `Bearer ${secret}`)   // an unauthenticated call must never write to the log
+    if (authorised && url.searchParams.get('dry') !== '1' && (SLOTS as readonly string[]).includes(slot || '')) {
+      const body = await res.clone().json().catch(() => ({})) as { sent?: number; error?: string }
+      const outcome = res.ok ? ((body.sent || 0) === 0 ? 'nothing' : 'sent') : 'error'
+      const { error } = await supaAdmin().from('reminder_runs').insert({
+        slot, run_date: todayIST(), outcome, sent: body.sent || 0, error: res.ok ? null : String(body.error || res.status).slice(0, 300),
+        source: (req.headers.get('user-agent') || '').includes('vercel-cron') ? 'vercel' : 'external',
+      })
+      if (error) report(new Error('reminder_runs: ' + error.message), { where: 'digest:log' })
+      if (res.ok) await pingHeartbeat(slot!)
+    }
+  } catch (e) { report(e, { where: 'digest:log' }) }
+  return res
+}
+
+async function run(req: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET
   if (!secret) return NextResponse.json({ error: 'CRON_SECRET is not set on the server.' }, { status: 503 })
   if (!same(req.headers.get('authorization') || '', `Bearer ${secret}`)) return NextResponse.json({ error: 'Not allowed.' }, { status: 401 })

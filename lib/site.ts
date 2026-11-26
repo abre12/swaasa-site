@@ -14,6 +14,10 @@ export function siteUrl(): string {
   return process.env.NODE_ENV === 'production' ? 'https://swaasa-site.vercel.app' : 'http://localhost:3000'
 }
 
+// Public guide pages that anyone may open without signing in (the sign-in middleware and the sitemap both read this list).
+// /pricing is added once the owner has supplied real prices (see lib/seo-content.ts): until then that page does not exist.
+export const PUBLIC_PAGES: string[] = ['/faq', '/bridal-lehenga-rental-trivandrum', '/pricing']
+
 export const SITE_NAME = 'Swaasa Wedding Rentals'
 export const HOME_TITLE = 'Swaasa Wedding Rentals | A Private Bridal Wardrobe'
 // People search for both spellings of the city, so the description carries both. Kept under about 160 characters so Google shows it whole.
@@ -45,13 +49,16 @@ export const GEO = { latitude: 8.481036937748145, longitude: 76.96942945344524 }
 export const MAPS_DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${GEO.latitude},${GEO.longitude}`
 export const MAPS_PIN_URL = `https://www.google.com/maps/search/?api=1&query=${GEO.latitude},${GEO.longitude}`
 
-// Opening hours and price level. Left empty until the owner confirms them: nothing is published (in the page or in Google's data) while they are empty.
+// Opening hours and price level. Hours are the owner's (every day, 10 am to 8 pm). The price range is still empty until the owner confirms it:
+// nothing is published (in the page or in Google's data) while a value is empty.
 //   OPENING_HOURS: one entry per block of identical days, times in 24-hour "HH:MM", e.g.
 //     { days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], opens: '10:00', closes: '19:00' }
 //   PRICE_RANGE: the usual rupee scale, e.g. '₹₹₹'.
 export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'
 export type OpeningHours = { days: DayName[]; opens: string; closes: string }
-export const OPENING_HOURS: OpeningHours[] = []
+export const OPENING_HOURS: OpeningHours[] = [
+  { days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '10:00', closes: '20:00' },   // confirmed by the owner, 25 Nov 2026
+]
 export const PRICE_RANGE = ''
 
 const WEEK: DayName[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']

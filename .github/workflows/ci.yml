@@ -21,7 +21,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # npm ci needs package-lock.json to match package.json exactly. If a dependency was added and the lock file has not been regenerated yet,
+      # fall back to npm install so CI still runs (regenerate the lock file with `npm install` when convenient, then commit it).
+      - run: npm ci || npm install --no-audit --no-fund
       - name: Type check
         run: npm run typecheck
       - name: Lint

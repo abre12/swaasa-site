@@ -34,7 +34,7 @@ await check('robots.txt keeps the staff areas out of search and names the sitema
 await check('sitemap.xml is valid and lists the home page', async () => { const r = await get('/sitemap.xml'); ok(r.status === 200, `status ${r.status}`); ok((await r.text()).includes('<urlset'), 'not a sitemap') })
 await check('security headers are on', async () => {
   const h = (await get('/')).headers
-  ok(/frame-ancestors 'none'/.test(h.get('content-security-policy') || ''), 'frame-ancestors missing'); ok(h.get('x-frame-options') === 'DENY', 'X-Frame-Options'); ok(h.get('x-content-type-options') === 'nosniff', 'nosniff')
+  ok(/frame-ancestors 'none'/.test(h.get('content-security-policy') || ''), 'frame-ancestors missing'); ok(/default-src 'self'/.test(h.get('content-security-policy-report-only') || ''), 'report-only CSP missing'); ok(h.get('x-frame-options') === 'DENY', 'X-Frame-Options'); ok(h.get('x-content-type-options') === 'nosniff', 'nosniff')
   ok(!!h.get('strict-transport-security'), 'HSTS'); ok(!!h.get('referrer-policy'), 'Referrer-Policy'); ok(!h.get('x-powered-by'), 'X-Powered-By is exposed')
 })
 for (const p of ['/admin', '/admin/performance', '/collection', '/dress/00000000-0000-0000-0000-000000000000', '/account/password']) await check(`${p} needs a login`, () => goesToLogin(p))

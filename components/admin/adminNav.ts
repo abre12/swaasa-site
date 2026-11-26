@@ -22,6 +22,7 @@ export const NAV: [string, string, string, string[]][] = [
   ['dresses', 'Inventory', 'dress', ['owner', 'manager']],
   ['alterations', 'Alterations', 'scissors', ['owner', 'manager']],
   ['drycleaning', 'Dry Cleaning', 'sparkle', ['owner', 'manager']],
+  ['leads', 'Enquiries', 'phone', ['owner', 'manager']],
   ['cash', 'Cash & Transactions', 'wallet', ['owner', 'manager']],
   ['confidence', 'Delivery Confidence', 'truck', ['owner']],
   ['insights', 'Insights', 'chart', ['owner']],

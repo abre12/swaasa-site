@@ -1,59 +1,79 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { parseViewingRequest, viewingMessage } from '@/lib/viewing'
+import { manyEnquiriesMessage, parseViewingRequest, viewingMessage } from '@/lib/viewing'
 import { sendTelegram } from '@/lib/telegram'
 import { sameOrigin } from '@/lib/apiGuard'
+import { supaAdmin } from '@/lib/supabase/server'
+import { verifyTurnstile } from '@/lib/turnstile'
+import { visitorHash, visitorIp } from '@/lib/visitor'
+import { report } from '@/lib/monitor'
 
-// Public "Request a private viewing" form. It is open to everyone, so it does three things before anything is sent:
-//  - checks the form came from this website (not another site's page) and is small
-//  - ignores bots that fill the hidden field, and limits how many requests one visitor (and the whole site) can send per hour
-//  - sends one request of each kind (viewing or call-back) per phone number every ten minutes, so a double tap does not message the team twice
-// The message goes to the owner's and staff's Telegram chats (the same chats the reminders use). Nothing is stored in the database and
-// nothing about the visitor is written to the logs. The limits live in server memory, so they are best-effort: they stop floods and
-// repeat taps, not a determined attacker on many connections (a Turnstile check would be the next step for that).
+// Public "Request a private viewing / Call me back" form. It is open to everyone, so before anything is saved it:
+//  - checks the form came from this website and is small
+//  - drops bots that fill the hidden field (they are told it worked)
+//  - checks the Cloudflare Turnstile token (when TURNSTILE_SECRET_KEY is set)
+// Then ONE database call (lead_submit, migration v33) does the rest, so the limits are shared by every server instance and survive a cold start:
+//  - a repeat of the same request within ten minutes returns the first one
+//  - one visitor can send 4 an hour, one phone number 3 a day
+//  - the enquiry is saved with status "new" BEFORE Telegram is tried, so a Telegram outage can no longer lose a customer
+// There is no site-wide cap: a spammer can no longer use up the allowance and block real enquiries. Only the Telegram message is throttled
+// (after 20 an hour the team gets one "many enquiries" message). Nothing about the visitor is written to the logs.
 export const dynamic = 'force-dynamic'
 export const maxDuration = 15
 
 const reply = (body: Record<string, unknown>, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
-
-const HOUR = 60 * 60 * 1000, PER_VISITOR = 4, PER_HOUR_ALL = 40, REPEAT_GAP = 10 * 60 * 1000
-const byVisitor = new Map<string, number[]>(), byPhone = new Map<string, number>()
-let allTimes: number[] = []
-
-function allowed(visitor: string, now: number) {
-  allTimes = allTimes.filter(t => now - t < HOUR)
-  const mine = (byVisitor.get(visitor) || []).filter(t => now - t < HOUR)
-  if (mine.length >= PER_VISITOR || allTimes.length >= PER_HOUR_ALL) { byVisitor.set(visitor, mine); return false }
-  mine.push(now); allTimes.push(now); byVisitor.set(visitor, mine)
-  if (byVisitor.size > 500) for (const [k, v] of byVisitor) if (!v.some(t => now - t < HOUR)) byVisitor.delete(k)
-  return true
-}
+const FALLBACK = 'Please call or WhatsApp us instead.'
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return reply({ error: 'Not allowed.' }, 403)
-  if (Number(request.headers.get('content-length') || 0) > 4096) return reply({ error: 'Your message is too long.' }, 413)
+  if (Number(request.headers.get('content-length') || 0) > 6144) return reply({ error: 'Your message is too long.' }, 413)
 
   let body: unknown
   try { body = await request.json() } catch { return reply({ error: 'Please fill in your name and mobile number.' }, 400) }
   const parsed = parseViewingRequest(body)
   if (!parsed.ok) return parsed.spam ? reply({ ok: true }) : reply({ error: parsed.error }, 400)
 
-  const now = Date.now()
-  const visitor = request.headers.get('x-vercel-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
-  const repeatKey = `${parsed.value.kind}:${parsed.value.phone}`
-  const last = byPhone.get(repeatKey)
-  if (last && now - last < REPEAT_GAP) return reply({ ok: true })        // already sent a moment ago
-  if (!allowed(visitor, now)) return reply({ error: 'Too many requests just now. Please call or WhatsApp us instead.' }, 429)
+  const ip = visitorIp(request)
+  const human = await verifyTurnstile((body as Record<string, unknown>).turnstileToken, ip)
+  if (human === 'fail') return reply({ error: 'We could not confirm you are a person. Please refresh the page and try again, or call or WhatsApp us.' }, 400)
+  if (human === 'unavailable') console.warn('Turnstile could not be reached; the request was allowed and the database limits still apply.')
 
-  const chats = [...new Set([process.env.TELEGRAM_OWNER_CHAT_ID, process.env.TELEGRAM_STAFF_CHAT_ID].map(c => (c || '').trim()).filter(Boolean))]
-  if (!process.env.TELEGRAM_BOT_TOKEN || !chats.length) return reply({ error: 'Online requests are not available right now. Please call or WhatsApp us.' }, 503)
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) return reply({ error: `Online requests are not available right now. ${FALLBACK}` }, 503)
+  const v = parsed.value
+  const sb = supaAdmin()
 
-  const text = viewingMessage(parsed.value)
-  const results = await Promise.allSettled(chats.map(chat => sendTelegram(chat, text)))
-  if (!results.some(r => r.status === 'fulfilled')) {
-    console.error('Viewing request could not be sent to Telegram:', (results[0] as PromiseRejectedResult).reason?.message || 'unknown error')
-    return reply({ error: 'We could not send your request. Please call or WhatsApp us.' }, 502)
+  let outcome: string | undefined, leadId: number | null = null, action = 'none'
+  try {
+    const { data, error } = await sb.rpc('lead_submit', {
+      p_ip_hash: visitorHash(ip, serviceKey), p_kind: v.kind, p_name: v.name, p_phone: v.phone, p_looking_for: v.lookingFor === 'Not specified' ? '' : v.lookingFor,
+      p_event_date: v.eventDate, p_visit_date: v.visitDate, p_call_time: v.callTime || '', p_note: v.note,
+    })
+    if (error) throw new Error(error.message)
+    const row = Array.isArray(data) ? data[0] : data
+    outcome = row?.outcome; leadId = row?.lead_id ?? null; action = row?.tg_action || 'none'
+  } catch (e) {
+    report(e, { where: 'viewing-request:save' })
+    return reply({ error: `We could not save your request. ${FALLBACK}` }, 503)
   }
-  byPhone.set(repeatKey, now)
-  if (byPhone.size > 500) for (const [k, t] of byPhone) if (now - t > REPEAT_GAP) byPhone.delete(k)
+
+  if (outcome === 'limited_visitor') return reply({ error: `Too many requests just now. ${FALLBACK}` }, 429)
+  // A repeat, or a phone number that already has its three for the day: we already have them, so say thank you and send nothing more.
+  if (outcome !== 'created') return reply({ ok: true })
+
+  // The lead is safe in the database. Telegram is a notification on top; its failure is recorded, not shown to the customer.
+  if (action !== 'none') {
+    const chats = [...new Set([process.env.TELEGRAM_OWNER_CHAT_ID, process.env.TELEGRAM_STAFF_CHAT_ID].map(c => (c || '').trim()).filter(Boolean))]
+    const text = action === 'summary' ? manyEnquiriesMessage() : viewingMessage(v, leadId)
+    let sent = false
+    if (process.env.TELEGRAM_BOT_TOKEN && chats.length) {
+      const results = await Promise.allSettled(chats.map(chat => sendTelegram(chat, text)))
+      sent = results.some(r => r.status === 'fulfilled')
+      if (!sent) report((results[0] as PromiseRejectedResult).reason, { where: 'viewing-request:telegram' })
+    }
+    if (action === 'send' && leadId) {
+      const { error } = await sb.rpc('lead_mark_telegram', { p_id: leadId, p_ok: sent })
+      if (error) report(new Error(error.message), { where: 'viewing-request:mark' })
+    }
+  }
   return reply({ ok: true })
 }

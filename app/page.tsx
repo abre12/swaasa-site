@@ -1,10 +1,12 @@
 import Link from 'next/link'
+import Analytics from '@/components/Analytics'
 import ReelsCarousel from '@/components/ReelsCarousel'
 import CustomerBookingTracker from '@/components/CustomerBookingTracker'
 import ReviewsCarousel from '@/components/ReviewsCarousel'
 import ViewingRequest from '@/components/ViewingRequest'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 import { getGoogleReviews } from '@/lib/reviews'
+import { guidePages } from '@/lib/seo-content'
 import { HOME_DESCRIPTION, HOME_TITLE, MAPS_DIRECTIONS_URL, hoursText, jsonLdString, localBusinessGraph, shareMeta, whatsappHref } from '@/lib/site'
 import type { Metadata } from 'next'
 
@@ -39,12 +41,9 @@ export default async function Home() {
     <script dangerouslySetInnerHTML={{ __html: "if(!location.hash){try{history.scrollRestoration='manual'}catch(e){}}" }} />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(localBusinessGraph(phone)) }} />
     <div className="ch-shell">
-      {/* The page's one <h1> (audit M1). It comes first so screen-reader and search-engine outlines start with it; the visible headings below are all <h2>/<h3>.
-          Hidden visually on purpose: the design opens straight on the reels. Wording matches the page title and description. */}
-      <h1 className="sr-only">Swaasa Wedding Rentals: a private bridal wardrobe in Thiruvananthapuram</h1>
       <header className="ch-nav">
         <Link className="ch-brand" href="/" aria-label="Swaasa Wedding Rentals home">
-          <img src="/logo-mark.png" alt="" />
+          <img src="/logo-mark.png" alt="" width={200} height={196} />
           <span><b>Swaasa</b><small>Wedding Rentals</small></span>
         </Link>
         <nav aria-label="Main navigation">
@@ -53,6 +52,14 @@ export default async function Home() {
           <a className="ch-nav-cta" href="#private-viewing">Request a viewing <span aria-hidden="true">↗</span></a>
         </nav>
       </header>
+
+      {/* The page's one <h1> (audit M1), now visible: a short introduction above the reels, so people and search engines both see what the page is. */}
+      <section className="ch-intro" aria-labelledby="ch-intro-title">
+        <p className="ch-kicker">PRIVATE BRIDAL WARDROBE · KARAMANA, TRIVANDRUM</p>
+        <h1 id="ch-intro-title">Bridal lehengas, gowns &amp; sarees <em>to rent in Trivandrum.</em></h1>
+        <p>Arrange a private viewing at our Thiruvananthapuram studio, with personal guidance and fitting support.</p>
+        <div className="ch-intro-actions"><a className="ch-button" href="#private-viewing">Request a viewing <span aria-hidden="true">↗</span></a><Link href="/bridal-lehenga-rental-trivandrum">How renting works</Link></div>
+      </section>
 
       <div className="ch-showcase">
         <ReelsCarousel reels={REELS} instagram={INSTAGRAM_URL} />
@@ -90,9 +97,10 @@ export default async function Home() {
         </div>
       </section>
 
-      <footer className="ch-footer"><Link className="ch-brand" href="/" aria-label="Swaasa home"><img src="/logo-mark.png" alt="" /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
-        <span>Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+      <footer className="ch-footer"><Link className="ch-brand" href="/" aria-label="Swaasa home"><img src="/logo-mark.png" alt="" width={200} height={196} /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
+        <span>{guidePages().map((g, i) => <span key={g.path}>{i > 0 && ' · '}<Link href={g.path}>{g.label}</Link></span>)}<br />Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
       </footer>
     </div>
+    <Analytics />
   </main>
 }

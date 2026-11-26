@@ -1,36 +1,13 @@
 'use client'
 // Small background jobs the staff app runs about the device and the login (not about bookings): photo links, screen size, clock, idle sign-out.
 import { useEffect, useRef, useState } from 'react'
-import { signDressRows } from '@/lib/dressImages'
 import { clockSkew, setClockOffset } from '@/lib/util'
 
-/** Private photo links expire after an hour; renew them every 45 minutes while the app stays open. */
-export function useSignedPhotoRefresh(sb: any, dresses: any[], setDresses: (rows: any[]) => void) {
-  const latest = useRef<any[]>([])
-  useEffect(() => {
-    latest.current = dresses
-  }, [dresses])
-  useEffect(() => {
-    let alive = true
-    const timer = window.setInterval(
-      () => {
-        const rows = latest.current
-        if (rows.length)
-          void signDressRows(sb, rows, 3600)
-            .then(next => {
-              if (alive) setDresses(next)
-            })
-            .catch(() => {})
-      },
-      45 * 60 * 1000
-    )
-    return () => {
-      alive = false
-      window.clearInterval(timer)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- set once per sign-in; setDresses is a state setter and never changes
-  }, [sb])
-}
+/**
+ * Kept so the app's code does not change. Private photo links used to expire after an hour and were renewed every 45 minutes; photos now use
+ * stable addresses (lib/media.ts) that never expire, so there is nothing to renew and the screen no longer redraws every 45 minutes.
+ */
+export function useSignedPhotoRefresh(_sb: any, _dresses: any[], _setDresses: (rows: any[]) => void) {}
 
 /** True on a phone-sized screen (the same 860px the stylesheet switches layout at). */
 export function useIsMobile(): boolean {

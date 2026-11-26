@@ -1,6 +1,9 @@
+import { mediaUrl } from './media'
+
 export const DRESS_IMAGE_BUCKET = 'dress-images'
 
 const IMAGE_PATH_MARKERS = [
+  `/api/media/${DRESS_IMAGE_BUCKET}/`,
   `/storage/v1/object/public/${DRESS_IMAGE_BUCKET}/`,
   `/storage/v1/object/sign/${DRESS_IMAGE_BUCKET}/`,
   `/storage/v1/object/authenticated/${DRESS_IMAGE_BUCKET}/`,
@@ -29,25 +32,13 @@ export function dressImagePath(value: unknown): string | null {
   return /^https?:\/\//i.test(raw) ? null : decodePath(raw)
 }
 
-export async function signDressImageValues(sb: any, values: string[], expiresIn = 3600): Promise<string[]> {
-  const paths = Array.from(new Set(values.map(dressImagePath).filter((path): path is string => !!path)))
-  if (!paths.length) return values
-
-  const signed = new Map<string, string>()
-  for (let i = 0; i < paths.length; i += 100) {
-    const batch = paths.slice(i, i + 100)
-    const { data, error } = await sb.storage.from(DRESS_IMAGE_BUCKET).createSignedUrls(batch, expiresIn)
-    if (error) continue
-    for (const item of data || []) {
-      const path = dressImagePath(item.path) || decodePath(String(item.path || ''))
-      if (path && item.signedUrl) signed.set(path, item.signedUrl)
-    }
-  }
-
-  return values.map(value => {
-    const path = dressImagePath(value)
-    return path ? signed.get(path) || value : value
-  })
+/**
+ * The address to show each stored photo value at. Values may be old public Supabase links, signed links, or plain Storage paths; every one that
+ * names a dress-image object becomes the SAME stable address on every call (/api/media/..., see lib/media.ts), so browsers can cache it.
+ * Nothing is signed any more, so this needs no network. The `sb` and `expiresIn` arguments are kept so existing callers do not change.
+ */
+export async function signDressImageValues(_sb: any, values: string[], _expiresIn = 3600): Promise<string[]> {
+  return values.map(value => { const path = dressImagePath(value); return path ? mediaUrl(DRESS_IMAGE_BUCKET, path) : value })
 }
 
 export async function signDressRows(sb: any, rows: any[], expiresIn = 3600): Promise<any[]> {

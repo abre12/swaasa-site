@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The two public POST routes. Their limits live in module memory, so every test gets a fresh copy of the route.
+// The public booking-tracker POST route (the enquiry form is in api-viewing.test.ts).
 const m = vi.hoisted(() => ({ send: vi.fn(), rpc: vi.fn() }))
 vi.mock('@/lib/telegram', () => ({ sendTelegram: m.send }))
 vi.mock('@/lib/supabase/server', () => ({ supaAdmin: () => ({ rpc: m.rpc }) }))
@@ -8,45 +8,8 @@ vi.mock('@/lib/supabase/server', () => ({ supaAdmin: () => ({ rpc: m.rpc }) }))
 const H = { host: 'swaasa.test', origin: 'https://swaasa.test', 'content-type': 'application/json' }
 const post = (url: string, body: string, headers: Record<string, string> = {}) => new Request(`https://swaasa.test${url}`, { method: 'POST', body, headers: { ...H, ...headers } }) as any
 let n = 0
-const viewing = { name: 'Anjali Nair', phone: '98765 43210', lookingFor: 'Gown' }
 
-describe('/api/viewing-request', () => {
-  let POST: (r: any) => Promise<Response>
-  beforeEach(async () => {
-    vi.resetModules(); vi.clearAllMocks(); m.send.mockResolvedValue(undefined)
-    process.env.TELEGRAM_BOT_TOKEN = 't'; process.env.TELEGRAM_OWNER_CHAT_ID = '1'; process.env.TELEGRAM_STAFF_CHAT_ID = '2'
-    ;({ POST } = await import('@/app/api/viewing-request/route'))
-  })
-  const send = (b: object, h: Record<string, string> = {}) => POST(post('/api/viewing-request', JSON.stringify(b), { 'x-vercel-forwarded-for': `10.0.0.${++n}`, ...h }))
-
-  it('sends a good request to both chats', async () => {
-    expect((await send(viewing)).status).toBe(200); expect(m.send).toHaveBeenCalledTimes(2)
-  })
-  it('refuses another site, a "null" origin, a huge body and bad JSON', async () => {
-    expect((await send(viewing, { origin: 'https://evil.example' })).status).toBe(403)
-    expect((await send(viewing, { origin: 'null' })).status).toBe(403)
-    expect((await POST(post('/api/viewing-request', '{', { 'x-vercel-forwarded-for': '9.9.9.9' }))).status).toBe(400)
-    expect((await POST(post('/api/viewing-request', JSON.stringify(viewing), { 'content-length': '99999' }))).status).toBe(413)
-    expect(m.send).not.toHaveBeenCalled()
-  })
-  it('quietly ignores a bot that fills the hidden field', async () => {
-    const r = await send({ ...viewing, website: 'http://spam' }); expect(r.status).toBe(200); expect(m.send).not.toHaveBeenCalled()
-  })
-  it('asks for a name and a valid mobile', async () => { expect((await send({ name: 'A', phone: '1' })).status).toBe(400) })
-  it('does not message the team twice for a double tap', async () => {
-    await send(viewing); await send(viewing); expect(m.send).toHaveBeenCalledTimes(2)   // two chats, once
-  })
-  it('limits one visitor to 4 requests an hour', async () => {
-    const same = { 'x-vercel-forwarded-for': '7.7.7.7' }
-    const statuses: number[] = []
-    for (let i = 0; i < 6; i++) statuses.push((await POST(post('/api/viewing-request', JSON.stringify({ ...viewing, phone: `9876543${100 + i}` }), same))).status)
-    expect(statuses).toEqual([200, 200, 200, 200, 429, 429])
-  })
-  it('says so when Telegram is not set up, or when every send fails', async () => {
-    delete process.env.TELEGRAM_BOT_TOKEN; expect((await send(viewing)).status).toBe(503)
-    process.env.TELEGRAM_BOT_TOKEN = 't'; m.send.mockRejectedValue(new Error('down')); expect((await send({ ...viewing, phone: '9123456780' })).status).toBe(502)
-  })
-})
+// The enquiry form's own tests are in api-viewing.test.ts.
 
 describe('/api/customer-booking/track', () => {
   let POST: (r: any) => Promise<Response>

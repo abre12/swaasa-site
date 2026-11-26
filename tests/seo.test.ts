@@ -48,9 +48,9 @@ describe('site address', () => {
 })
 
 describe('sitemap and robots', () => {
-  it('lists the public home page as an absolute address', () => {
+  it('lists the public home page and the guide pages as absolute addresses (pricing only once prices exist)', () => {
     process.env.SITE_URL = 'https://www.example.in'
-    expect(sitemap().map(e => e.url)).toEqual(['https://www.example.in/'])
+    expect(sitemap().map(e => e.url)).toEqual(['https://www.example.in/', 'https://www.example.in/bridal-lehenga-rental-trivandrum', 'https://www.example.in/faq'])
   })
   it('never lists a page that robots.txt blocks or that is private', () => {
     const rules = [robots().rules].flat()[0] as { disallow: string[] }
@@ -148,9 +148,11 @@ describe('structured data', () => {
     expect(biz.sameAs[0]).toMatch(/^https:\/\/www\.instagram\.com\//)
     for (const k of ['image', 'logo', 'url']) expect(biz[k]).toMatch(/^https:\/\/www\.example\.in\//)
   })
-  it('leaves the telephone out when none is configured, and invents no hours or price range', () => {
+  it('leaves the telephone out when none is configured, publishes the owner\'s hours (daily 10 am to 8 pm), and invents no price range', () => {
     const biz: any = localBusinessGraph('')['@graph'][1]
-    expect('telephone' in biz).toBe(false); expect(biz.openingHoursSpecification).toBeUndefined(); expect(biz.priceRange).toBeUndefined()
+    expect('telephone' in biz).toBe(false); expect(biz.priceRange).toBeUndefined()
+    expect(biz.openingHoursSpecification).toEqual([{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '10:00', closes: '20:00' }])
+    expect(hoursText()).toBe('Mon–Sun, 10:00 am – 8:00 pm')
   })
   it('gives the exact map pin the owner supplied, and a link to it', () => {
     const biz: any = localBusinessGraph('')['@graph'][1]

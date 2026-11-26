@@ -29,6 +29,7 @@ import Alterations from './admin/Alterations'
 import Notifications from './admin/Notifications'
 import Customers from './admin/Customers'
 import Approvals from './admin/Approvals'
+import Leads from './admin/Leads'
 import Calendar from './admin/Calendar'
 import PageHead from './admin/PageHead'
 import CancelBooking from './admin/CancelBooking'
@@ -1502,7 +1503,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
     pageTitle = NAV.find(n => n[0] === tab)?.[1] || (tab === 'performance' ? 'Dress Performance' : '')
   const navGroups: [string, string[], string][] = [
     ['Workspace', ['dashboard', 'bookings', 'calendar', 'dresses'], ''],
-    ['Operations', ['alterations', 'drycleaning', 'cash'], ''],
+    ['Operations', ['alterations', 'drycleaning', 'leads', 'cash'], ''],
     ['Owner’s Corner', ['confidence', 'insights', 'customers', 'approvals', 'reports', 'settings'], ''],
     ['', ['prep'], ''],
   ]
@@ -1649,6 +1650,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
         {tab === 'drycleaning' && ops && <DryCleaning ctx={ctx} />}
         {tab === 'alterations' && ops && <Alterations ctx={ctx} />}
         {tab === 'approvals' && owner && <Approvals ctx={ctx} />}
+        {tab === 'leads' && ops && <Leads ctx={ctx} />}
         {tab === 'cash' && ops && <Finance ctx={ctx} initialTab={financeTab} />}
         {tab === 'performance' && owner && <Performance ctx={ctx} />}
         {tab === 'confidence' && owner && <Confidence ctx={ctx} />}

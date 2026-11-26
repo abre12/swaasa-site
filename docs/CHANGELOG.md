@@ -4,6 +4,16 @@ Release notes, newest first. Until November 2026 each change shipped with its ow
 (headings only moved down a level). Steps in the older entries such as "upload these files" or "delete file X" were done at the time and are kept for the record only.
 Database scripts are listed in `supabase/README-migrations.md`; how to release is in `docs/RELEASE.md`.
 
+## Enquiries in the database, reviews, monitoring, reminders watchdog, speed, CSP, SEO (26 Nov 2026)
+
+*Source: `README-fixes-2026-11-25.md` (full steps, reasons and what could not be checked). Database scripts v33 and v34. One new package, `@sentry/nextjs`.*
+
+- Enquiries are saved in a `leads` table with a status, limited by a database-backed limiter (no global cap), bot-checked with Cloudflare Turnstile, and managed on a new Enquiries page.
+- Google reviews: live only, unfiltered, with attribution; the hand-copied list is gone.
+- Vercel Web Analytics and Sentry (personal data stripped). Reminder runs are logged, pinged to an outside heartbeat, and checked daily by a watchdog.
+- Staff sign-in check remembers "active staff" for a minute; private photos use stable addresses; Content-Security-Policy added in report-only mode.
+- Visible `<h1>`, opening hours (daily 10 am to 8 pm), new `/faq` and `/bridal-lehenga-rental-trivandrum` pages; `/pricing` appears once prices are added.
+
 ## Build fix: fonts bundled, Node pinned, stale routes (25 Nov 2026)
 
 *Source: this change. No database script. After copying the files, run `npm install`.*

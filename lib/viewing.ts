@@ -80,8 +80,9 @@ export function parseViewingRequest(body: unknown, today = istToday()): ViewingP
 const show = (s: string | null) => s ? new Date(`${s}T00:00:00Z`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'Not given'
 
 /** Plain text (no formatting characters), so nothing a visitor types can change how the message is shown. */
-export function viewingMessage(v: ViewingRequest): string {
+export function viewingMessage(v: ViewingRequest, leadId?: number | null): string {
   const wa = `https://wa.me/${v.phone.replace(/\D/g, '')}`
+  const ref = leadId ? [`Enquiry number: ${leadId} (also saved under Enquiries in the app)`] : []
   if (v.kind === 'callback') return [
     'New call-back request from the website',
     `Name: ${v.name}`,
@@ -91,6 +92,7 @@ export function viewingMessage(v: ViewingRequest): string {
     `Looking for: ${v.lookingFor}`,
     `Event date: ${show(v.eventDate)}`,
     ...(v.note ? [`Note: ${v.note}`] : []),
+    ...ref,
     'Please call them back. They have not picked a visit day yet.',
   ].join('\n')
   return [
@@ -103,6 +105,10 @@ export function viewingMessage(v: ViewingRequest): string {
     `Preferred visit day: ${show(v.visitDate)}`,
     ...(v.callTime && v.callTime !== 'Any time' ? [`Best time to call: ${v.callTime}`] : []),
     ...(v.note ? [`Note: ${v.note}`] : []),
+    ...ref,
     'Please call or message them to fix a time.',
   ].join('\n')
 }
+
+/** Sent once when more than 20 enquiries arrive in an hour. The enquiries themselves are all saved; this just says where to read them. */
+export const manyEnquiriesMessage = () => 'Many website enquiries have arrived in the last hour. They are all saved: open Enquiries in the app to read and call them. Individual messages are paused until things quieten down.'

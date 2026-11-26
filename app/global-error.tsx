@@ -1,4 +1,6 @@
 'use client'
+import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 // N-4 / audit M6: last resort, used only if the page frame itself fails. Written for customers.
 // The page's own styles may not be available here, so everything is styled inline.
 const PHONE = (process.env.NEXT_PUBLIC_STORE_PHONE || '').trim()
@@ -6,7 +8,8 @@ const PHONE_HREF = PHONE ? `tel:${PHONE.replace(/[^\d+]/g, '')}` : ''
 const INSTAGRAM = process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/swaasa_rentals/'
 const BTN = { padding: '12px 20px', fontSize: 16, borderRadius: 6, cursor: 'pointer', textDecoration: 'none', display: 'inline-block', fontFamily: 'inherit' } as const
 
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { Sentry.captureException(error) }, [error])   // the page frame itself failed: this is the only place that sees it
   return <html lang="en"><body style={{ fontFamily: 'system-ui, sans-serif', color: '#2b241c', background: '#faf6ef', display: 'grid', placeItems: 'center', minHeight: '100vh', margin: 0, padding: 24, textAlign: 'center' }}>
     <div style={{ maxWidth: 440 }}>
       <h1 style={{ fontSize: 24, margin: '0 0 8px' }}>Sorry, something went wrong</h1>

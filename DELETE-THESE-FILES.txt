@@ -1,2 +1,3 @@
 app/api/book/route.ts
 app/api/tryon/route.ts
+lib/reviews-manual.ts

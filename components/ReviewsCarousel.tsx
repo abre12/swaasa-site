@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import type { GoogleReview } from '@/lib/reviews'
 
 const Chev = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
-const Stars = () => <span className="ch-rv-stars" role="img" aria-label="5 out of 5 stars">★★★★★</span>
+const Stars = ({ n = 5 }: { n?: number }) => <span className="ch-rv-stars" role="img" aria-label={`${n} out of 5 stars`}>{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
 
 export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { reviews: GoogleReview[]; rating: number | null; total: number | null; mapsUrl: string }) {
   const track = useRef<HTMLUListElement>(null)
@@ -21,11 +21,12 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
   return <section className="ch-reviews" aria-labelledby="ch-reviews-title">
     <div className="ch-reviews-head">
       <div>
-        <p className="ch-kicker">LOVED BY OUR BRIDES</p>
+        <p className="ch-kicker">GOOGLE REVIEWS</p>
         <h3 id="ch-reviews-title">What customers say <em>on Google</em></h3>
+        <p className="ch-reviews-attr">Reviews and rating from <b>Google Maps</b></p>
       </div>
       <div className="ch-reviews-side">
-        {rating !== null && <p className="ch-reviews-score"><b>{rating.toFixed(1)}</b><Stars />{total !== null && <small>{total} Google reviews</small>}</p>}
+        {rating !== null && <p className="ch-reviews-score"><b>{rating.toFixed(1)}</b><Stars n={Math.round(rating)} />{total !== null && <small>from {total} Google reviews</small>}</p>}
         <div className="ch-reviews-arrows">
           <button type="button" onClick={() => step(-1)} aria-label="Previous reviews"><Chev d="m15 6-6 6 6 6" /></button>
           <button type="button" onClick={() => step(1)} aria-label="Next reviews"><Chev d="m9 6 6 6-6 6" /></button>
@@ -38,7 +39,7 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
         const long = r.text.length > 190
         const expanded = open.has(r.id)
         return <li className="ch-review" key={r.id}>
-          <Stars />
+          <Stars n={r.stars} />
           <p className={long && !expanded ? 'ch-review-text is-clamped' : 'ch-review-text'}>{r.text}</p>
           {long && <button type="button" className="ch-review-more" onClick={() => toggle(r.id)} aria-expanded={expanded}>{expanded ? 'Show less' : 'Read more'}</button>}
           <div className="ch-review-by">
@@ -54,6 +55,7 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
       })}
     </ul>
 
+    <p className="ch-reviews-note">A selection of recent reviews, exactly as written on Google, with their own star ratings. Google chooses which ones are shown; the average above covers every review.</p>
     <a className="ch-reviews-all" href={mapsUrl} target="_blank" rel="noopener noreferrer">See all reviews on Google <span aria-hidden="true">↗</span></a>
   </section>
 }

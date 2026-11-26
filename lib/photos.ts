@@ -1,11 +1,14 @@
 // Return-inspection and handover photos live in a PRIVATE bucket. The database stores each photo's address, and the app opens it with a
 // short-lived signed link, so a copied URL stops working for anyone who is not signed in as staff.
+import { mediaUrl } from './media'
+
 export const PHOTO_BUCKET = 'return-inspection-photos'
 
-export async function signedPhotoUrl(sb: any, url: string, seconds = 3600): Promise<string> {
+/** The stable address (lib/media.ts) for a stored inspection photo. Not signed: the address is the same every time, so the browser can keep the picture. */
+export async function signedPhotoUrl(_sb: any, url: string, _seconds = 3600): Promise<string> {
   const m = /\/return-inspection-photos\/(.+?)(?:\?|$)/.exec(url || ''); if (!m) return url
-  const { data, error } = await sb.storage.from(PHOTO_BUCKET).createSignedUrl(decodeURIComponent(m[1]), seconds)
-  return error || !data?.signedUrl ? url : data.signedUrl
+  let path = m[1]; try { path = decodeURIComponent(path) } catch { /* keep as is */ }
+  return mediaUrl(PHOTO_BUCKET, path)
 }
 
 /** Upload files and return their stored addresses (and the paths, so a failed save can remove them again). */

@@ -21,15 +21,21 @@ describe('home page headings', () => {
     expect(levels[0]).toBe(1)
     expect(levels.length).toBeGreaterThan(3)   // the existing <h2>/<h3> section headings are still there
   })
-  it('names the business and place, matching the page title and description', async () => {
+  it('names what is offered and the place, in the words people search for', async () => {
     const html = await render()
-    const h1 = html.match(/<h1[^>]*>(.*?)<\/h1>/)?.[1] ?? ''
-    expect(h1).toContain('Swaasa Wedding Rentals')
-    expect(h1).toContain('Thiruvananthapuram')
+    const h1 = (html.match(/<h1[^>]*>(.*?)<\/h1>/)?.[1] ?? '').replace(/<[^>]+>/g, '')
+    expect(h1).toMatch(/bridal lehengas/i)
+    expect(h1).toContain('Trivandrum')
+    expect(html).toContain('Thiruvananthapuram')
   })
-  it('is visually hidden by a class that exists in the stylesheet', async () => {
+  it('is a visible heading (not hidden), with the city in it, inside the introduction above the reels', async () => {
     const html = await render()
-    expect(html).toMatch(/<h1 class="sr-only"/)
-    expect(readFileSync('app/globals.css', 'utf8')).toMatch(/\.sr-only\{[^}]*clip:rect\(0,0,0,0\)/)
+    expect(html).not.toMatch(/<h1 class="sr-only"/)
+    expect(html).toMatch(/<section class="ch-intro"[^>]*><p class="ch-kicker">[^<]*<\/p><h1 id="ch-intro-title">[^<]*Trivandrum/)
+    expect(readFileSync('app/globals.css', 'utf8')).toMatch(/\.ch-intro h1\{/)
+  })
+  it('links to the guide pages and offers the viewing form from the introduction', async () => {
+    const html = await render()
+    expect(html).toContain('href="/bridal-lehenga-rental-trivandrum"'); expect(html).toContain('href="/faq"'); expect(html).toMatch(/href="#private-viewing"/)
   })
 })
