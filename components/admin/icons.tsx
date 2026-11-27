@@ -54,6 +54,7 @@ const P: Record<string, React.ReactNode> = {
   lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 018 0v3M12 15v2" /></>,
   store: <><path d="M4 9l1.6-5h12.8L20 9M4 9v11h16V9M10 20v-5h4v5" /><path d="M4 9a2.7 2.7 0 005.3 0 2.7 2.7 0 005.4 0A2.7 2.7 0 0020 9" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  help: <><circle cx="12" cy="12" r="9" /><path d="M9.7 9a2.4 2.4 0 014.6 1c0 1.7-2.3 2.1-2.3 3.8M12 17h.01" /></>,
 }
 export const Ic = ({ n, s = 18, style }: { n: string; s?: number; style?: React.CSSProperties }) =>
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', ...style }}>{P[n]}</svg>

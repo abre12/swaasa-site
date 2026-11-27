@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { Ic } from './icons'
 import StaffAdmin from './StaffAdmin'
 import MfaSetup from './MfaSetup'
+import FaqSettings from './FaqSettings'
 
 // The owner's Settings page: a list of topics on the left and one panel per topic on the right.
 // Every setting that used to sit in one long page is still here, grouped by what it controls.
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'alterations', label: 'Alterations', icon: 'scissors', title: 'Alterations', sub: 'Checkpoints for dresses that need alterations before delivery.' },
   { id: 'notifications', label: 'Notifications', icon: 'bell', title: 'Notifications', sub: 'When the bell and the Today list should warn you about preparation.' },
   { id: 'security', label: 'Security', icon: 'lock', title: 'Security', sub: 'Two-step login for the owner account.' },
+  { id: 'faqs', label: 'FAQs', icon: 'help', title: 'Public FAQs', sub: 'Manage the questions and answers shown on your website.' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -131,6 +133,8 @@ export default function SettingsPage({ ctx, mfaRequired }: { ctx: any; mfaRequir
       </SaveForm> : loading)}
 
       {panel('security', <div className="stg-body"><MfaSetup sb={ctx.sb} required={mfaRequired} /></div>)}
+
+      {panel('faqs', <div className="stg-body"><FaqSettings ctx={ctx} /></div>)}
     </div>
   </div>
 }
