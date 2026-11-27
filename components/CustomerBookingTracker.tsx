@@ -52,7 +52,7 @@ export default function CustomerBookingTracker() {
   const isCancelled = result?.bookingStatus.toLowerCase() === 'cancelled'
   const activeStep = result ? currentStep(result) : -1
 
-  return <section className="ch-tracking" id="track-booking" aria-labelledby="ch-tracking-title">
+  return <section className="ch-tracking" aria-labelledby="ch-tracking-title">
     <div className="ch-tracking-copy">
       <p className="ch-kicker">ALREADY BOOKED?</p>
       <h2 id="ch-tracking-title">Track your <em>booking.</em></h2>

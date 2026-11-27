@@ -32,7 +32,6 @@ export default function ViewingRequest({ whatsapp, phoneHref }: { whatsapp?: str
   const checking = !!TURNSTILE_SITE_KEY && !token && !gaveUp
   const set = (key: keyof Form) => (event: { target: { value: string } }) => { setForm(f => ({ ...f, [key]: event.target.value })); setMessage('') }
   const callback = form.kind === 'callback'
-  const [showNote, setShowNote] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -80,23 +79,26 @@ export default function ViewingRequest({ whatsapp, phoneHref }: { whatsapp?: str
         <label className="vf-a vf-n"><span className="ch-vf-l">Mobile number</span>
           <input value={form.phone} onChange={set('phone')} type="tel" inputMode="tel" autoComplete="tel" placeholder="98765 43210" required maxLength={20} />
         </label>
-        <label className="vf-a"><span className="ch-vf-l">Looking for <i>(optional)</i></span>
-          <select value={form.lookingFor} onChange={set('lookingFor')}><option value="">Not sure yet</option>{LOOKING_FOR.map(o => <option key={o} value={o}>{o}</option>)}</select>
-        </label>
-        <label className="vf-a"><span className="ch-vf-l">Event date <i>(optional)</i></span>
-          <input value={form.eventDate} onChange={set('eventDate')} type="date" min={today || undefined} />
-        </label>
-        {!callback && <label className="vf-a"><span className="ch-vf-l">Day to visit <i>(optional)</i></span>
-          <input value={form.visitDate} onChange={set('visitDate')} type="date" min={today || undefined} />
-        </label>}
-        <label className="vf-a"><span className="ch-vf-l">When to call <i>(optional)</i></span>
-          <select value={form.callTime} onChange={set('callTime')}>{CALL_TIMES.map(o => <option key={o} value={o}>{o}</option>)}</select>
-        </label>
-        {showNote || form.note
-          ? <label className="ch-viewing-wide"><span className="ch-vf-l">{callback ? 'What would you like to talk about?' : 'Anything we should know?'} <i>(optional)</i></span>
-              <textarea value={form.note} onChange={set('note')} rows={2} maxLength={500} placeholder={callback ? 'Styles you have in mind, budget, dates, any questions' : 'Size, colours you like, how many people are coming'} />
+        <details className="ch-viewing-details ch-viewing-wide">
+          <summary>Share a few details <i>(optional)</i></summary>
+          <div className="ch-viewing-extra">
+            <label><span className="ch-vf-l">Looking for</span>
+              <select value={form.lookingFor} onChange={set('lookingFor')}><option value="">Not sure yet</option>{LOOKING_FOR.map(o => <option key={o} value={o}>{o}</option>)}</select>
             </label>
-          : <button type="button" className="ch-viewing-more ch-viewing-wide" onClick={() => setShowNote(true)}>+ Add a note <i>(optional)</i></button>}
+            <label><span className="ch-vf-l">Event date</span>
+              <input value={form.eventDate} onChange={set('eventDate')} type="date" min={today || undefined} />
+            </label>
+            {!callback && <label><span className="ch-vf-l">Day to visit</span>
+              <input value={form.visitDate} onChange={set('visitDate')} type="date" min={today || undefined} />
+            </label>}
+            <label><span className="ch-vf-l">When to call</span>
+              <select value={form.callTime} onChange={set('callTime')}>{CALL_TIMES.map(o => <option key={o} value={o}>{o}</option>)}</select>
+            </label>
+            <label className="ch-viewing-wide"><span className="ch-vf-l">Anything else we should know?</span>
+              <textarea value={form.note} onChange={set('note')} rows={2} maxLength={500} placeholder={callback ? 'Styles you have in mind, dates, or any questions' : 'Sizes, colours you like, or who is coming with you'} />
+            </label>
+          </div>
+        </details>
         {/* Hidden from people. A bot that fills every field fills this one too, and its request is dropped. */}
         <div className="ch-viewing-hp" aria-hidden="true"><label>Leave this empty<input value={form.website} onChange={set('website')} tabIndex={-1} autoComplete="off" /></label></div>
         <Turnstile onToken={setToken} resetKey={tsKey} />
