@@ -13,6 +13,16 @@ import { getHomepageLookTiles } from '@/lib/category-data'
 import { HOME_DESCRIPTION, HOME_TITLE, MAPS_DIRECTIONS_URL, hoursText, jsonLdString, localBusinessGraph, shareMeta, whatsappHref } from '@/lib/site'
 import type { Metadata } from 'next'
 
+function lookTileTone(title: string, index: number) {
+  const name = title.toLowerCase()
+  if (name.includes('bridal')) return 'bridal'
+  if (name.includes('reception')) return 'reception'
+  if (name.includes('sangeet') || name.includes('mehendi') || name.includes('mehndi')) return 'celebration'
+  if (name.includes('bridesmaid')) return 'bridesmaids'
+  if (name.includes('occasion') || name.includes('saree')) return 'occasion'
+  return ['bridal', 'reception', 'celebration', 'bridesmaids', 'occasion'][index % 5]
+}
+
 // Audit M2: canonical address, WhatsApp/Instagram/Facebook/X link preview, and (below) local-business structured data.
 export const metadata: Metadata = {
   title: HOME_TITLE,
@@ -63,8 +73,8 @@ export default async function Home() {
 
       <section className="rn-sec" id="looks" aria-labelledby="rn-looks-title">
         <div className="rn-head"><h2 id="rn-looks-title">Find your <em>look</em></h2><a href="#plan-a-visit">Plan a visit</a></div>
-        {lookTiles.length > 0 && <ul className="rn-tiles">{lookTiles.map(t => <li key={t.id}>
-          <a className="rn-tile" href="#plan-a-visit" aria-label={`${t.title}: plan a visit`}>
+        {lookTiles.length > 0 && <ul className="rn-tiles">{lookTiles.map((t, i) => <li key={t.id}>
+          <a className="rn-tile" data-tone={lookTileTone(t.title, i)} href="#plan-a-visit" aria-label={`${t.title}: plan a visit`}>
             {t.img && <img src={t.img} alt={t.alt} loading="lazy" decoding="async" width={640} height={960} />}
             <span className="rn-tile-go" aria-hidden="true">↗</span>
             <span className="rn-tile-t"><b>{t.title}</b><small>{t.note}</small></span>
