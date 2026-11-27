@@ -24,18 +24,18 @@ describe('home page headings', () => {
   it('names what is offered and the place, in the words people search for', async () => {
     const html = await render()
     const h1 = (html.match(/<h1[^>]*>(.*?)<\/h1>/)?.[1] ?? '').replace(/<[^>]+>/g, '')
-    expect(h1).toMatch(/bridal lehengas/i)
+    expect(h1).toMatch(/bridal lehengas/i); expect(h1).toMatch(/gowns/i)
     expect(h1).toContain('Trivandrum')
     expect(html).toContain('Thiruvananthapuram')
   })
   it('is a visible heading (not hidden), with the city in it, inside the introduction above the reels', async () => {
     const html = await render()
     expect(html).not.toMatch(/<h1 class="sr-only"/)
-    expect(html).toMatch(/<section class="ch-intro"[^>]*><p class="ch-kicker">[^<]*<\/p><h1 id="ch-intro-title">[^<]*Trivandrum/)
-    expect(readFileSync('app/globals.css', 'utf8')).toMatch(/\.ch-intro h1\{/)
+    expect(html).toMatch(/<section class="rn-hero"[^>]*><img [^>]*\/><div class="rn-hero-copy"><p class="ch-kicker">[^<]*<\/p><h1 id="rn-hero-title">.*?Trivandrum/)
+    expect(readFileSync('app/globals.css', 'utf8')).toMatch(/\.rn-hero h1\{/)
   })
   it('links to the guide pages and offers the viewing form from the introduction', async () => {
     const html = await render()
-    expect(html).toContain('href="/bridal-lehenga-rental-trivandrum"'); expect(html).toContain('href="/faq"'); expect(html).toMatch(/href="#private-viewing"/)
+    expect(html).toContain('href="/bridal-lehenga-rental-trivandrum"'); expect(html).toContain('href="/faq"'); expect(html).toMatch(/href="#plan-a-visit"/)
   })
 })

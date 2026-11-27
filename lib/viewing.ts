@@ -1,4 +1,4 @@
-// "Request a private viewing" form on the public home page: checks what the visitor typed and writes the Telegram message for the team.
+// "Plan a visit" form on the public home page: checks what the visitor typed and writes the Telegram message for the team.
 // Pure functions with no imports, so the rules can be unit tested on their own. The route app/api/viewing-request/route.ts does the sending.
 
 export const LOOKING_FOR = ['Bridal lehenga', 'Gown', 'Saree', 'Bridesmaid looks', 'Other'] as const
@@ -96,7 +96,7 @@ export function viewingMessage(v: ViewingRequest, leadId?: number | null): strin
     'Please call them back. They have not picked a visit day yet.',
   ].join('\n')
   return [
-    'New viewing request from the website',
+    'New studio visit request from the website',
     `Name: ${v.name}`,
     `Mobile: ${v.phone}`,
     `WhatsApp: ${wa}`,

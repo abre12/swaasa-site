@@ -11,13 +11,8 @@ type Kind = 'viewing' | 'callback'
 type Form = { kind: Kind; name: string; phone: string; lookingFor: string; eventDate: string; visitDate: string; callTime: string; note: string; website: string }
 
 const MODES: { id: Kind; title: string; note: string }[] = [
-  { id: 'viewing', title: 'Visit the studio', note: 'Choose a day that suits you' },
-  { id: 'callback', title: 'Call me back', note: 'Talk it through first' },
-]
-const STEPS = [
-  { n: '01', title: 'We call you', note: 'To talk through what you have in mind.' },
-  { n: '02', title: 'Fix a time', note: 'A day that suits you and your family.' },
-  { n: '03', title: 'Try a few looks', note: 'We keep some ready for your visit.' },
+  { id: 'viewing', title: 'Visit the studio', note: '' },
+  { id: 'callback', title: 'Call me back', note: '' },
 ]
 
 export default function ViewingRequest({ whatsapp, phoneHref }: { whatsapp?: string; phoneHref?: string }) {
@@ -37,6 +32,7 @@ export default function ViewingRequest({ whatsapp, phoneHref }: { whatsapp?: str
   const checking = !!TURNSTILE_SITE_KEY && !token && !gaveUp
   const set = (key: keyof Form) => (event: { target: { value: string } }) => { setForm(f => ({ ...f, [key]: event.target.value })); setMessage('') }
   const callback = form.kind === 'callback'
+  const [showNote, setShowNote] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -54,16 +50,13 @@ export default function ViewingRequest({ whatsapp, phoneHref }: { whatsapp?: str
   }
 
   const when = sent && sent.callTime !== 'Any time' ? ` in the ${sent.callTime.toLowerCase()}` : ''
-  return <section className="ch-viewing" id="private-viewing" aria-labelledby="ch-viewing-title">
-    <div className="ch-viewing-copy">
-      <p className="ch-kicker">PRIVATE STUDIO VIEWINGS</p>
-      <h3 id="ch-viewing-title">Plan a <em>private viewing.</em></h3>
-      <p className="ch-viewing-lead">Tell us a little about your celebration. Choose a day to visit, or simply ask us to call you.</p>
-      <ol className="ch-viewing-steps" aria-label="What happens next">
-        {STEPS.map(s => <li key={s.n}><span>{s.n}</span><div><b>{s.title}</b><small>{s.note}</small></div></li>)}
-      </ol>
-      {(whatsapp || phoneHref) && <p className="ch-viewing-alt">Prefer to reach us now? {phoneHref && <a href={phoneHref}>Call us</a>}{phoneHref && whatsapp && ' or '}{whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer">message us on WhatsApp</a>}</p>}
-      <small>We use your number only to arrange your visit or call.</small>
+  return <section className="ch-viewing" id="plan-a-visit" aria-labelledby="ch-viewing-title">
+    <div className="ch-viewing-head">
+      <div>
+        <h3 id="ch-viewing-title">Plan a <em>visit.</em></h3>
+        <p className="ch-viewing-lead">Tell us a little and we will call you to fix a time.</p>
+      </div>
+      {(whatsapp || phoneHref) && <p className="ch-viewing-alt">Prefer to talk now? {phoneHref && <a href={phoneHref}>Call us</a>}{phoneHref && whatsapp && ' or '}{whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer">WhatsApp us</a>}</p>}
     </div>
 
     <div className="ch-viewing-panel">
@@ -78,34 +71,39 @@ export default function ViewingRequest({ whatsapp, phoneHref }: { whatsapp?: str
           <legend>How would you like to start?</legend>
           {MODES.map(m => <label key={m.id} className={'ch-vf-opt' + (form.kind === m.id ? ' on' : '')}>
             <input type="radio" name="kind" value={m.id} checked={form.kind === m.id} onChange={set('kind')} />
-            <b>{m.title}</b><small>{m.note}</small>
+            <b>{m.title}</b>
           </label>)}
         </fieldset>
-        <label><span className="ch-vf-l">Your name</span>
+        <label className="vf-a vf-n"><span className="ch-vf-l">Your name</span>
           <input value={form.name} onChange={set('name')} autoComplete="name" required minLength={2} maxLength={80} />
         </label>
-        <label><span className="ch-vf-l">Mobile number</span>
+        <label className="vf-a vf-n"><span className="ch-vf-l">Mobile number</span>
           <input value={form.phone} onChange={set('phone')} type="tel" inputMode="tel" autoComplete="tel" placeholder="98765 43210" required maxLength={20} />
         </label>
-        <label><span className="ch-vf-l">What are you looking for? <i>(optional)</i></span>
+        <label className="vf-a"><span className="ch-vf-l">Looking for <i>(optional)</i></span>
           <select value={form.lookingFor} onChange={set('lookingFor')}><option value="">Not sure yet</option>{LOOKING_FOR.map(o => <option key={o} value={o}>{o}</option>)}</select>
         </label>
-        <label><span className="ch-vf-l">Event date <i>(optional)</i></span>
+        <label className="vf-a"><span className="ch-vf-l">Event date <i>(optional)</i></span>
           <input value={form.eventDate} onChange={set('eventDate')} type="date" min={today || undefined} />
         </label>
-        {!callback && <label><span className="ch-vf-l">Preferred day to visit <i>(optional)</i></span>
+        {!callback && <label className="vf-a"><span className="ch-vf-l">Day to visit <i>(optional)</i></span>
           <input value={form.visitDate} onChange={set('visitDate')} type="date" min={today || undefined} />
         </label>}
-        <label className={callback ? 'ch-viewing-wide' : undefined}><span className="ch-vf-l">Best time for our call <i>(optional)</i></span>
+        <label className="vf-a"><span className="ch-vf-l">When to call <i>(optional)</i></span>
           <select value={form.callTime} onChange={set('callTime')}>{CALL_TIMES.map(o => <option key={o} value={o}>{o}</option>)}</select>
         </label>
-        <label className="ch-viewing-wide"><span className="ch-vf-l">{callback ? 'What would you like to talk about?' : 'Anything we should know?'} <i>(optional)</i></span>
-          <textarea value={form.note} onChange={set('note')} rows={3} maxLength={500} placeholder={callback ? 'Styles you have in mind, budget, dates, any questions' : 'Size, colours you like, how many people are coming'} />
-        </label>
+        {showNote || form.note
+          ? <label className="ch-viewing-wide"><span className="ch-vf-l">{callback ? 'What would you like to talk about?' : 'Anything we should know?'} <i>(optional)</i></span>
+              <textarea value={form.note} onChange={set('note')} rows={2} maxLength={500} placeholder={callback ? 'Styles you have in mind, budget, dates, any questions' : 'Size, colours you like, how many people are coming'} />
+            </label>
+          : <button type="button" className="ch-viewing-more ch-viewing-wide" onClick={() => setShowNote(true)}>+ Add a note <i>(optional)</i></button>}
         {/* Hidden from people. A bot that fills every field fills this one too, and its request is dropped. */}
         <div className="ch-viewing-hp" aria-hidden="true"><label>Leave this empty<input value={form.website} onChange={set('website')} tabIndex={-1} autoComplete="off" /></label></div>
         <Turnstile onToken={setToken} resetKey={tsKey} />
-        <button className="ch-button" type="submit" disabled={busy || checking}>{busy ? 'Sending…' : checking ? 'Checking…' : callback ? 'Request a call' : 'Request a viewing'}</button>
+        <div className="ch-viewing-foot ch-viewing-wide">
+          <button className="ch-button" type="submit" disabled={busy || checking}>{busy ? 'Sending…' : checking ? 'Checking…' : callback ? 'Request a call' : 'Request a visit'}</button>
+          <small>We use your number only to arrange your visit or call.</small>
+        </div>
         <p className="ch-viewing-message" role="alert">{message}</p>
       </form>}
     </div>

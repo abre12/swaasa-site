@@ -4,7 +4,7 @@ import { breadcrumbSchema, FAQ, faqSchema } from '@/lib/seo-content'
 import { jsonLdString, shareMeta, SITE_NAME } from '@/lib/site'
 
 const TITLE = `Wedding Rental Questions Answered | ${SITE_NAME}, Trivandrum`
-const DESCRIPTION = 'Answers to the questions we hear most about renting bridal lehengas, gowns and sarees from Swaasa in Karamana, Thiruvananthapuram: viewings, fitting, dates and tracking a booking.'
+const DESCRIPTION = 'Answers to the questions we hear most about renting bridal lehengas, gowns and sarees from Swaasa in Karamana, Thiruvananthapuram: visits, fitting, dates and tracking a booking.'
 export const metadata: Metadata = { title: TITLE, description: DESCRIPTION, alternates: { canonical: '/faq' }, ...shareMeta(TITLE, DESCRIPTION, '/faq') }
 
 export default function FaqPage() {

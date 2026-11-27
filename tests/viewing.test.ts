@@ -76,7 +76,7 @@ describe('call-back requests', () => {
   it('mentions the best time on a viewing only when one was chosen', () => {
     expect(viewingMessage((parseViewingRequest({ ...good, callTime: 'Morning' }, TODAY) as any).value)).toContain('Best time to call: Morning')
     expect(viewingMessage((parseViewingRequest({ ...good, callTime: 'Any time' }, TODAY) as any).value)).not.toContain('Best time to call')
-    expect(viewingMessage((parseViewingRequest(good, TODAY) as any).value)).toContain('New viewing request')
+    expect(viewingMessage((parseViewingRequest(good, TODAY) as any).value)).toContain('New studio visit request')
   })
 })
 
@@ -94,75 +94,4 @@ describe('viewing request: the message the team receives', () => {
     expect(text).toContain('Event date: Not given'); expect(text).not.toContain('Note:')
   })
 })
-
-// The route itself, with Telegram replaced by a stand-in. Each test loads a fresh copy so the in-memory limits start empty.
-describe('viewing request: the route', () => {
-  const send = vi.fn()
-  const env = { ...process.env }
-  const call = async (body: unknown, headers: Record<string, string> = {}) => {
-    const { POST } = await import('@/app/api/viewing-request/route')
-    const { NextRequest } = await import('next/server')
-    const req = new NextRequest('https://swaasa.example/api/viewing-request', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) })
-    const res = await POST(req)
-    return { status: res.status, json: await res.json() }
-  }
-  beforeEach(() => {
-    vi.resetModules(); send.mockReset(); send.mockResolvedValue(undefined)
-    vi.doMock('@/lib/telegram', () => ({ sendTelegram: send }))
-    process.env.TELEGRAM_BOT_TOKEN = 'token'; process.env.TELEGRAM_OWNER_CHAT_ID = '111'; process.env.TELEGRAM_STAFF_CHAT_ID = '222'
-  })
-  afterEach(() => { process.env = { ...env }; vi.doUnmock('@/lib/telegram') })
-  const future = { name: 'Anjali Nair', phone: '9876543210' }
-
-  it('sends the request to the owner and staff chats', async () => {
-    const r = await call(future)
-    expect(r).toEqual({ status: 200, json: { ok: true } })
-    expect(send).toHaveBeenCalledTimes(2)
-    expect(send.mock.calls.map(c => c[0]).sort()).toEqual(['111', '222'])
-    expect(send.mock.calls[0][1]).toContain('Anjali Nair')
-  })
-  it('sends once when both chats are the same chat', async () => {
-    process.env.TELEGRAM_STAFF_CHAT_ID = '111'
-    await call(future); expect(send).toHaveBeenCalledTimes(1)
-  })
-  it('still succeeds when only one of the two chats can be reached', async () => {
-    send.mockRejectedValueOnce(new Error('blocked')); const r = await call(future)
-    expect(r.status).toBe(200)
-  })
-  it('tells the visitor to phone when nothing could be sent', async () => {
-    send.mockRejectedValue(new Error('down')); const r = await call(future)
-    expect(r.status).toBe(502); expect(r.json.error).toMatch(/call or WhatsApp/)
-  })
-  it('says it is unavailable, rather than pretending, when Telegram is not set up', async () => {
-    delete process.env.TELEGRAM_BOT_TOKEN
-    const r = await call(future); expect(r.status).toBe(503); expect(send).not.toHaveBeenCalled()
-  })
-  it('refuses a bad request without sending anything', async () => {
-    const r = await call({ name: 'A', phone: '1' }); expect(r.status).toBe(400); expect(send).not.toHaveBeenCalled()
-  })
-  it('pretends to accept a bot but sends nothing', async () => {
-    const r = await call({ ...future, website: 'http://spam.example' }); expect(r).toEqual({ status: 200, json: { ok: true } }); expect(send).not.toHaveBeenCalled()
-  })
-  it('refuses a form posted from another website', async () => {
-    const r = await call(future, { origin: 'https://evil.example' }); expect(r.status).toBe(403); expect(send).not.toHaveBeenCalled()
-  })
-  it('accepts a form posted from this website', async () => {
-    const r = await call(future, { origin: 'https://swaasa.example' }); expect(r.status).toBe(200)
-  })
-  it('does not message the team twice when the same number is sent again straight away', async () => {
-    await call(future); send.mockClear()
-    const r = await call(future); expect(r.status).toBe(200); expect(send).not.toHaveBeenCalled()
-  })
-  it('treats a call-back and a viewing from the same number as two requests', async () => {
-    await call({ ...future }); await call({ ...future, kind: 'callback', callTime: 'Morning' })
-    expect(send.mock.calls.filter(c => String(c[1]).includes('call-back request')).length).toBe(2)   // owner and staff chats
-    expect(send.mock.calls.length).toBe(4)
-  })
-  it('limits one visitor to four different requests an hour', async () => {
-    const ip = { 'x-forwarded-for': '203.0.113.7' }
-    for (const n of ['9876543201', '9876543202', '9876543203', '9876543204']) expect((await call({ name: 'Anjali', phone: n }, ip)).status).toBe(200)
-    const r = await call({ name: 'Anjali', phone: '9876543205' }, ip)
-    expect(r.status).toBe(429); expect(r.json.error).toMatch(/call or WhatsApp/)
-    expect((await call({ name: 'Anjali', phone: '9876543206' }, { 'x-forwarded-for': '203.0.113.8' })).status).toBe(200)   // someone else is not affected
-  })
-})
+// The route itself (saving, limits, Telegram, the bot check) is tested in api-viewing.test.ts.

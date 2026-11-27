@@ -12,7 +12,7 @@ Database scripts are listed in `supabase/README-migrations.md`; how to release i
 - Google reviews: live only, unfiltered, with attribution; the hand-copied list is gone.
 - Vercel Web Analytics and Sentry (personal data stripped). Reminder runs are logged, pinged to an outside heartbeat, and checked daily by a watchdog.
 - Staff sign-in check remembers "active staff" for a minute; private photos use stable addresses; Content-Security-Policy added in report-only mode.
-- Visible `<h1>`, opening hours (daily 10 am to 8 pm), new `/faq` and `/bridal-lehenga-rental-trivandrum` pages; `/pricing` appears once prices are added.
+- "Private viewing" renamed "Plan a visit" across the customer pages; the form is now one compact card. Home page redesigned to be image-led with far less text (hero photo, photo tiles by occasion, studio banner, mobile action bar). Visible `<h1>`, opening hours (daily 10 am to 8 pm), new `/faq` and `/bridal-lehenga-rental-trivandrum` pages; `/pricing` appears once prices are added.
 
 ## Build fix: fonts bundled, Node pinned, stale routes (25 Nov 2026)
 

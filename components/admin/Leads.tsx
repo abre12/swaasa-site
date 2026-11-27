@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { dmy } from '@/lib/util'
 import PageHead from './PageHead'
 
-// Website enquiries ("Request a private viewing" and "Call me back"). Every enquiry is saved here the moment it arrives (migration v33), so
+// Website enquiries ("Plan a visit" and "Call me back"). Every enquiry is saved here the moment it arrives (migration v33), so
 // nothing depends on a Telegram message being seen. The team moves each one along: New -> Contacted -> Visit booked -> Became a booking.
 // Only the status and the team's own note can be changed (through lead_update); the customer's details are read-only.
 const STATUS: [string, string][] = [
@@ -34,7 +34,7 @@ export default function Leads({ ctx }: { ctx: any }) {
 
   const open = (rows || []).filter(l => OPEN.includes(l.status)), closed = (rows || []).filter(l => !OPEN.includes(l.status)), list = tab === 'open' ? open : closed
   return <div className="approval-page">
-    <PageHead icon="phone" title="Enquiries" sub="People who asked for a viewing or a call-back on the website. Call them, then update the status." />
+    <PageHead icon="phone" title="Enquiries" sub="People who asked for a visit or a call-back on the website. Call them, then update the status." />
     <div className="bk-tabs">
       <button className={tab === 'open' ? 'on' : ''} onClick={() => setTab('open')}>To follow up<span className={'n' + (open.some(l => l.status === 'new') ? ' red' : '')}>{open.length}</span></button>
       <button className={tab === 'closed' ? 'on' : ''} onClick={() => setTab('closed')}>Closed<span className="n">{closed.length}</span></button>
@@ -45,7 +45,7 @@ export default function Leads({ ctx }: { ctx: any }) {
     <div className="bk-card-t scroll" style={{ display: list.length ? undefined : 'none' }}>
       <table className="bt"><thead><tr><th>Received</th><th>Customer</th><th>Wants</th><th>Dates</th><th>Status</th><th>Note</th></tr></thead>
         <tbody>{list.map(l => <tr key={l.id} className={l.status === 'new' ? 'today' : ''}>
-          <td>{when(l.created_at)}<br /><small className="mut">{l.kind === 'callback' ? 'Call-back' : 'Studio viewing'}</small></td>
+          <td>{when(l.created_at)}<br /><small className="mut">{l.kind === 'callback' ? 'Call-back' : 'Studio visit'}</small></td>
           <td><b>{l.name}</b><br /><a href={`tel:${l.phone}`}>{l.phone}</a> · <a href={waLink(l.phone)} target="_blank" rel="noopener noreferrer">WhatsApp</a></td>
           <td>{l.looking_for || 'Not said'}{l.call_time && l.call_time !== 'Any time' ? <><br /><small className="mut">Call: {l.call_time.toLowerCase()}</small></> : null}{l.note ? <><br /><small>“{l.note}”</small></> : null}</td>
           <td>{l.event_date ? <>Event {dmy(l.event_date)}</> : <span className="mut">No event date</span>}{l.visit_date ? <><br />Visit {dmy(l.visit_date)}</> : null}</td>

@@ -54,10 +54,10 @@ export default function CustomerBookingTracker() {
 
   return <section className="ch-tracking" id="track-booking" aria-labelledby="ch-tracking-title">
     <div className="ch-tracking-copy">
-      <p className="ch-kicker">ALREADY BOOKED WITH US?</p>
-      <h2 id="ch-tracking-title">Your plans, <em>at a glance.</em></h2>
-      <p>Enter your booking ID and the mobile number you shared with us to see the latest status and key dates.</p>
-      <small>For your privacy, we show only the progress and dates for the matching booking.</small>
+      <p className="ch-kicker">ALREADY BOOKED?</p>
+      <h2 id="ch-tracking-title">Track your <em>booking.</em></h2>
+      <p>Enter your booking ID and mobile number.</p>
+      <small>We show only the progress and dates of the matching booking.</small>
     </div>
 
     <div className="ch-tracking-panel">

@@ -7,7 +7,7 @@ import { verifyTurnstile } from '@/lib/turnstile'
 import { visitorHash, visitorIp } from '@/lib/visitor'
 import { report } from '@/lib/monitor'
 
-// Public "Request a private viewing / Call me back" form. It is open to everyone, so before anything is saved it:
+// Public "Plan a visit / Call me back" form. It is open to everyone, so before anything is saved it:
 //  - checks the form came from this website and is small
 //  - drops bots that fill the hidden field (they are told it worked)
 //  - checks the Cloudflare Turnstile token (when TURNSTILE_SECRET_KEY is set)
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (human === 'unavailable') console.warn('Turnstile could not be reached; the request was allowed and the database limits still apply.')
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) return reply({ error: `Online requests are not available right now. ${FALLBACK}` }, 503)
+  if (!serviceKey) { report(new Error('SUPABASE_SERVICE_ROLE_KEY is not set for this deployment'), { where: 'viewing-request:config' }); return reply({ error: `Online requests are not available right now. ${FALLBACK}` }, 503) }   // the log line names the missing setting
   const v = parsed.value
   const sb = supaAdmin()
 

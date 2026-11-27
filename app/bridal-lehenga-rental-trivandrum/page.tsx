@@ -5,7 +5,7 @@ import { breadcrumbSchema, hasPricing } from '@/lib/seo-content'
 import { ADDRESS, hoursText, jsonLdString, MAPS_DIRECTIONS_URL, shareMeta, SITE_NAME } from '@/lib/site'
 
 const TITLE = `Bridal Lehenga Rental in Trivandrum | ${SITE_NAME}`
-const DESCRIPTION = 'Rent a bridal lehenga in Trivandrum (Thiruvananthapuram). Private viewings, fitting and alteration support and flexible dates at Swaasa, Karamana.'
+const DESCRIPTION = 'Rent a bridal lehenga in Trivandrum (Thiruvananthapuram). Visit our studio for fitting and alteration support and flexible dates at Swaasa, Karamana.'
 const PATH = '/bridal-lehenga-rental-trivandrum'
 export const metadata: Metadata = { title: TITLE, description: DESCRIPTION, alternates: { canonical: PATH }, ...shareMeta(TITLE, DESCRIPTION, PATH) }
 
@@ -22,7 +22,7 @@ export default function BridalLehengaRentalPage() {
 
     <h2>How renting with Swaasa works</h2>
     <ol>
-      <li><b>Ask for a private viewing.</b> Use the form on our home page, or call or message us on WhatsApp. Tell us your event date and what you have in mind.</li>
+      <li><b>Plan a visit.</b> Use the form on our home page, or call or message us on WhatsApp. Tell us your event date and what you have in mind.</li>
       <li><b>We call you.</b> We talk through what you are looking for and fix a day that suits you and your family.</li>
       <li><b>Try a few looks.</b> We keep some ready for your visit, so you are not searching alone.</li>
       <li><b>Fit and alterations.</b> We offer fitting and alteration support, so you can talk through the fit before you decide.</li>

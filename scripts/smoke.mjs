@@ -21,7 +21,7 @@ const goesToLogin = async p => { const r = await get(p); ok([301, 302, 303, 307,
 await check('home page loads with a heading and the booking tracker and viewing form', async () => {
   const r = await get('/'); ok(r.status === 200, `status ${r.status}`)
   const html = await r.text()
-  ok(/<h1[\s>]/i.test(html), 'no <h1>'); ok(html.includes('id="track-booking"'), 'tracker missing'); ok(html.includes('id="private-viewing"'), 'viewing form missing')
+  ok(/<h1[\s>]/i.test(html), 'no <h1>'); ok(html.includes('id="track-booking"'), 'tracker missing'); ok(html.includes('id="plan-a-visit"'), 'viewing form missing')
 })
 await check('/booking loads and is kept out of search results', async () => { const r = await get('/booking'); ok(r.status === 200, `status ${r.status}`) })
 await check('/login loads', async () => { const r = await get('/login'); ok(r.status === 200, `status ${r.status}`) })

@@ -21,7 +21,7 @@ export const PUBLIC_PAGES: string[] = ['/faq', '/bridal-lehenga-rental-trivandru
 export const SITE_NAME = 'Swaasa Wedding Rentals'
 export const HOME_TITLE = 'Swaasa Wedding Rentals | A Private Bridal Wardrobe'
 // People search for both spellings of the city, so the description carries both. Kept under about 160 characters so Google shows it whole.
-export const HOME_DESCRIPTION = 'Discover Swaasa Wedding Rentals in Thiruvananthapuram (Trivandrum). Arrange a private viewing for bridal and occasion wear, with personal fitting support.'
+export const HOME_DESCRIPTION = 'Discover Swaasa Wedding Rentals in Thiruvananthapuram (Trivandrum). Visit our studio for bridal and occasion wear, with personal fitting support.'
 export const SITE_DESCRIPTION = 'Bridal and occasion wear rentals in Thiruvananthapuram (Trivandrum), Kerala.'
 
 // Link-preview picture for WhatsApp, Instagram, Facebook, X and Google. 1200x630 is the size they all handle well.
@@ -83,7 +83,7 @@ export function whatsappNumber(raw?: string | null): string | undefined {
   if (/^91[6-9]\d{9}$/.test(d)) return d
   return d.length >= 11 && d.length <= 15 ? d : undefined
 }
-export function whatsappHref(raw?: string | null, text = 'Hello Swaasa, I would like to arrange a private viewing.'): string | undefined {
+export function whatsappHref(raw?: string | null, text = 'Hello Swaasa, I would like to plan a visit.'): string | undefined {
   const n = whatsappNumber(raw)
   return n ? `https://wa.me/${n}?text=${encodeURIComponent(text)}` : undefined
 }

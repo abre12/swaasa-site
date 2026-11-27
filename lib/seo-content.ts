@@ -6,10 +6,10 @@ export type Faq = { q: string; a: string }
 
 export const FAQ: Faq[] = [
   { q: 'Where is Swaasa Wedding Rentals?', a: 'We are at SWAASA Boutique, 2nd Floor, opposite India Post, Karamana, Thiruvananthapuram (Trivandrum), Kerala 695002. The home page has a Get directions link that opens the exact door in Google Maps.' },
-  { q: 'What can I rent?', a: 'Bridal lehengas, gowns and sarees, styles for bridesmaids, and looks for other celebrations. Our collection is shown in person, at a private viewing.' },
-  { q: 'Can I see the outfits before I decide?', a: 'Yes. We arrange private studio viewings with personal guidance. Ask for a viewing on our home page and we will call you to fix a time, or call or message us on WhatsApp. We keep some looks ready for your visit.' },
+  { q: 'What can I rent?', a: 'Bridal lehengas, gowns and sarees, styles for bridesmaids, and looks for other celebrations. Our collection is shown in person at our studio.' },
+  { q: 'Can I see the outfits before I decide?', a: 'Yes. Plan a visit to our studio and we will help you try looks, with personal guidance. Use the form on our home page and we will call you to fix a time, or call or message us on WhatsApp. We keep some looks ready for your visit.' },
   { q: 'Do you help with fitting and alterations?', a: 'Yes. We offer fitting and alteration support, so you can talk through the fit before you decide.' },
-  { q: 'Can I choose my own rental dates?', a: 'Rental dates are flexible, so you can plan around your celebration. Tell us your event date when you ask for a viewing and we will take it from there.' },
+  { q: 'Can I choose my own rental dates?', a: 'Rental dates are flexible, so you can plan around your celebration. Tell us your event date when you plan your visit and we will take it from there.' },
   { q: 'I have already booked. How do I check my booking?', a: 'Use Track a booking on the home page. Enter your booking ID and the mobile number you shared with us, and you will see the latest status and key dates for that booking.' },
   { q: 'Is my phone number safe with you?', a: 'We use your number only to arrange your visit or call. The tracking page shows only the progress and dates for the booking that matches both your booking ID and your number.' },
 ]

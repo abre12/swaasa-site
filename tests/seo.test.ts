@@ -195,8 +195,8 @@ describe('structured data', () => {
     ;(globalThis as any).React = React
     process.env.STORE_PHONE = '9876543210'; delete process.env.STORE_WHATSAPP
     const html = renderToStaticMarkup(await (await import('@/app/page')).default())
-    expect(html).toContain('id="private-viewing"')
-    expect(html).toContain('href="#private-viewing"')
+    expect(html).toContain('id="plan-a-visit"')
+    expect(html).toContain('href="#plan-a-visit"')
     expect(html).toContain('https://wa.me/919876543210?text=')
     expect(html).toContain('destination=8.481036937748145,76.96942945344524')
   })
@@ -205,7 +205,7 @@ describe('structured data', () => {
     delete process.env.STORE_PHONE; delete process.env.STORE_WHATSAPP
     const html = renderToStaticMarkup(await (await import('@/app/page')).default())
     expect(html).not.toContain('wa.me')
-    expect(html).toContain('id="private-viewing"')                  // the form itself does not need a number
+    expect(html).toContain('id="plan-a-visit"')                  // the form itself does not need a number
   })
 })
 

@@ -21,7 +21,7 @@ describe('guide pages', () => {
   it('the area page targets the search, has one <h1>, explains the process, and links onward', async () => {
     const html = await page('@/app/bridal-lehenga-rental-trivandrum/page')
     expect([...html.matchAll(/<h1[\s>]/g)]).toHaveLength(1); expect(html).toMatch(/<h1[^>]*>Bridal lehenga rental in <em>Trivandrum<\/em><\/h1>/)
-    expect(html).toContain('Karamana'); expect(html).toContain('href="/faq"'); expect(html).toContain('href="/#private-viewing"')
+    expect(html).toContain('Karamana'); expect(html).toContain('href="/faq"'); expect(html).toContain('href="/#plan-a-visit"')
   })
   it('makes no claim that needs the owner: no prices, deposit or delivery promises while those are empty', async () => {
     const text = (await page('@/app/bridal-lehenga-rental-trivandrum/page')) + (await page('@/app/faq/page'))

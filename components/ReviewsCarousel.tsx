@@ -55,7 +55,7 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
       })}
     </ul>
 
-    <p className="ch-reviews-note">A selection of recent reviews, exactly as written on Google, with their own star ratings. Google chooses which ones are shown; the average above covers every review.</p>
+    <p className="ch-reviews-note">A selection of recent reviews, as written on Google, each with its own stars. Google chooses which are shown; the average covers every review.</p>
     <a className="ch-reviews-all" href={mapsUrl} target="_blank" rel="noopener noreferrer">See all reviews on Google <span aria-hidden="true">↗</span></a>
   </section>
 }
