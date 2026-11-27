@@ -81,6 +81,16 @@ from (values
   ('Is my phone number safe with you?', 'We use your number only to arrange your visit or call. The tracking page shows only the progress and dates for the booking that matches both your booking ID and your number.', 70)
 ) as seed(question, answer, sort_order)
 where not exists (select 1 from public.site_faqs existing where lower(existing.question) = lower(seed.question));
+insert into public.site_category_tiles (title, note, alt_text, image_url, sort_order)
+select seed.title, seed.note, seed.alt_text, seed.image_url, seed.sort_order
+from (values
+  ('Bridal Lehengas', 'For the ceremony', 'Model wearing a ruby red and antique gold bridal lehenga', '/category-images/bridal-lehengas.png', 10),
+  ('Reception Looks', 'Soft and graceful', 'Model wearing a pearl champagne and blush embroidered reception lehenga', '/category-images/reception-looks.png', 20),
+  ('Sangeet & Mehendi', 'Colour for the celebrations', 'Model wearing a colourful emerald and fuchsia dance lehenga', '/category-images/sangeet-mehendi.png', 30),
+  ('Bridesmaids', 'For the people by your side', 'Two models in forest green and navy embroidered lehenga sets', '/category-images/bridesmaids.png', 40),
+  ('Other occasions', 'Find a look for what is ahead', 'Model wearing a mustard gold festive silk saree', '/category-images/other-occasions.png', 50)
+) as seed(title, note, alt_text, image_url, sort_order)
+where not exists (select 1 from public.site_category_tiles existing where lower(existing.title) = lower(seed.title));
 insert into storage.buckets(id, name, public) values ('dress-images', 'dress-images', false) on conflict (id) do update set public = false;
 insert into storage.buckets(id, name, public) values ('return-inspection-photos', 'return-inspection-photos', false) on conflict do nothing;
 -- Create the owner: sign up under Supabase > Authentication, then run

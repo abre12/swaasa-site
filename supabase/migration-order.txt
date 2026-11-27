@@ -39,3 +39,4 @@ migration-v32-tracker-derived-prep.sql
 migration-v33-leads.sql
 migration-v34-reminder-runs.sql
 migration-v35-homepage-faqs.sql
+migration-v36-homepage-category-images.sql

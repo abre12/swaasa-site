@@ -4,6 +4,7 @@ import { Ic } from './icons'
 import StaffAdmin from './StaffAdmin'
 import MfaSetup from './MfaSetup'
 import FaqSettings from './FaqSettings'
+import HomeImagesSettings from './HomeImagesSettings'
 
 // The owner's Settings page: a list of topics on the left and one panel per topic on the right.
 // Every setting that used to sit in one long page is still here, grouped by what it controls.
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'notifications', label: 'Notifications', icon: 'bell', title: 'Notifications', sub: 'When the bell and the Today list should warn you about preparation.' },
   { id: 'security', label: 'Security', icon: 'lock', title: 'Security', sub: 'Two-step login for the owner account.' },
   { id: 'faqs', label: 'FAQs', icon: 'help', title: 'Public FAQs', sub: 'Manage the questions and answers shown on your website.' },
+  { id: 'images', label: 'Home Images', icon: 'camera', title: 'Homepage category images', sub: 'Change, add or remove the images and category cards on your homepage.' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -135,6 +137,8 @@ export default function SettingsPage({ ctx, mfaRequired }: { ctx: any; mfaRequir
       {panel('security', <div className="stg-body"><MfaSetup sb={ctx.sb} required={mfaRequired} /></div>)}
 
       {panel('faqs', <div className="stg-body"><FaqSettings ctx={ctx} /></div>)}
+
+      {panel('images', <div className="stg-body"><HomeImagesSettings ctx={ctx} /></div>)}
     </div>
   </div>
 }

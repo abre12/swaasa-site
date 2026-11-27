@@ -1635,7 +1635,7 @@ export default function AdminApp({ role, name, initialTab }: { role: string; nam
             title={title}
             sub={
               tab === 'settings'
-                ? 'Business details, staff logins, deposit rules, booking policies and alerts.'
+                ? 'Business details, staff logins, booking policies, public FAQs and homepage images.'
                 : 'Alterations to complete before delivery.'
             }
           />

@@ -6,8 +6,8 @@ This list was checked by applying every script below, in this order, to an empty
 
 | Situation | What to run |
 | --- | --- |
-| **Your live database today** (already has bookings) | Only the migrations it has not had yet. Apply **v26**, **v27** and **v28** as required by that release, **v29** when using its delivery chart, **v30** after deploying the signed-image website, **v31** before or after deploying the public booking tracker, **v32** (any time) so the tracker shows real preparation progress, **v33** for website enquiries, **v34** for reminder monitoring, and **v35** for owner-managed FAQs. Never run `schema-current.sql` on it. |
-| **A new project** (staging copy, rebuild) | Run `schema-current.sql` once, apply the storage policies in **v30**, then create the owner. |
+| **Your live database today** (already has bookings) | Only the migrations it has not had yet. Apply **v26**, **v27** and **v28** as required by that release, **v29** when using its delivery chart, **v30** after deploying the signed-image website, **v31** before or after deploying the public booking tracker, **v32** (any time) so the tracker shows real preparation progress, **v33** for website enquiries, **v34** for reminder monitoring, **v35** for owner-managed FAQs, and **v36** for homepage category images. Never run `schema-current.sql` on it. |
+| **A new project** (staging copy, rebuild) | Run `schema-current.sql` once, apply the storage policies in **v30** and **v36**, then create the owner. |
 
 ## The full order (for the record)
 
@@ -46,6 +46,7 @@ This list was checked by applying every script below, in this order, to an empty
 | 35 | `migration-v33-leads.sql` | Saves website enquiries in a `leads` table with a status; database-backed limiter (4 an hour per visitor, 3 a day per phone); Telegram throttled instead of a global cap | Additive; safe before or after the matching website |
 | 36 | `migration-v34-reminder-runs.sql` | A log of every scheduled reminder, used by the daily watchdog to spot a missed one | Additive; only the server key can read or write it |
 | 37 | `migration-v35-homepage-faqs.sql` | Adds owner-managed questions and answers shared by the homepage and FAQ page | Additive; public can read, active owner can add, edit and remove |
+| 38 | `migration-v36-homepage-category-images.sql` | Adds editable homepage category cards and a public image bucket with owner-only uploads | Additive; apply before using homepage image management |
 
 There are no v23 or v24 files; those numbers were used for website-only versions.
 

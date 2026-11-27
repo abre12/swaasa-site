@@ -8,7 +8,8 @@ import { INSTAGRAM_URL, REELS } from '@/lib/reels'
 import { getGoogleReviews } from '@/lib/reviews'
 import { faqSchema, guidePages } from '@/lib/seo-content'
 import { getPublicFaqs } from '@/lib/faq-data'
-import { HERO_IMAGE, LOOK_TILES, STUDIO_IMAGE, STUDIO_STEPS } from '@/lib/home-content'
+import { HERO_IMAGE, STUDIO_IMAGE, STUDIO_STEPS } from '@/lib/home-content'
+import { getHomepageLookTiles } from '@/lib/category-data'
 import { HOME_DESCRIPTION, HOME_TITLE, MAPS_DIRECTIONS_URL, hoursText, jsonLdString, localBusinessGraph, shareMeta, whatsappHref } from '@/lib/site'
 import type { Metadata } from 'next'
 
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 }
 
 export default async function Home() {
-  const [google, faqs] = await Promise.all([getGoogleReviews(), getPublicFaqs()])
+  const [google, faqs, lookTiles] = await Promise.all([getGoogleReviews(), getPublicFaqs(), getHomepageLookTiles()])
   const phone = (process.env.STORE_PHONE || '').trim()
   const phoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : ''
   const contactHref = phoneHref || INSTAGRAM_URL
@@ -62,14 +63,14 @@ export default async function Home() {
 
       <section className="rn-sec" id="looks" aria-labelledby="rn-looks-title">
         <div className="rn-head"><h2 id="rn-looks-title">Find your <em>look</em></h2><a href="#plan-a-visit">Plan a visit</a></div>
-        <ul className="rn-tiles">{LOOK_TILES.map(t => <li key={t.title}>
+        {lookTiles.length > 0 && <ul className="rn-tiles">{lookTiles.map(t => <li key={t.id}>
           <a className="rn-tile" href="#plan-a-visit" aria-label={`${t.title}: plan a visit`}>
-            <img src={t.img} alt={t.alt} loading="lazy" decoding="async" width={540} height={720} />
+            {t.img && <img src={t.img} alt={t.alt} loading="lazy" decoding="async" width={640} height={960} />}
             <span className="rn-tile-go" aria-hidden="true">↗</span>
             <span className="rn-tile-t"><b>{t.title}</b><small>{t.note}</small></span>
           </a>
-        </li>)}</ul>
-        <p className="rn-caption">Lehengas, gowns, sarees and more, shown in person at our studio.</p>
+        </li>)}</ul>}
+        <p className="rn-caption">{lookTiles.length > 0 ? 'Lehengas, gowns, sarees and more, shown in person at our studio.' : 'Visit our studio to explore the collection in person.'}</p>
       </section>
 
       <div className="ch-showcase rn-sec">
