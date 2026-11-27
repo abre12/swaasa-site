@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Analytics from '@/components/Analytics'
 import ReelsCarousel from '@/components/ReelsCarousel'
 import CustomerBookingTracker from '@/components/CustomerBookingTracker'
+import BookingIdEntry from '@/components/BookingIdEntry'
 import ReviewsCarousel from '@/components/ReviewsCarousel'
 import ViewingRequest from '@/components/ViewingRequest'
 import { INSTAGRAM_URL, REELS } from '@/lib/reels'
@@ -66,7 +67,7 @@ export default async function Home() {
           <p className="ch-kicker">BRIDAL &amp; OCCASION RENTALS · KARAMANA</p>
           <h1 id="rn-hero-title">Bridal lehengas &amp; gowns <em>to rent in Trivandrum.</em></h1>
           <p>Come in, try on, fit and rent.</p>
-          <div className="rn-actions"><a className="ch-button" href="#plan-a-visit">Plan a visit <span aria-hidden="true">↗</span></a><Link className="rn-link" href="/bridal-lehenga-rental-trivandrum">How renting works</Link></div>
+          <div className="rn-actions"><a className="ch-button" href="#plan-a-visit">Plan a visit <span aria-hidden="true">↗</span></a><BookingIdEntry /></div>
         </div>
       </section>
       <ul className="rn-promise" aria-label="What you can expect"><li>Personal guidance</li><li>Fitting and alteration support</li><li>Flexible rental dates</li></ul>

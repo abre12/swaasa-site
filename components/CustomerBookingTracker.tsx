@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { currentStep, statusLabel, TRACKING_STEPS } from '@/lib/tracking'
 
 type BookingResult = {
@@ -25,6 +25,20 @@ export default function CustomerBookingTracker() {
   const [result, setResult] = useState<BookingResult | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const phoneInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    function prefillBooking(event: Event) {
+      const value = (event as CustomEvent<{ bookingId?: string }>).detail?.bookingId?.trim()
+      if (!value) return
+      setBookingId(value)
+      setResult(null)
+      setMessage('')
+      window.setTimeout(() => phoneInput.current?.focus({ preventScroll: true }), 650)
+    }
+    window.addEventListener('swaasa:prefill-booking', prefillBooking)
+    return () => window.removeEventListener('swaasa:prefill-booking', prefillBooking)
+  }, [])
 
   async function lookup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -52,7 +66,7 @@ export default function CustomerBookingTracker() {
   const isCancelled = result?.bookingStatus.toLowerCase() === 'cancelled'
   const activeStep = result ? currentStep(result) : -1
 
-  return <section className="ch-tracking" aria-labelledby="ch-tracking-title">
+  return <section className="ch-tracking" id="track-booking" aria-labelledby="ch-tracking-title">
     <div className="ch-tracking-copy">
       <p className="ch-kicker">ALREADY BOOKED?</p>
       <h2 id="ch-tracking-title">Track your <em>booking.</em></h2>
@@ -66,7 +80,7 @@ export default function CustomerBookingTracker() {
           <input value={bookingId} onChange={event => { setBookingId(event.target.value); setResult(null); setMessage('') }} placeholder="e.g. SW1A2B3C4" autoComplete="off" required maxLength={32} />
         </label>
         <label>Mobile number used for booking
-          <input value={phone} onChange={event => { setPhone(event.target.value); setResult(null); setMessage('') }} placeholder="10-digit mobile number" type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} />
+          <input ref={phoneInput} value={phone} onChange={event => { setPhone(event.target.value); setResult(null); setMessage('') }} placeholder="10-digit mobile number" type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} />
         </label>
         <button className="ch-button" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Track booking'} <span aria-hidden="true">↗</span></button>
       </form>
