@@ -1,12 +1,18 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { StoryPhoto } from '@/lib/customer-stories'
 
 export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   const viewport = useRef<HTMLDivElement>(null)
-  const focused = useRef(false)
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const opener = useRef<HTMLButtonElement | null>(null)
+  const pointerInside = useRef(false)
+  const pointerActive = useRef(false)
+  const keyboardFocused = useRef(false)
+  const modalOpen = useRef(false)
   const resumeAt = useRef(0)
+  const [activePhoto, setActivePhoto] = useState<StoryPhoto | null>(null)
   const [copyCount, setCopyCount] = useState(() => photos.length < 2 ? 1 : Math.max(4, 2 * Math.ceil(1180 / (184 * photos.length)) + 2))
 
   useEffect(() => {
@@ -53,8 +59,9 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
       if (!previous) previous = time
       const elapsed = Math.min(time - previous, 40)
       previous = time
-      if (!focused.current && time >= resumeAt.current) {
-        node.scrollLeft -= elapsed * 0.028
+      const paused = pointerInside.current || pointerActive.current || keyboardFocused.current || modalOpen.current
+      if (!paused && time >= resumeAt.current) {
+        node.scrollLeft -= elapsed * 0.045
         if (node.scrollLeft <= startDistance - loopDistance()) node.scrollLeft = startDistance
       }
       frame = window.requestAnimationFrame(animate)
@@ -63,28 +70,89 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
     return () => window.cancelAnimationFrame(frame)
   }, [copyCount, photos.length])
 
+  const closePhoto = useCallback(() => {
+    modalOpen.current = false
+    setActivePhoto(null)
+    resumeAt.current = performance.now() + 650
+    window.requestAnimationFrame(() => opener.current?.focus({ preventScroll: true }))
+  }, [])
+
+  useEffect(() => {
+    if (!activePhoto) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButton.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closePhoto()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [activePhoto, closePhoto])
+
+  function openPhoto(photo: StoryPhoto, button: HTMLButtonElement) {
+    opener.current = button
+    modalOpen.current = true
+    setActivePhoto(photo)
+  }
+
   if (!photos.length) return null
   const copies = Array.from({ length: photos.length > 1 ? copyCount : 1 }, () => photos)
 
-  return <div
-    className="cs-photo-strip"
-    ref={viewport}
-    role="region"
-    aria-label="Customer celebration photos. Swipe or scroll to browse."
-    tabIndex={0}
-    onFocus={() => { focused.current = true }}
-    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) focused.current = false }}
-    onPointerDown={event => { resumeAt.current = Number.POSITIVE_INFINITY; event.currentTarget.setPointerCapture(event.pointerId) }}
-    onPointerUp={() => { resumeAt.current = performance.now() + 1800 }}
-    onPointerCancel={() => { resumeAt.current = performance.now() + 1800 }}
-    onWheel={() => { resumeAt.current = performance.now() + 1800 }}
-  >
-    <div className="cs-photo-strip-track">
-      {copies.map((set, copyIndex) => <div className="cs-photo-strip-set" data-photo-set={copyIndex === 0 ? 'first' : undefined} key={`photo-set-${copyIndex}`} aria-hidden={copyIndex !== 0}>
-        {set.map((photo, index) => <figure key={`${photo.url}-strip-${copyIndex}-${index}`}>
-          <img src={photo.url} alt={copyIndex === 0 ? photo.alt : ''} loading="lazy" decoding="async" />
-        </figure>)}
-      </div>)}
+  return <>
+    <div
+      className="cs-photo-strip"
+      ref={viewport}
+      role="region"
+      aria-label="Customer celebration photos. Hover to pause and enlarge, click to view a larger photo, swipe or scroll to browse."
+      tabIndex={0}
+      onFocus={event => {
+        if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) keyboardFocused.current = true
+      }}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) keyboardFocused.current = false }}
+      onPointerEnter={() => { pointerInside.current = true }}
+      onPointerLeave={() => {
+        pointerInside.current = false
+        resumeAt.current = performance.now() + 650
+      }}
+      onPointerDown={event => {
+        pointerActive.current = true
+        resumeAt.current = Number.POSITIVE_INFINITY
+        if (event.pointerType === 'mouse') event.currentTarget.setPointerCapture(event.pointerId)
+      }}
+      onPointerUp={() => {
+        pointerActive.current = false
+        resumeAt.current = performance.now() + 650
+      }}
+      onPointerCancel={() => {
+        pointerActive.current = false
+        resumeAt.current = performance.now() + 650
+      }}
+      onWheel={() => { resumeAt.current = performance.now() + 650 }}
+    >
+      <div className="cs-photo-strip-track">
+        {copies.map((set, copyIndex) => <div className="cs-photo-strip-set" data-photo-set={copyIndex === 0 ? 'first' : undefined} key={`photo-set-${copyIndex}`} aria-hidden={copyIndex !== 0}>
+          {set.map((photo, index) => <button
+            className="cs-photo-strip-photo"
+            type="button"
+            key={`${photo.url}-strip-${copyIndex}-${index}`}
+            aria-label={`View larger: ${photo.alt || 'customer celebration photo'}`}
+            onClick={event => openPhoto(photo, event.currentTarget)}
+          >
+            <img src={photo.url} alt={copyIndex === 0 ? photo.alt : ''} loading="lazy" decoding="async" />
+          </button>)}
+        </div>)}
+      </div>
     </div>
-  </div>
+    {activePhoto && <div className="cs-photo-lightbox" role="dialog" aria-modal="true" aria-label="Customer celebration photo" onClick={closePhoto}>
+      <button className="cs-photo-lightbox-close" type="button" ref={closeButton} onClick={closePhoto} aria-label="Close enlarged photo">×</button>
+      <img src={activePhoto.url} alt={activePhoto.alt} onClick={event => event.stopPropagation()} />
+      <p className="cs-photo-lightbox-caption">{activePhoto.alt}</p>
+    </div>}
+  </>
 }
