@@ -1,18 +1,7 @@
-// Google reviews for the customer home page.
-//
-// Rules this file follows (reviewed 25 Nov 2026; see README-fixes-2026-11-25.md for the reasons):
-//  1. Everything shown comes live from Google's Places API. Nothing is copied into the code or the database (the old hand-picked list was removed):
-//     Google's Places policies do not allow storing its content, a copied review goes stale when its author edits or deletes it, and mixing copied
-//     reviews with live ones breaks Google's rule that its content is kept apart from other content.
-//  2. Nothing is filtered by star rating or length. Showing only 5-star reviews of 11+ words under a heading like "what customers say" gives a
-//     picture that is more favourable than the real one, which consumer-protection rules treat as misleading. The real rating and the real count
-//     (from Google, covering ALL reviews) are shown next to the reviews, with each review's own star rating.
-//  3. Each review shows its author's name (linked to their Google profile) and photo where Google supplies them, and the section carries a visible
-//     "Google Maps" attribution. Review text is never edited.
-//  4. The API returns at most five reviews (Google picks them), so this is a sample, and the page says so. "See all reviews" links to the listing.
-//  5. Server only: the API key never reaches the browser. The response is kept briefly by Next.js (REVIEWS_CACHE_SECONDS, default one hour) so the
-//     home page does not call Google for every visitor; set it to 0 to ask Google on every page view (stricter reading of Google's no-caching rule,
-//     at the cost of a slower home page and more billable calls).
+// Homepage reviews: retain the hand-picked cards already in the project, and append current Google Places reviews when configured.
+// Review cards link to the business listing so visitors can read the full set on Google.
+
+import { MANUAL_REVIEWS } from './reviews-manual'
 
 export type GoogleReview = { id: string; author: string; photo: string | null; text: string; stars: number; when: string; publishedAt: string | null; url: string | null }
 export type GoogleReviews = { reviews: GoogleReview[]; rating: number | null; total: number | null; mapsUrl: string }
@@ -90,5 +79,20 @@ async function fetchLive(): Promise<{ reviews: GoogleReview[]; rating: number | 
 
 export async function getGoogleReviews(): Promise<GoogleReviews> {
   const live = await fetchLive()
-  return { reviews: live.reviews, rating: live.rating, total: live.total, mapsUrl: live.mapsUrl || GOOGLE_MAPS_LISTING }
+  const manual = MANUAL_REVIEWS.map((review, index): GoogleReview => ({
+    id: `manual-${index + 1}`,
+    author: review.author,
+    photo: null,
+    text: review.text.trim(),
+    stars: 5,
+    when: review.when || '',
+    publishedAt: null,
+    url: review.url || null,
+  }))
+  const manualText = new Set(manual.map(review => review.text.toLowerCase().replace(/\s+/g, ' ').trim()))
+  const reviews = [
+    ...manual,
+    ...live.reviews.filter(review => !manualText.has(review.text.toLowerCase().replace(/\s+/g, ' ').trim())),
+  ]
+  return { reviews, rating: live.rating, total: live.total, mapsUrl: live.mapsUrl || GOOGLE_MAPS_LISTING }
 }

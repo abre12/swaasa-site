@@ -103,7 +103,7 @@ export default async function Home() {
 
       <CustomerBookingTracker />
 
-      <div className="rn-sec rn-reviews-section"><ReviewsCarousel reviews={google.reviews} rating={google.rating} total={google.total} mapsUrl={google.mapsUrl} /></div>
+      <div className="rn-sec rn-reviews-section"><ReviewsCarousel reviews={google.reviews} mapsUrl={google.mapsUrl} /></div>
 
       {faqs.length > 0 && <section className="rn-faq rn-sec" id="faqs" aria-labelledby="rn-faq-title">
         <div className="rn-faq-head">

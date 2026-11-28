@@ -6,7 +6,7 @@ import type { GoogleReview } from '@/lib/reviews'
 const Chev = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
 const Stars = ({ n = 5 }: { n?: number }) => <span className="ch-rv-stars" role="img" aria-label={`${n} out of 5 stars`}>{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
 
-export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { reviews: GoogleReview[]; rating: number | null; total: number | null; mapsUrl: string }) {
+export default function ReviewsCarousel({ reviews, mapsUrl }: { reviews: GoogleReview[]; mapsUrl: string }) {
   const track = useRef<HTMLUListElement>(null)
   const [open, setOpen] = useState<Set<string>>(() => new Set())
 
@@ -20,16 +20,12 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
   return <section className="ch-reviews" aria-labelledby="ch-reviews-title">
     <div className="ch-reviews-head">
       <div>
-        <p className="ch-kicker">GOOGLE REVIEWS</p>
+        <p className="ch-kicker">LOVED BY OUR BRIDES</p>
         <h3 id="ch-reviews-title">What customers say <em>on Google</em></h3>
-        <p className="ch-reviews-attr">Reviews and rating from <b>Google Maps</b></p>
       </div>
-      {(rating !== null || reviews.length > 0) && <div className="ch-reviews-side">
-        {rating !== null && <p className="ch-reviews-score"><b>{rating.toFixed(1)}</b><Stars n={Math.round(rating)} />{total !== null && <small>from {total} Google reviews</small>}</p>}
-        {reviews.length > 0 && <div className="ch-reviews-arrows">
+      {reviews.length > 1 && <div className="ch-reviews-arrows">
           <button type="button" onClick={() => step(-1)} aria-label="Previous reviews"><Chev d="m15 6-6 6 6 6" /></button>
           <button type="button" onClick={() => step(1)} aria-label="Next reviews"><Chev d="m9 6 6 6-6 6" /></button>
-        </div>}
       </div>}
     </div>
 
@@ -54,7 +50,6 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
       })}
     </ul> : <p className="ch-reviews-empty">Browse recent guest feedback and the latest rating on our Google listing.</p>}
 
-    {reviews.length > 0 && <p className="ch-reviews-note">A selection of recent reviews, as written on Google, each with its own stars. Google chooses which are shown; the average covers every review.</p>}
     <a className="ch-reviews-all" href={mapsUrl} target="_blank" rel="noopener noreferrer">See all reviews on Google <span aria-hidden="true">↗</span></a>
   </section>
 }
