@@ -9,7 +9,6 @@ const Stars = ({ n = 5 }: { n?: number }) => <span className="ch-rv-stars" role=
 export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { reviews: GoogleReview[]; rating: number | null; total: number | null; mapsUrl: string }) {
   const track = useRef<HTMLUListElement>(null)
   const [open, setOpen] = useState<Set<string>>(() => new Set())
-  if (!reviews.length) return null
 
   const step = (dir: 1 | -1) => {
     const el = track.current
@@ -25,16 +24,16 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
         <h3 id="ch-reviews-title">What customers say <em>on Google</em></h3>
         <p className="ch-reviews-attr">Reviews and rating from <b>Google Maps</b></p>
       </div>
-      <div className="ch-reviews-side">
+      {(rating !== null || reviews.length > 0) && <div className="ch-reviews-side">
         {rating !== null && <p className="ch-reviews-score"><b>{rating.toFixed(1)}</b><Stars n={Math.round(rating)} />{total !== null && <small>from {total} Google reviews</small>}</p>}
-        <div className="ch-reviews-arrows">
+        {reviews.length > 0 && <div className="ch-reviews-arrows">
           <button type="button" onClick={() => step(-1)} aria-label="Previous reviews"><Chev d="m15 6-6 6 6 6" /></button>
           <button type="button" onClick={() => step(1)} aria-label="Next reviews"><Chev d="m9 6 6 6-6 6" /></button>
-        </div>
-      </div>
+        </div>}
+      </div>}
     </div>
 
-    <ul className="ch-reviews-track" ref={track} aria-label="Google reviews" tabIndex={0}>
+    {reviews.length > 0 ? <ul className="ch-reviews-track" ref={track} aria-label="Google reviews" tabIndex={0}>
       {reviews.map(r => {
         const long = r.text.length > 190
         const expanded = open.has(r.id)
@@ -53,9 +52,9 @@ export default function ReviewsCarousel({ reviews, rating, total, mapsUrl }: { r
           </div>
         </li>
       })}
-    </ul>
+    </ul> : <p className="ch-reviews-empty">Browse recent guest feedback and the latest rating on our Google listing.</p>}
 
-    <p className="ch-reviews-note">A selection of recent reviews, as written on Google, each with its own stars. Google chooses which are shown; the average covers every review.</p>
+    {reviews.length > 0 && <p className="ch-reviews-note">A selection of recent reviews, as written on Google, each with its own stars. Google chooses which are shown; the average covers every review.</p>}
     <a className="ch-reviews-all" href={mapsUrl} target="_blank" rel="noopener noreferrer">See all reviews on Google <span aria-hidden="true">↗</span></a>
   </section>
 }

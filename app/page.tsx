@@ -101,18 +101,9 @@ export default async function Home() {
 
       <ViewingRequest whatsapp={whatsapp} phoneHref={phoneHref || undefined} />
 
-      <div className="rn-sec"><ReviewsCarousel reviews={google.reviews} rating={google.rating} total={google.total} mapsUrl={google.mapsUrl} /></div>
-
       <CustomerBookingTracker />
 
-      <section className="ch-offer-contact rn-visit" id="visit" aria-label="Visit our studio">
-        <div><p className="ch-kicker">VISIT OUR STUDIO</p><address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span>{hours && <span>{hours}</span>}</address></div>
-        <div className="ch-offer-actions"><a className="ch-directions" href={MAPS_DIRECTIONS_URL} target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>
-          {whatsapp && <a className="ch-button" href={whatsapp} target="_blank" rel="noopener noreferrer">Message us on WhatsApp<span aria-hidden="true">↗</span></a>}
-          <a className="ch-button" href={contactHref} target={phoneHref ? undefined : '_blank'} rel={phoneHref ? undefined : 'noopener noreferrer'}>{contactLabel}<span aria-hidden="true">↗</span></a>
-          {!phoneHref && <a className="ch-offer-social" href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Message us on Instagram</a>}
-        </div>
-      </section>
+      <div className="rn-sec rn-reviews-section"><ReviewsCarousel reviews={google.reviews} rating={google.rating} total={google.total} mapsUrl={google.mapsUrl} /></div>
 
       {faqs.length > 0 && <section className="rn-faq rn-sec" id="faqs" aria-labelledby="rn-faq-title">
         <div className="rn-faq-head">
@@ -130,6 +121,15 @@ export default async function Home() {
           </details>)}
         </div>
       </section>}
+
+      <section className="ch-offer-contact rn-visit" id="visit" aria-label="Visit our studio">
+        <div><p className="ch-kicker">VISIT OUR STUDIO</p><address><b>SWAASA Boutique</b><span>2nd Floor, opposite India Post</span><span>Karamana, Thiruvananthapuram, Kerala 695002</span>{hours && <span>{hours}</span>}</address></div>
+        <div className="ch-offer-actions"><a className="ch-directions" href={MAPS_DIRECTIONS_URL} target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>
+          {whatsapp && <a className="ch-button" href={whatsapp} target="_blank" rel="noopener noreferrer">Message us on WhatsApp<span aria-hidden="true">↗</span></a>}
+          <a className="ch-button" href={contactHref} target={phoneHref ? undefined : '_blank'} rel={phoneHref ? undefined : 'noopener noreferrer'}>{contactLabel}<span aria-hidden="true">↗</span></a>
+          {!phoneHref && <a className="ch-offer-social" href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Message us on Instagram</a>}
+        </div>
+      </section>
 
       <footer className="ch-footer"><Link className="ch-brand" href="/" aria-label="Swaasa home"><img src="/logo-mark.png" alt="" width={200} height={196} /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
         <span>{guidePages().map((g, i) => <span key={g.path}>{i > 0 && ' · '}<Link href={g.path}>{g.label}</Link></span>)}<br />Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
