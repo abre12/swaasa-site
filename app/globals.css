@@ -1699,7 +1699,7 @@ body:has(.cs-page)>header.top,body:has(.cs-page)>footer{display:none}
 .cs-intro h1{margin:8px 0 10px;font:400 clamp(38px,5.4vw,64px)/1.04 var(--font-cormorant,Georgia),serif;letter-spacing:-.035em}
 .cs-intro h1 em{color:#a3425b;font-weight:400}
 .cs-intro>p:last-child{margin:0;color:#594b50;font-size:15px;line-height:1.6}
-.cs-stories{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,248px),1fr));gap:22px;max-width:1180px;margin:0 auto}
+.cs-stories{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:22px;max-width:1840px;margin:0 auto}
 .cs-story-card{min-width:0;overflow:hidden;border:1px solid var(--cs-line);border-radius:17px;background:#fffdfa;box-shadow:0 8px 24px #38132108}
 .cs-carousel{position:relative;overflow:hidden;background:#eee4de}
 .cs-carousel-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;outline-offset:-4px}
@@ -1723,7 +1723,7 @@ body:has(.cs-page)>header.top,body:has(.cs-page)>footer{display:none}
 .cs-story-copy details summary{width:max-content;color:var(--cs-wine);font-size:13px;font-weight:650;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .cs-story-copy details[open] p{margin-top:9px}
 .cs-empty{max-width:760px;margin:0 auto;padding:30px;text-align:center;color:var(--cs-muted)}
-.cs-gallery{max-width:1180px;margin:clamp(42px,6vw,72px) auto 0;padding-top:27px;border-top:1px solid var(--cs-line)}
+.cs-gallery{max-width:1840px;margin:clamp(42px,6vw,72px) auto 0;padding-top:27px;border-top:1px solid var(--cs-line)}
 .cs-gallery-heading{margin-bottom:17px}
 .cs-gallery-heading h2{margin:5px 0 0;font:400 clamp(25px,3.4vw,38px)/1.14 var(--font-cormorant,Georgia),serif}
 .cs-photo-strip{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x;cursor:grab;outline-offset:4px}
@@ -1733,12 +1733,13 @@ body:has(.cs-page)>header.top,body:has(.cs-page)>footer{display:none}
 .cs-photo-strip-set{display:flex;gap:14px}
 .cs-photo-strip figure{flex:0 0 clamp(170px,21vw,240px);aspect-ratio:4/5;margin:0;overflow:hidden;border:1px solid var(--cs-line);border-radius:13px;background:#eee4de}
 .cs-photo-strip img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 36%}
-.cs-albums{max-width:1180px;margin:clamp(34px,5vw,58px) auto 0;padding-top:27px;border-top:1px solid var(--cs-line)}
-.cs-albums-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,248px),1fr));gap:18px}
+.cs-gallery-empty{margin:0;padding:22px;border:1px dashed #d9c9c4;border-radius:12px;color:var(--cs-muted);font-size:14px;line-height:1.5;text-align:center}
+.cs-albums{max-width:1840px;margin:clamp(34px,5vw,58px) auto 0;padding-top:27px;border-top:1px solid var(--cs-line)}
+.cs-albums-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:18px}
 .cs-album{min-width:0;overflow:hidden;border:1px solid var(--cs-line);border-radius:15px;background:#fffdfa;box-shadow:0 8px 24px #38132108}
 .cs-album h3{margin:0;padding:15px 17px 12px;font:500 19px/1.2 var(--font-cormorant,Georgia),serif;color:var(--cs-ink)}
 .cs-album .cs-carousel{border-top:1px solid var(--cs-line)}
-.cs-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1180px;margin:30px auto 0;padding-top:16px;border-top:1px solid var(--cs-line);color:var(--cs-muted);font-size:12px}
+.cs-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1840px;margin:30px auto 0;padding-top:16px;border-top:1px solid var(--cs-line);color:var(--cs-muted);font-size:12px}
 .cs-footer a{color:var(--cs-wine);text-decoration:none;white-space:nowrap}
 @media(max-width:760px){.cs-nav{min-height:70px}.cs-nav nav{gap:12px}.cs-nav nav a{font-size:12px}.cs-nav nav .cs-nav-cta{padding:10px 12px}.cs-story-copy{padding:19px 20px 21px}.cs-footer{flex-wrap:wrap}.cs-footer span{order:3;flex:1 0 100%;line-height:1.5}}
 @media(max-width:420px){.cs-page{padding-inline:13px}.cs-brand img{width:35px}.cs-brand b{font-size:25px}.cs-brand small{font-size:11px}.cs-nav nav{gap:9px}.cs-nav nav a{font-size:11px}.cs-nav nav .cs-nav-cta{padding:9px 10px}.cs-intro{margin-top:34px}.cs-photo-strip figure{flex-basis:70vw}}

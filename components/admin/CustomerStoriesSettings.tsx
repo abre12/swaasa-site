@@ -23,7 +23,7 @@ function PhotoPreview({ photo, busy, onAlt, onRemove }: { photo: StoryPhoto; bus
   }, [photo.file, photo.image_url])
   return <div className="stg-story-photo">
     {src ? <img src={src} alt="" /> : <div className="stg-story-photo-empty">Photo pending upload</div>}
-    <label className="stg-f"><span className="stg-l">Image description</span><input disabled={busy} value={photo.alt_text} maxLength={180} onChange={e => onAlt(e.target.value)} placeholder="Describe the photo" /></label>
+    <label className="stg-f"><span className="stg-l">Image description <small>(optional)</small></span><input disabled={busy} value={photo.alt_text} maxLength={180} onChange={e => onAlt(e.target.value)} placeholder="Describe the photo" /><small>Leave blank to use a general celebration photo description.</small></label>
     <button className="btn alt sm" type="button" disabled={busy} onClick={onRemove}>Remove photo</button>
   </div>
 }
@@ -141,7 +141,7 @@ export default function CustomerStoriesSettings({ ctx }: { ctx: any }) {
     if (customer_name.length > 120 || quote.length > 4000) { setError('Names are limited to 120 characters and stories to 4,000 characters.'); return }
     if (item.kind === 'stories' && (!customer_name || !quote)) { setError('A review card needs both a customer name and a story. Add photo-only content in the gallery section below.'); return }
     if (item.kind === 'gallery' && !item.photos.length) { setError('Add at least one photo to this photo set.'); return }
-    if (item.photos.some(photo => photo.alt_text.trim().length < 5 || photo.alt_text.trim().length > 180)) { setError('Give every photo a description between 5 and 180 characters.'); return }
+    if (item.photos.some(photo => photo.alt_text.trim() && (photo.alt_text.trim().length < 5 || photo.alt_text.trim().length > 180))) { setError('Use image descriptions between 5 and 180 characters, or leave them blank.'); return }
 
     setBusy(item.localKey)
     setError('')
@@ -161,7 +161,7 @@ export default function CustomerStoriesSettings({ ctx }: { ctx: any }) {
       const values = {
         customer_name, quote,
         image_urls: photos.map(photo => photo.image_url),
-        image_alts: photos.map(photo => photo.alt_text.trim()),
+        image_alts: photos.map(photo => photo.alt_text.trim() || (customer_name ? `${customer_name} at a Swaasa celebration` : 'Customer celebration photo at Swaasa Wedding Rentals')),
         storage_paths: photos.map(photo => photo.storage_path ?? ''),
         sort_order: Number.isFinite(+item.sort_order) ? +item.sort_order : 0,
         is_published: item.kind === 'stories' ? item.is_published : item.is_published && item.show_in_gallery,
@@ -257,7 +257,7 @@ export default function CustomerStoriesSettings({ ctx }: { ctx: any }) {
         onAlt={alt_text => edit(item.localKey, { photos: item.photos.map(current => current.localKey === photo.localKey ? { ...current, alt_text } : current) })}
         onRemove={() => edit(item.localKey, { photos: item.photos.filter(current => current.localKey !== photo.localKey) })} />)}</div>}
       <label className="stg-f stg-story-upload"><span className="stg-l">{isReview ? 'Add photos to this review card' : 'Add photos to this gallery set'}</span><input type="file" disabled={locked} accept="image/png,image/jpeg,image/webp" multiple onChange={e => { addPhotos(item, e.target.files); e.currentTarget.value = '' }} /><small>PNG, JPG or WebP · up to 12 MB each · select several photos to create a swipeable set</small></label>
-      <div className="stg-story-save"><small>{isReview ? item.is_published ? 'Published as a review card after saving.' : 'Hidden from the public stories page.' : item.customer_name.trim() ? 'Photos in this set are grouped in one swipeable album.' : 'These photos appear by themselves in the auto-moving celebrations strip.'}</small><button className="btn sm" type="button" disabled={locked} onClick={() => void save(item)}>{busy === item.localKey ? 'Saving…' : item.id ? 'Save changes' : isReview ? 'Add review' : 'Add photos'}</button></div>
+      <div className="stg-story-save"><small>{isReview ? item.is_published ? 'Published as a review card after saving.' : 'Hidden from the public stories page.' : item.customer_name.trim() ? 'Photos in this set are grouped in one swipeable album.' : 'These photos appear by themselves in the auto-moving celebrations strip. Add at least two unnamed photos for automatic movement.'}</small><button className="btn sm" type="button" disabled={locked} onClick={() => void save(item)}>{busy === item.localKey ? 'Saving…' : item.id ? 'Save changes' : isReview ? 'Add review' : 'Save photo set'}</button></div>
     </article>
   }
 
@@ -273,7 +273,7 @@ export default function CustomerStoriesSettings({ ctx }: { ctx: any }) {
     </section>
 
     <section className="stg-stories-section" aria-labelledby="stg-gallery-title">
-      <div className="stg-stories-intro"><div><h3 className="stg-gh" id="stg-gallery-title">Photo-only galleries</h3><p className="stg-gd">Add photos without creating a review card. Leave the album name blank for the seamless celebrations strip, or enter the same customer name on related sets to group them into a swipeable album below it. Drag the grip or use the arrows to change order.</p></div>
+      <div className="stg-stories-intro"><div><h3 className="stg-gh" id="stg-gallery-title">Photo-only galleries</h3><p className="stg-gd">Use Add photo set here for images you want in the separate public gallery; photos attached to review cards stay with those cards to avoid duplication. Leave the album name blank for the auto-moving celebrations strip, or enter the same customer name on related sets to group them into a swipeable album. The strip starts moving once it has at least two unnamed photos. Drag the grip or use the arrows to change order.</p></div>
         <div className="stg-stories-actions"><button className="btn alt sm" type="button" onClick={() => void saveOrder('gallery')} disabled={!orderDirty.gallery || busy !== null || orderSaving !== null}>{orderSaving === 'gallery' ? 'Saving order…' : 'Save order'}</button><button className="btn" type="button" onClick={addGallerySet} disabled={loading || busy !== null || orderSaving !== null}><Ic n="plus" s={17} /> Add photo set</button></div>
       </div>
       {loading ? <p className="mut" style={{ margin: 0 }}>Loading photo gallery…</p> : galleryItems.length === 0

@@ -79,7 +79,10 @@ export async function getCustomerStories(): Promise<CustomerStory[]> {
     const { data, error } = await sb.from('site_customer_stories')
       .select('id, customer_name, quote, image_urls, image_alts, storage_paths, sort_order, show_in_gallery')
       .eq('is_published', true).order('sort_order', { ascending: true }).order('created_at', { ascending: false })
-    if (error) return bundledStories
+    if (error) {
+      console.error('Could not load Customer Stories from Supabase:', error.message)
+      return bundledStories
+    }
     return (data ?? []).map(row => ({
       id: row.id,
       customerName: row.customer_name,

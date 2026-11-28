@@ -5,7 +5,6 @@ import type { StoryPhoto } from '@/lib/customer-stories'
 
 export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   const viewport = useRef<HTMLDivElement>(null)
-  const hovered = useRef(false)
   const focused = useRef(false)
   const resumeAt = useRef(0)
   const [copyCount, setCopyCount] = useState(() => photos.length < 2 ? 1 : Math.max(4, 2 * Math.ceil(1180 / (184 * photos.length)) + 2))
@@ -54,7 +53,7 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
       if (!previous) previous = time
       const elapsed = Math.min(time - previous, 40)
       previous = time
-      if (!hovered.current && !focused.current && time >= resumeAt.current) {
+      if (!focused.current && time >= resumeAt.current) {
         node.scrollLeft -= elapsed * 0.028
         if (node.scrollLeft <= startDistance - loopDistance()) node.scrollLeft = startDistance
       }
@@ -73,8 +72,6 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
     role="region"
     aria-label="Customer celebration photos. Swipe or scroll to browse."
     tabIndex={0}
-    onPointerEnter={() => { hovered.current = true }}
-    onPointerLeave={() => { hovered.current = false }}
     onFocus={() => { focused.current = true }}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) focused.current = false }}
     onPointerDown={event => { resumeAt.current = Number.POSITIVE_INFINITY; event.currentTarget.setPointerCapture(event.pointerId) }}
