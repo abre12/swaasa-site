@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import PhotoCarousel from './PhotoCarousel'
-import { getCustomerStories } from '@/lib/customer-stories'
+import PhotoStrip from './PhotoStrip'
+import { getCustomerStories, type StoryPhoto } from '@/lib/customer-stories'
 import { shareMeta } from '@/lib/site'
 
 const title = 'Customer Stories | Swaasa Wedding Rentals'
@@ -17,7 +18,18 @@ function quoteText(text: string) {
 export default async function CustomerStoriesPage() {
   const stories = await getCustomerStories()
   const reviews = stories.filter(story => story.customerName.trim() && story.quote.trim())
-  const photos = stories.filter(story => story.showInGallery).flatMap(story => story.photos)
+  const gallerySets = stories.filter(story => story.showInGallery && !story.quote.trim())
+  const stripPhotos = gallerySets.filter(story => !story.customerName.trim()).flatMap(story => story.photos)
+  const albumGroups = new Map<string, { name: string; photos: StoryPhoto[] }>()
+  for (const set of gallerySets) {
+    const name = set.customerName.trim()
+    if (!name) continue
+    const key = name.toLocaleLowerCase()
+    const current = albumGroups.get(key)
+    if (current) current.photos.push(...set.photos)
+    else albumGroups.set(key, { name, photos: [...set.photos] })
+  }
+  const albums = [...albumGroups.values()]
 
   return <main className="cs-page">
     <header className="cs-nav">
@@ -44,13 +56,19 @@ export default async function CustomerStoriesPage() {
           </div>
         </article>
       })}
-    </section> : <p className="cs-empty">Customer stories are being added. Please check back soon.</p>}
+    </section> : gallerySets.length === 0 ? <p className="cs-empty">Customer stories are being added. Please check back soon.</p> : null}
 
-    {photos.length > 0 && <section className="cs-gallery" aria-labelledby="cs-gallery-title">
+    {stripPhotos.length > 0 && <section className="cs-gallery" aria-labelledby="cs-gallery-title">
       <div className="cs-gallery-heading"><p className="cs-kicker">MOMENTS IN SWAASA</p><h2 id="cs-gallery-title">A gallery of celebrations</h2></div>
-      <div className="cs-photo-gallery" aria-label="Customer photos only">
-        {photos.map((photo, index) => <figure key={`${photo.url}-gallery-${index}`}><img src={photo.url} alt={photo.alt} loading="lazy" decoding="async" /></figure>)}
-      </div>
+      <PhotoStrip photos={stripPhotos} />
+    </section>}
+
+    {albums.length > 0 && <section className="cs-albums" aria-labelledby="cs-albums-title">
+      <div className="cs-gallery-heading"><p className="cs-kicker">MORE FROM OUR CUSTOMERS</p><h2 id="cs-albums-title">Celebration albums</h2></div>
+      <div className="cs-albums-grid">{albums.map(album => <article className="cs-album" key={album.name.toLocaleLowerCase()}>
+        <h3>{album.name}</h3>
+        <PhotoCarousel photos={album.photos} label={`${album.name} celebration album`} />
+      </article>)}</div>
     </section>}
 
     <footer className="cs-footer"><Link href="/">← Back to Swaasa</Link><span>Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><Link href="/#plan-a-visit">Plan a visit ↗</Link></footer>

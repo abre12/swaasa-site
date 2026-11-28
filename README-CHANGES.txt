@@ -33,6 +33,12 @@ Customer Stories update:
 - Removed visible Instagram carousel-arrow overlays from the supplied Reshma and Pratheeksha photographs before adding them to the site.
 - Added Supabase migration v38 for owner-managed story content and the public customer-story image bucket. Apply it before deploying the site changes.
 
+Customer Stories gallery update:
+- The celebrations strip now glides continuously from left to right, pauses while customers hover or interact, and remains manually swipeable. Reduced-motion preferences disable the automatic movement.
+- Review-card photos no longer repeat in the photo galleries. Admin has separate review and photo-only sections; unnamed sets feed the strip, while sets with the same customer/group name merge into swipeable albums below it.
+- New entries start at the top. Admin supports drag or up/down controls to reorder stories and photo sets, followed by a Save order action. Review cards and albums use a responsive grid that fits up to four cards per row on wide screens and adapts down to mobile.
+- This update reuses the existing v38 Customer Stories table and needs no additional database migration.
+
 Editable homepage caption:
 - Home Images settings now includes an editor for the line beneath “Find your look”. Save an empty caption to hide the line; the existing wording remains the default until the database migration is applied.
 - Added Supabase migration v39 for public caption reading and owner-only updates. Apply it before deploying this version or saving the caption in admin.
