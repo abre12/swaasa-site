@@ -11,5 +11,5 @@ export const LOOK_TILES: LookTile[] = [
 ]
 
 export const HERO_IMAGE = { src: '/home-hero-luxury.jpg', alt: 'Bride wearing an embroidered wine-red lehenga in a bridal boutique' }
-export const STUDIO_IMAGE = { src: '/reels/reel-5-poster.webp', alt: 'A customer looking through lehengas at the Swaasa studio' }
-export const STUDIO_STEPS = ['We call you', 'Fix a time', 'Try a few looks']
+export const STUDIO_IMAGE = { src: '/studio-boutique-visit.jpg', alt: 'A visitor exploring colourful occasion wear at the Swaasa boutique' }
+export const STUDIO_STEPS = ['Share your occasion', 'Choose a visit date', 'Try a few looks']
