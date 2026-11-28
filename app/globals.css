@@ -1648,7 +1648,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .ch-showcase .cl-reels-txt p{max-width:34ch;margin-bottom:12px;font-size:13px;line-height:1.5}
 .ch-showcase .cl-ig{height:38px;padding:0 15px;border-radius:8px;font-size:12px}
 .ch-showcase .cl-track{gap:10px;padding-block:54px;padding-inline:42px}
-.ch-showcase .cl-reel{width:clamp(126px,12.5vw,160px);border-radius:12px;transform:scale(.97);box-shadow:0 3px 10px #5b123014}
+.ch-showcase .cl-reel{width:clamp(126px,12.5vw,160px);border-radius:12px;transform:scale(1);box-shadow:0 3px 10px #5b123014}
 .ch-showcase .cl-reel.on{transform:scale(1.35);box-shadow:0 8px 20px #5b12302b;z-index:2}
 .ch-showcase .cl-reel-play{width:40px;height:40px}
 .ch-showcase .cl-sound{width:34px;height:34px}
