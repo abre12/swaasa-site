@@ -65,11 +65,11 @@ create policy homepage_category_images_owner_delete on storage.objects
 insert into public.site_category_tiles (title, note, alt_text, image_url, sort_order)
 select seed.title, seed.note, seed.alt_text, seed.image_url, seed.sort_order
 from (values
-  ('Bridal Lehengas', 'For the ceremony', 'Model wearing a ruby red and antique gold bridal lehenga', '/category-images/bridal-lehengas.png', 10),
+  ('Bridal Lehengas', 'For the ceremony', 'Bride in a ruby red and antique gold lehenga inside a warm bridal boutique', '/category-images/bridal-lehengas.png', 10),
   ('Reception Looks', 'Soft and graceful', 'A woman in a champagne and rose reception lehenga in a warm boutique interior', '/category-images/reception-looks.png', 20),
-  ('Sangeet & Mehendi', 'Colour for the celebrations', 'Model wearing a colourful emerald and fuchsia dance lehenga', '/category-images/sangeet-mehendi.png', 30),
+  ('Sangeet & Mehendi', 'Colour for the celebrations', 'Dancer in an emerald and fuchsia lehenga at an evening mehendi celebration', '/category-images/sangeet-mehendi.png', 30),
   ('Bridesmaids', 'For the people by your side', 'Two friends in sage and lilac festive outfits at a Kerala wedding courtyard', '/category-images/bridesmaids.png', 40),
-  ('Other occasions', 'Find a look for what is ahead', 'A woman in a peacock blue silk saree on a traditional Kerala verandah', '/category-images/other-occasions.png', 50)
+  ('Other occasions', 'Find a look for what is ahead', 'A woman in a dusty rose luxury salwar suit on a heritage verandah', '/category-images/other-occasions.png', 50)
 ) as seed(title, note, alt_text, image_url, sort_order)
 where not exists (
   select 1 from public.site_category_tiles existing where lower(existing.title) = lower(seed.title)
