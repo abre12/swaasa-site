@@ -66,10 +66,10 @@ insert into public.site_category_tiles (title, note, alt_text, image_url, sort_o
 select seed.title, seed.note, seed.alt_text, seed.image_url, seed.sort_order
 from (values
   ('Bridal Lehengas', 'For the ceremony', 'Model wearing a ruby red and antique gold bridal lehenga', '/category-images/bridal-lehengas.png', 10),
-  ('Reception Looks', 'Soft and graceful', 'Model wearing a pearl champagne and blush embroidered reception lehenga', '/category-images/reception-looks.png', 20),
+  ('Reception Looks', 'Soft and graceful', 'A woman in a champagne and rose reception lehenga in a warm boutique interior', '/category-images/reception-looks.png', 20),
   ('Sangeet & Mehendi', 'Colour for the celebrations', 'Model wearing a colourful emerald and fuchsia dance lehenga', '/category-images/sangeet-mehendi.png', 30),
-  ('Bridesmaids', 'For the people by your side', 'Two models in forest green and navy embroidered lehenga sets', '/category-images/bridesmaids.png', 40),
-  ('Other occasions', 'Find a look for what is ahead', 'Model wearing a mustard gold festive silk saree', '/category-images/other-occasions.png', 50)
+  ('Bridesmaids', 'For the people by your side', 'Two friends in sage and lilac festive outfits at a Kerala wedding courtyard', '/category-images/bridesmaids.png', 40),
+  ('Other occasions', 'Find a look for what is ahead', 'A woman in a peacock blue silk saree on a traditional Kerala verandah', '/category-images/other-occasions.png', 50)
 ) as seed(title, note, alt_text, image_url, sort_order)
 where not exists (
   select 1 from public.site_category_tiles existing where lower(existing.title) = lower(seed.title)
