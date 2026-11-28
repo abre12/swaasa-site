@@ -42,3 +42,4 @@ migration-v35-homepage-faqs.sql
 migration-v36-homepage-category-images.sql
 migration-v37-homepage-category-photo-alt.sql
 migration-v38-customer-stories.sql
+migration-v39-homepage-look-caption.sql

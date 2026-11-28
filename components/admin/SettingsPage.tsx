@@ -21,7 +21,7 @@ const TABS = [
   { id: 'notifications', label: 'Notifications', icon: 'bell', title: 'Notifications', sub: 'When the bell and the Today list should warn you about preparation.' },
   { id: 'security', label: 'Security', icon: 'lock', title: 'Security', sub: 'Two-step login for the owner account.' },
   { id: 'faqs', label: 'FAQs', icon: 'help', title: 'Public FAQs', sub: 'Manage the questions and answers shown on your website.' },
-  { id: 'images', label: 'Home Images', icon: 'camera', title: 'Homepage category images', sub: 'Change, add or remove the images and category cards on your homepage.' },
+  { id: 'images', label: 'Home Images', icon: 'camera', title: 'Homepage category images', sub: 'Edit the Find your look caption and change, add or remove category images and cards.' },
   { id: 'stories', label: 'Customer Stories', icon: 'camera', title: 'Customer stories', sub: 'Edit customer reviews, manage their photos, and add photo-only gallery entries.' },
 ] as const
 type TabId = typeof TABS[number]['id']

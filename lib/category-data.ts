@@ -3,6 +3,25 @@ import { supaServer } from '@/lib/supabase/server'
 
 export type HomepageLookTile = LookTile & { id: string }
 
+export const DEFAULT_LOOK_CAPTION = 'Wedding lehengas, gowns, luxury salwars, sarees, Anarkalis, cape lehengas and shararas for weddings, sangeet, engagements and parties.'
+
+/** Read the owner-managed line below the homepage category cards. */
+export async function getHomepageLookCaption(): Promise<string> {
+  try {
+    const sb = await supaServer()
+    const { data, error } = await sb
+      .from('site_home_content')
+      .select('look_caption')
+      .eq('id', 1)
+      .maybeSingle()
+
+    if (error || typeof data?.look_caption !== 'string') return DEFAULT_LOOK_CAPTION
+    return data.look_caption
+  } catch {
+    return DEFAULT_LOOK_CAPTION
+  }
+}
+
 /** Read the owner-managed homepage category cards, preserving the bundled images until the migration is present. */
 export async function getHomepageLookTiles(): Promise<HomepageLookTile[]> {
   try {

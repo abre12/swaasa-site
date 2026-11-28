@@ -1619,6 +1619,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* Owner homepage category image manager */
 .adm .stg-homeimages{display:grid;gap:16px;min-width:0}
+.adm .stg-homecaption{display:grid;gap:13px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.adm .stg-homecaption>div:first-child{display:grid;gap:6px}
+.adm .stg-homecaption .stg-gh,.adm .stg-homecaption .stg-gd{margin:0}
+.adm .stg-homecaption .stg-f textarea{min-height:84px;resize:vertical}
+.adm .stg-homecaption-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.adm .stg-homecaption-actions small{color:var(--mut);font-size:12px;line-height:1.4}
+.adm .stg-homecaption-actions .btn{white-space:nowrap}
 .adm .stg-homeimages-intro{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .adm .stg-homeimages-intro>div{display:grid;gap:6px}
 .adm .stg-homeimages-intro .stg-gh,.adm .stg-homeimages-intro .stg-gd{margin:0}
@@ -1643,7 +1650,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .adm .stg-homeimages-empty{display:grid;justify-items:center;gap:10px;padding:30px;border:1px dashed #d9cfc4;border-radius:12px;color:var(--mut);text-align:center}
 .adm .stg-homeimages-empty p{margin:0;font-size:13px}
 .adm .stg-homeimages-error{margin:0;padding:10px 12px;border:1px solid #f0c9c9;border-radius:9px;background:#fff3f3;color:#a32929;font-size:13px;line-height:1.45}
-@media(max-width:620px){.adm .stg-homeimages-intro{align-items:stretch;flex-direction:column}.adm .stg-homeimages-intro>.btn{justify-content:center}.adm .stg-homeimage-edit{grid-template-columns:1fr}.adm .stg-homeimage-preview{min-height:200px}.adm .stg-homeimage-fields{grid-template-columns:1fr}.adm .stg-homeimage-fields>.stg-f:nth-child(3),.adm .stg-homeimage-upload{grid-column:auto}.adm .stg-homeimage-upload{align-items:stretch;flex-direction:column}.adm .stg-homeimage-upload>.stg-f{flex-basis:auto}.adm .stg-homeimage-upload>.btn{width:100%}.adm .stg-homeimage-actions{align-items:stretch;flex-direction:column}.adm .stg-homeimage-actions .btn{width:100%}}
+@media(max-width:620px){.adm .stg-homecaption-actions{align-items:stretch;flex-direction:column}.adm .stg-homecaption-actions .btn{width:100%}.adm .stg-homeimages-intro{align-items:stretch;flex-direction:column}.adm .stg-homeimages-intro>.btn{justify-content:center}.adm .stg-homeimage-edit{grid-template-columns:1fr}.adm .stg-homeimage-preview{min-height:200px}.adm .stg-homeimage-fields{grid-template-columns:1fr}.adm .stg-homeimage-fields>.stg-f:nth-child(3),.adm .stg-homeimage-upload{grid-column:auto}.adm .stg-homeimage-upload{align-items:stretch;flex-direction:column}.adm .stg-homeimage-upload>.stg-f{flex-basis:auto}.adm .stg-homeimage-upload>.btn{width:100%}.adm .stg-homeimage-actions{align-items:stretch;flex-direction:column}.adm .stg-homeimage-actions .btn{width:100%}}
 
 /* Home page: let the reels add atmosphere without overpowering the visit journey. */
 .ch-showcase{padding:12px 0 0}

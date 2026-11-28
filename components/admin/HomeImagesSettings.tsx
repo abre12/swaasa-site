@@ -6,6 +6,7 @@ import { Ic } from './icons'
 const BUCKET = 'homepage-category-images'
 const COLUMNS = 'id, title, note, alt_text, image_url, storage_path, sort_order'
 const MAX_BYTES = 12 * 1024 * 1024
+const DEFAULT_CAPTION = 'Wedding lehengas, gowns, luxury salwars, sarees, Anarkalis, cape lehengas and shararas for weddings, sangeet, engagements and parties.'
 
 type CategoryImage = {
   id: string | null
@@ -75,6 +76,10 @@ export default function HomeImagesSettings({ ctx }: { ctx: any }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [captionError, setCaptionError] = useState('')
+  const [caption, setCaption] = useState(DEFAULT_CAPTION)
+  const [captionLoading, setCaptionLoading] = useState(true)
+  const [captionBusy, setCaptionBusy] = useState(false)
 
   useEffect(() => {
     let current = true
@@ -97,6 +102,43 @@ export default function HomeImagesSettings({ ctx }: { ctx: any }) {
       })
     return () => { current = false }
   }, [ctx.sb])
+
+  useEffect(() => {
+    let current = true
+    ctx.sb.from('site_home_content').select('look_caption').eq('id', 1).maybeSingle()
+      .then(({ data, error }: any) => {
+        if (!current) return
+        setCaptionLoading(false)
+        if (error) {
+          setCaptionError(`Could not load the Find your look caption: ${error.message}. Apply migration v39, then try again.`)
+          return
+        }
+        setCaptionError('')
+        if (typeof data?.look_caption === 'string') setCaption(data.look_caption)
+      }, (reason: unknown) => {
+        if (!current) return
+        setCaptionLoading(false)
+        setCaptionError(`Could not load the Find your look caption: ${reason instanceof Error ? reason.message : 'Please try again.'}. Apply migration v39 if it has not been run.`)
+      })
+    return () => { current = false }
+  }, [ctx.sb])
+
+  async function saveCaption() {
+    if (caption.length > 320) { setCaptionError('The caption can be up to 320 characters.'); return }
+    setCaptionBusy(true)
+    setCaptionError('')
+    try {
+      const { error } = await ctx.sb.from('site_home_content').update({ look_caption: caption.trim() }).eq('id', 1)
+      if (error) throw new Error(error.message)
+      ctx.say('Find your look caption saved')
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Please try again.'
+      setCaptionError(`Could not save the Find your look caption: ${message}`)
+      ctx.say('Homepage caption could not be saved')
+    } finally {
+      setCaptionBusy(false)
+    }
+  }
 
   function edit(localKey: string, patch: Partial<CategoryImage>) {
     setItems(rows => rows.map(row => row.localKey === localKey ? { ...row, ...patch } : row))
@@ -204,6 +246,12 @@ export default function HomeImagesSettings({ ctx }: { ctx: any }) {
   }
 
   return <div className="stg-homeimages">
+    <section className="stg-homecaption" aria-labelledby="stg-homecaption-title">
+      <div><h3 className="stg-gh" id="stg-homecaption-title">Find your look caption</h3><p className="stg-gd">This line appears beneath the homepage category images. Leave it blank to hide it.</p></div>
+      <label className="stg-f"><span className="stg-l">Caption text</span><textarea maxLength={320} rows={3} value={caption} onChange={e => setCaption(e.target.value)} disabled={captionLoading || captionBusy} placeholder="Describe the outfit styles and occasions you offer" /></label>
+      {captionError && <p className="stg-homeimages-error" role="alert">{captionError}</p>}
+      <div className="stg-homecaption-actions"><small>{caption.length}/320 characters{captionLoading ? ' · Loading saved caption…' : ''}</small><button className="btn sm" type="button" onClick={() => void saveCaption()} disabled={captionLoading || captionBusy}>{captionBusy ? 'Saving…' : 'Save caption'}</button></div>
+    </section>
     <div className="stg-homeimages-intro">
       <div><h3 className="stg-gh">Homepage category cards</h3><p className="stg-gd">Replace an image, remove an image, or add and delete category cards. Uploaded images appear on the public homepage after you save.</p></div>
       <button className="btn" type="button" onClick={add} disabled={loading}><Ic n="plus" s={17} /> Add category</button>

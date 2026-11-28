@@ -10,7 +10,7 @@ import { getGoogleReviews } from '@/lib/reviews'
 import { faqSchema, guidePages } from '@/lib/seo-content'
 import { getPublicFaqs } from '@/lib/faq-data'
 import { HERO_IMAGE, STUDIO_IMAGE, STUDIO_STEPS } from '@/lib/home-content'
-import { getHomepageLookTiles } from '@/lib/category-data'
+import { getHomepageLookCaption, getHomepageLookTiles } from '@/lib/category-data'
 import { HOME_DESCRIPTION, HOME_TITLE, MAPS_DIRECTIONS_URL, hoursText, jsonLdString, localBusinessGraph, shareMeta, whatsappHref } from '@/lib/site'
 import type { Metadata } from 'next'
 
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 }
 
 export default async function Home() {
-  const [google, faqs, lookTiles] = await Promise.all([getGoogleReviews(), getPublicFaqs(), getHomepageLookTiles()])
+  const [google, faqs, lookTiles, lookCaption] = await Promise.all([getGoogleReviews(), getPublicFaqs(), getHomepageLookTiles(), getHomepageLookCaption()])
   const phone = (process.env.STORE_PHONE || '').trim()
   const phoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : ''
   const contactHref = phoneHref || INSTAGRAM_URL
@@ -82,7 +82,7 @@ export default async function Home() {
             <span className="rn-tile-t"><b>{t.title}</b><small>{t.note}</small></span>
           </a>
         </li>)}</ul>}
-        <p className="rn-caption">Wedding lehengas, gowns, luxury salwars, sarees, Anarkalis, cape lehengas and shararas for weddings, sangeet, engagements and parties.</p>
+        {lookCaption && <p className="rn-caption">{lookCaption}</p>}
       </section>
 
       <div className="ch-showcase rn-sec">

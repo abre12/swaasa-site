@@ -33,4 +33,8 @@ Customer Stories update:
 - Removed visible Instagram carousel-arrow overlays from the supplied Reshma and Pratheeksha photographs before adding them to the site.
 - Added Supabase migration v38 for owner-managed story content and the public customer-story image bucket. Apply it before deploying the site changes.
 
+Editable homepage caption:
+- Home Images settings now includes an editor for the line beneath “Find your look”. Save an empty caption to hide the line; the existing wording remains the default until the database migration is applied.
+- Added Supabase migration v39 for public caption reading and owner-only updates. Apply it before deploying this version or saving the caption in admin.
+
 Replace the matching files in the existing Swaasa site project. The source has not been deployed to Vercel.
