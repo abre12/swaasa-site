@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { StoryPhoto } from '@/lib/customer-stories'
+
+type StripLayout = { copyCount: number; loopWidth: number }
 
 export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   const viewport = useRef<HTMLDivElement>(null)
@@ -11,30 +13,9 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   const pointerActive = useRef(false)
   const keyboardFocused = useRef(false)
   const modalOpen = useRef(false)
-  const resumeAt = useRef(0)
+  const [paused, setPaused] = useState(false)
   const [activePhoto, setActivePhoto] = useState<StoryPhoto | null>(null)
-  const [copyCount, setCopyCount] = useState(() => photos.length < 2 ? 1 : Math.max(4, 2 * Math.ceil(1180 / (184 * photos.length)) + 2))
-
-  useEffect(() => {
-    const node = viewport.current
-    const firstSet = node?.querySelector<HTMLElement>('[data-photo-set="first"]')
-    const track = node?.querySelector<HTMLElement>('.cs-photo-strip-track')
-    if (!node || !firstSet || !track) return
-    if (photos.length < 2) { setCopyCount(current => current === 1 ? current : 1); return }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setCopyCount(current => current === 1 ? current : 1); return }
-    const updateCopies = () => {
-      const gap = Number.parseFloat(window.getComputedStyle(track).columnGap) || 0
-      const loopWidth = firstSet.getBoundingClientRect().width + gap
-      if (loopWidth <= 0) return
-      const needed = Math.max(4, 2 * Math.ceil(node.clientWidth / loopWidth) + 2)
-      setCopyCount(current => current === needed ? current : needed)
-    }
-    const observer = new ResizeObserver(updateCopies)
-    observer.observe(node)
-    observer.observe(firstSet)
-    updateCopies()
-    return () => observer.disconnect()
-  }, [photos.length])
+  const [layout, setLayout] = useState<StripLayout>({ copyCount: 1, loopWidth: 0 })
 
   useEffect(() => {
     const node = viewport.current
@@ -42,38 +23,40 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
     const track = node?.querySelector<HTMLElement>('.cs-photo-strip-track')
     if (!node || !firstSet || !track || photos.length < 2) return
 
-    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
-    if (motionPreference.matches) return
-
-    const loopDistance = () => {
+    const measure = () => {
       const gap = Number.parseFloat(window.getComputedStyle(track).columnGap) || 0
-      return firstSet.getBoundingClientRect().width + gap
+      const loopWidth = firstSet.getBoundingClientRect().width + gap
+      if (loopWidth <= 0) return
+      // Keep several full sets on both sides of the viewport so the animation
+      // can travel one complete set and reset without exposing an empty edge.
+      const copyCount = Math.max(6, 2 * Math.ceil(node.clientWidth / loopWidth) + 4)
+      setLayout(current => current.copyCount === copyCount && Math.abs(current.loopWidth - loopWidth) < 1
+        ? current
+        : { copyCount, loopWidth })
     }
 
-    let frame = 0
-    let previous = 0
-    const startDistance = loopDistance() * Math.floor(copyCount / 2)
-    if (node.scrollWidth - node.clientWidth < startDistance) return
-    node.scrollLeft = startDistance
-    const animate = (time: number) => {
-      if (!previous) previous = time
-      const elapsed = Math.min(time - previous, 40)
-      previous = time
-      const paused = pointerInside.current || pointerActive.current || keyboardFocused.current || modalOpen.current
-      if (!paused && time >= resumeAt.current) {
-        node.scrollLeft -= elapsed * 0.045
-        if (node.scrollLeft <= startDistance - loopDistance()) node.scrollLeft = startDistance
-      }
-      frame = window.requestAnimationFrame(animate)
-    }
-    frame = window.requestAnimationFrame(animate)
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    observer.observe(firstSet)
+    measure()
+    return () => observer.disconnect()
+  }, [photos.length])
+
+  useLayoutEffect(() => {
+    const node = viewport.current
+    if (!node || layout.copyCount < 2 || layout.loopWidth <= 0) return
+    // Begin in the middle of the repeated strip. Moving right then always has
+    // another identical set ready to enter the viewport.
+    const frame = window.requestAnimationFrame(() => {
+      node.scrollLeft = Math.floor(layout.copyCount / 2) * layout.loopWidth
+    })
     return () => window.cancelAnimationFrame(frame)
-  }, [copyCount, photos.length])
+  }, [layout.copyCount, layout.loopWidth])
 
   const closePhoto = useCallback(() => {
     modalOpen.current = false
     setActivePhoto(null)
-    resumeAt.current = performance.now() + 650
+    setPaused(pointerInside.current || pointerActive.current || keyboardFocused.current)
     window.requestAnimationFrame(() => opener.current?.focus({ preventScroll: true }))
   }, [])
 
@@ -98,53 +81,77 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   function openPhoto(photo: StoryPhoto, button: HTMLButtonElement) {
     opener.current = button
     modalOpen.current = true
+    setPaused(true)
     setActivePhoto(photo)
   }
 
   if (!photos.length) return null
-  const copies = Array.from({ length: photos.length > 1 ? copyCount : 1 }, () => photos)
+  const copies = Array.from({ length: photos.length > 1 ? layout.copyCount : 1 }, (_, index) => index)
+  const moving = photos.length > 1 && layout.loopWidth > 0
+  const trackStyle = {
+    '--cs-loop-distance': `${layout.loopWidth}px`,
+    '--cs-loop-duration': `${Math.max(24, layout.loopWidth / 38)}s`,
+  } as CSSProperties
 
   return <>
     <div
       className="cs-photo-strip"
       ref={viewport}
       role="region"
-      aria-label="Customer celebration photos. Hover to pause and enlarge, click to view a larger photo, swipe or scroll to browse."
+      aria-label="Customer celebration photos. The gallery moves from left to right. Hover to pause and enlarge, click to view a larger photo, or swipe to browse."
+      aria-roledescription="photo gallery"
+      data-paused={paused}
       tabIndex={0}
       onFocus={event => {
-        if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) keyboardFocused.current = true
+        if (event.target instanceof HTMLElement && event.target.matches(':focus-visible')) {
+          keyboardFocused.current = true
+          setPaused(true)
+        }
       }}
-      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) keyboardFocused.current = false }}
-      onPointerEnter={() => { pointerInside.current = true }}
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          keyboardFocused.current = false
+          if (!pointerInside.current && !pointerActive.current && !modalOpen.current) setPaused(false)
+        }
+      }}
+      onPointerEnter={() => {
+        pointerInside.current = true
+        setPaused(true)
+      }}
       onPointerLeave={() => {
         pointerInside.current = false
-        resumeAt.current = performance.now() + 650
+        if (!pointerActive.current && !keyboardFocused.current && !modalOpen.current) setPaused(false)
       }}
-      onPointerDown={event => {
+      onPointerDown={() => {
         pointerActive.current = true
-        resumeAt.current = Number.POSITIVE_INFINITY
-        if (event.pointerType === 'mouse') event.currentTarget.setPointerCapture(event.pointerId)
+        setPaused(true)
       }}
-      onPointerUp={() => {
+      onPointerUp={event => {
         pointerActive.current = false
-        resumeAt.current = performance.now() + 650
+        if (event.pointerType === 'touch') pointerInside.current = false
+        if (!pointerInside.current && !keyboardFocused.current && !modalOpen.current) setPaused(false)
       }}
       onPointerCancel={() => {
         pointerActive.current = false
-        resumeAt.current = performance.now() + 650
+        if (!pointerInside.current && !keyboardFocused.current && !modalOpen.current) setPaused(false)
       }}
-      onWheel={() => { resumeAt.current = performance.now() + 650 }}
     >
-      <div className="cs-photo-strip-track">
-        {copies.map((set, copyIndex) => <div className="cs-photo-strip-set" data-photo-set={copyIndex === 0 ? 'first' : undefined} key={`photo-set-${copyIndex}`} aria-hidden={copyIndex !== 0}>
-          {set.map((photo, index) => <button
+      <div className="cs-photo-strip-track" data-moving={moving} style={trackStyle}>
+        {copies.map((copyIndex) => <div
+          className="cs-photo-strip-set"
+          data-photo-set={copyIndex === 0 ? 'first' : undefined}
+          key={`photo-set-${copyIndex}`}
+          aria-hidden={copyIndex !== 0}
+        >
+          {photos.map((photo, index) => <button
             className="cs-photo-strip-photo"
             type="button"
             key={`${photo.url}-strip-${copyIndex}-${index}`}
             aria-label={`View larger: ${photo.alt || 'customer celebration photo'}`}
+            tabIndex={copyIndex === 0 ? undefined : -1}
             onClick={event => openPhoto(photo, event.currentTarget)}
           >
-            <img src={photo.url} alt={copyIndex === 0 ? photo.alt : ''} loading="lazy" decoding="async" />
+            <img src={photo.url} alt={copyIndex === 0 ? photo.alt : ''} loading={copyIndex < 3 ? 'eager' : 'lazy'} decoding="async" />
           </button>)}
         </div>)}
       </div>

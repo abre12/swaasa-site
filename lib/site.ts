@@ -16,7 +16,7 @@ export function siteUrl(): string {
 
 // Public guide pages that anyone may open without signing in (the sign-in middleware and the sitemap both read this list).
 // /pricing is added once the owner has supplied real prices (see lib/seo-content.ts): until then that page does not exist.
-export const PUBLIC_PAGES: string[] = ['/faq', '/bridal-lehenga-rental-trivandrum', '/pricing']
+export const PUBLIC_PAGES: string[] = ['/faq', '/bridal-lehenga-rental-trivandrum', '/customer-stories', '/pricing']
 
 export const SITE_NAME = 'Swaasa Wedding Rentals'
 export const HOME_TITLE = 'Swaasa Wedding Rentals | A Private Bridal Wardrobe'

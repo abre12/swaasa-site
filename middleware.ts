@@ -4,7 +4,7 @@ import { mfaGate } from '@/lib/mfa'
 import { CHANGE_PASSWORD_PAGE, isPasswordChangePath, mustChangePassword } from '@/lib/passwordGate'
 import { GATE_COOKIE, GATE_SECONDS, readGate, signGate } from '@/lib/staffGate'
 import { PUBLIC_PAGES } from '@/lib/site'
-// The customer landing page and its guide pages (FAQ, area page), booking tracker, viewing-request form, crawl rules (robots.txt, sitemap.xml) and selected promotional reels are public. Inventory,
+// The customer landing page, customer stories and its guide pages (FAQ, area page), booking tracker, viewing-request form, crawl rules (robots.txt, sitemap.xml) and selected promotional reels are public. Inventory,
 // dress pages, admin pages and other APIs stay behind active-staff authentication (with two-step login for owner and manager, see lib/mfa.ts); dress photos are protected in Storage.
 //
 // Per staff request this used to make three Supabase calls one after another (who is it, are they staff, which two-step level). Now:

@@ -64,15 +64,13 @@ export default async function CustomerStoriesPage() {
       {stripPhotos.length > 0 ? <PhotoStrip photos={stripPhotos} /> : <p className="cs-gallery-empty">Photos from recent celebrations will appear here.</p>}
     </section>
 
-    <section className="cs-albums" aria-labelledby="cs-albums-title">
+    {albums.length > 0 && <section className="cs-albums" aria-labelledby="cs-albums-title">
       <div className="cs-gallery-heading"><p className="cs-kicker">MORE FROM OUR CUSTOMERS</p><h2 id="cs-albums-title">Celebration albums</h2></div>
-      {albums.length > 0
-        ? <div className="cs-albums-grid">{albums.map(album => <article className="cs-album" key={album.name.toLocaleLowerCase()}>
+      <div className="cs-albums-grid">{albums.map(album => <article className="cs-album" key={album.name.toLocaleLowerCase()}>
           <h3>{album.name}</h3>
           <PhotoCarousel photos={album.photos} label={`${album.name} celebration album`} />
         </article>)}</div>
-        : <p className="cs-gallery-empty">Swipeable albums will appear here as customers share more photos.</p>}
-    </section>
+    </section>}
 
     <footer className="cs-footer"><Link href="/">← Back to Swaasa</Link><span>Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><Link href="/#plan-a-visit">Plan a visit ↗</Link></footer>
   </main>

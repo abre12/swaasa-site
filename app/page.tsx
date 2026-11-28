@@ -55,7 +55,7 @@ export default async function Home() {
         </Link>
         <nav aria-label="Main navigation">
           <a href="#looks">Looks</a>
-          <Link href="/customer-stories">Customer Stories</Link>
+          <Link className="ch-nav-stories" href="/customer-stories">Customer Stories</Link>
           <a href="#track-booking">Track a booking</a>
           <a className="ch-nav-cta" href="#plan-a-visit">Plan a visit <span aria-hidden="true">↗</span></a>
         </nav>
