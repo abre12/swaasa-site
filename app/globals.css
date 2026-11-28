@@ -1530,7 +1530,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .customer-home{--gut:14px;padding-bottom:92px}
   .rn-announce-more{display:none}
   .rn-hero{align-items:flex-end;min-height:min(640px,84svh);border-radius:20px}
-  .rn-hero>img{object-position:50% 6%}
+  .rn-hero>img{object-position:80% 50%}
   .rn-hero:before{background:linear-gradient(0deg,rgba(248,243,239,.98) 0%,rgba(248,243,239,.95) 36%,rgba(248,243,239,.55) 54%,rgba(248,243,239,0) 74%)}
   .rn-hero-copy{max-width:none;padding:22px 20px 24px}
   .rn-hero h1{font-size:clamp(34px,10.4vw,46px)}

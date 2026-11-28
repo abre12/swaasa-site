@@ -10,6 +10,6 @@ export const LOOK_TILES: LookTile[] = [
   { title: 'Other occasions', note: 'Find a look for what is ahead', img: '/category-images/other-occasions.png', alt: 'Model wearing a mustard gold festive silk saree' },
 ]
 
-export const HERO_IMAGE = { src: '/collection-hero.jpg', alt: 'A bride in an ivory gown and long veil, turning' }
+export const HERO_IMAGE = { src: '/home-hero-luxury.jpg', alt: 'Bride wearing an embroidered wine-red lehenga in a bridal boutique' }
 export const STUDIO_IMAGE = { src: '/reels/reel-5-poster.webp', alt: 'A customer looking through lehengas at the Swaasa studio' }
 export const STUDIO_STEPS = ['We call you', 'Fix a time', 'Try a few looks']
