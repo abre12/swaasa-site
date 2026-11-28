@@ -45,7 +45,7 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   useLayoutEffect(() => {
     const node = viewport.current
     if (!node || layout.copyCount < 2 || layout.loopWidth <= 0) return
-    // Begin in the middle of the repeated strip. Moving right then always has
+    // Begin in the middle of the repeated strip. Moving left then always has
     // another identical set ready to enter the viewport.
     const frame = window.requestAnimationFrame(() => {
       node.scrollLeft = Math.floor(layout.copyCount / 2) * layout.loopWidth
@@ -89,7 +89,7 @@ export default function PhotoStrip({ photos }: { photos: StoryPhoto[] }) {
   const copies = Array.from({ length: photos.length > 1 ? layout.copyCount : 1 }, (_, index) => index)
   const moving = photos.length > 1 && layout.loopWidth > 0
   const trackStyle = {
-    '--cs-loop-distance': `${layout.loopWidth}px`,
+    '--cs-loop-distance': `${-layout.loopWidth}px`,
     '--cs-loop-duration': `${Math.max(24, layout.loopWidth / 38)}s`,
   } as CSSProperties
 

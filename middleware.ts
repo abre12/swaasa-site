@@ -4,7 +4,7 @@ import { mfaGate } from '@/lib/mfa'
 import { CHANGE_PASSWORD_PAGE, isPasswordChangePath, mustChangePassword } from '@/lib/passwordGate'
 import { GATE_COOKIE, GATE_SECONDS, readGate, signGate } from '@/lib/staffGate'
 import { PUBLIC_PAGES } from '@/lib/site'
-// The customer landing page, customer stories and its guide pages (FAQ, area page), booking tracker, viewing-request form, crawl rules (robots.txt, sitemap.xml) and selected promotional reels are public. Inventory,
+// The customer landing page, customer stories and its guide pages (FAQ, area page), booking tracker, viewing-request form, crawl rules (robots.txt, sitemap.xml), selected promotional reels and designated public images are public. Inventory,
 // dress pages, admin pages and other APIs stay behind active-staff authentication (with two-step login for owner and manager, see lib/mfa.ts); dress photos are protected in Storage.
 //
 // Per staff request this used to make three Supabase calls one after another (who is it, are they staff, which two-step level). Now:
@@ -14,7 +14,9 @@ import { PUBLIC_PAGES } from '@/lib/site'
 //    see README-fixes-2026-11-25.md for the trade-off: a login that was revoked stays valid until its token expires, up to an hour).
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname, isApi = path.startsWith('/api/')
-  if (path === '/' || path === '/booking' || path === '/booking/' || path === '/robots.txt' || path === '/sitemap.xml' || path === '/api/customer-booking/track' || path === '/api/viewing-request' || path === '/api/csp-report' || path.startsWith('/monitoring') || PUBLIC_PAGES.includes(path.replace(/\/+$/, '')) || /^\/reels\/reel-[1-8](?:\.mp4|-poster\.webp)$/i.test(path)) return NextResponse.next()
+  const publicImage = path === '/home-hero-luxury.jpg' || path === '/studio-boutique-visit.jpg' ||
+    (/^\/(?:category-images|customer-stories)\/[A-Za-z0-9._/-]+\.(?:png|jpe?g|webp)$/i.test(path) && !path.split('/').includes('..'))
+  if (path === '/' || path === '/booking' || path === '/booking/' || path === '/robots.txt' || path === '/sitemap.xml' || path === '/api/customer-booking/track' || path === '/api/viewing-request' || path === '/api/csp-report' || path.startsWith('/monitoring') || PUBLIC_PAGES.includes(path.replace(/\/+$/, '')) || publicImage || /^\/reels\/reel-[1-8](?:\.mp4|-poster\.webp)$/i.test(path)) return NextResponse.next()
   // The scheduled reminders (GitHub Actions) have no browser login. That route checks its own secret (CRON_SECRET) and nothing else is open.
   if (path.startsWith('/api/cron/')) return NextResponse.next()
   let res = NextResponse.next({ request: req })

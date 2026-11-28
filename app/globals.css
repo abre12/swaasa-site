@@ -1732,7 +1732,7 @@ body:has(.cs-page)>header.top,body:has(.cs-page)>footer{display:none}
 .cs-photo-strip-track{display:flex;width:max-content;gap:14px;will-change:transform;animation:cs-photo-strip-marquee var(--cs-loop-duration,32s) linear infinite}
 .cs-photo-strip-track[data-moving="false"]{animation:none}
 .cs-photo-strip[data-paused="true"] .cs-photo-strip-track{animation-play-state:paused}
-@keyframes cs-photo-strip-marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--cs-loop-distance,1200px),0,0)}}
+@keyframes cs-photo-strip-marquee{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--cs-loop-distance,-1200px),0,0)}}
 .cs-photo-strip-set{display:flex;gap:14px}
 .cs-photo-strip-photo{position:relative;display:block;flex:0 0 clamp(170px,21vw,240px);aspect-ratio:4/5;margin:0;padding:0;overflow:hidden;border:1px solid var(--cs-line);border-radius:13px;background:#eee4de;color:inherit;font:inherit;text-align:left;cursor:zoom-in;transform-origin:center;transition:transform .28s ease,box-shadow .28s ease}
 .cs-photo-strip-photo:hover,.cs-photo-strip-photo:focus-visible{z-index:2;transform:scale(1.08);box-shadow:0 16px 36px #38132130}

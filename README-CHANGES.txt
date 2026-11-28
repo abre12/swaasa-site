@@ -34,7 +34,7 @@ Customer Stories update:
 - Added Supabase migration v38 for owner-managed story content and the public customer-story image bucket. Apply it before deploying the site changes.
 
 Customer Stories gallery update:
-- The celebrations strip glides continuously from left to right using a measured, seamless loop, pauses on hover or while a photo is open, and resumes after the pointer leaves. It remains manually swipeable; reduced-motion preferences disable automatic movement.
+- The celebrations strip glides continuously from right to left using a measured, seamless loop, pauses on hover or while a photo is open, and resumes after the pointer leaves. It remains manually swipeable; reduced-motion preferences disable automatic movement.
 - Hovering a photo enlarges its card slightly. Clicking opens a full-size lightbox that can be closed with Escape, the close button, or the backdrop.
 - Review-card photos no longer repeat in the photo galleries. Admin has separate review and photo-only sections; unnamed sets feed the strip, while sets with the same customer/group name merge into swipeable albums below it.
 - Photo-only uploads no longer require hand-written image descriptions to save; a useful default description is stored automatically. Use “Add photo set” in the Photo-only galleries section, then “Save photo set” to publish it. Photos attached to a review card stay with that card and are not duplicated in the gallery.
@@ -42,6 +42,7 @@ Customer Stories gallery update:
 - This update reuses the existing v38 Customer Stories table and needs no additional database migration.
 - The empty Celebration albums section is hidden; it appears only when named photo albums have been added.
 - Customer Stories is explicitly allowed through the public-page access list, and its link stays visible in the mobile homepage navigation.
+- Requests for the homepage hero, studio, category, and bundled customer-story images are allowed through the public-image middleware rules. Dress inventory and return-inspection photos remain staff-only.
 
 Editable homepage caption:
 - Home Images settings now includes an editor for the line beneath “Find your look”. Save an empty caption to hide the line; the existing wording remains the default until the database migration is applied.
