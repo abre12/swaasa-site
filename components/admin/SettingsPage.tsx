@@ -5,6 +5,7 @@ import StaffAdmin from './StaffAdmin'
 import MfaSetup from './MfaSetup'
 import FaqSettings from './FaqSettings'
 import HomeImagesSettings from './HomeImagesSettings'
+import CustomerStoriesSettings from './CustomerStoriesSettings'
 
 // The owner's Settings page: a list of topics on the left and one panel per topic on the right.
 // Every setting that used to sit in one long page is still here, grouped by what it controls.
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'security', label: 'Security', icon: 'lock', title: 'Security', sub: 'Two-step login for the owner account.' },
   { id: 'faqs', label: 'FAQs', icon: 'help', title: 'Public FAQs', sub: 'Manage the questions and answers shown on your website.' },
   { id: 'images', label: 'Home Images', icon: 'camera', title: 'Homepage category images', sub: 'Change, add or remove the images and category cards on your homepage.' },
+  { id: 'stories', label: 'Customer Stories', icon: 'camera', title: 'Customer stories', sub: 'Edit customer reviews, manage their photos, and add photo-only gallery entries.' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -139,6 +141,8 @@ export default function SettingsPage({ ctx, mfaRequired }: { ctx: any; mfaRequir
       {panel('faqs', <div className="stg-body"><FaqSettings ctx={ctx} /></div>)}
 
       {panel('images', <div className="stg-body"><HomeImagesSettings ctx={ctx} /></div>)}
+
+      {panel('stories', <div className="stg-body"><CustomerStoriesSettings ctx={ctx} /></div>)}
     </div>
   </div>
 }

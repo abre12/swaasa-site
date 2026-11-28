@@ -55,6 +55,7 @@ export default async function Home() {
         </Link>
         <nav aria-label="Main navigation">
           <a href="#looks">Looks</a>
+          <Link href="/customer-stories">Customer Stories</Link>
           <a href="#track-booking">Track a booking</a>
           <a className="ch-nav-cta" href="#plan-a-visit">Plan a visit <span aria-hidden="true">↗</span></a>
         </nav>
@@ -81,7 +82,7 @@ export default async function Home() {
             <span className="rn-tile-t"><b>{t.title}</b><small>{t.note}</small></span>
           </a>
         </li>)}</ul>}
-        <p className="rn-caption">{lookTiles.length > 0 ? 'Lehengas, gowns, sarees and more, shown in person at our studio.' : 'Visit our studio to explore the collection in person.'}</p>
+        <p className="rn-caption">Wedding lehengas, gowns, luxury salwars, sarees, Anarkalis, cape lehengas and shararas for weddings, sangeet, engagements and parties.</p>
       </section>
 
       <div className="ch-showcase rn-sec">
@@ -103,7 +104,7 @@ export default async function Home() {
 
       <CustomerBookingTracker />
 
-      <div className="rn-sec rn-reviews-section"><ReviewsCarousel reviews={google.reviews} mapsUrl={google.mapsUrl} /></div>
+      <div className="rn-sec rn-reviews-section"><ReviewsCarousel reviews={google.reviews} mapsUrl={google.mapsUrl} /><p className="rn-stories-link"><Link href="/customer-stories">Read our Customer Stories <span aria-hidden="true">↗</span></Link></p></div>
 
       {faqs.length > 0 && <section className="rn-faq rn-sec" id="faqs" aria-labelledby="rn-faq-title">
         <div className="rn-faq-head">
@@ -132,7 +133,7 @@ export default async function Home() {
       </section>
 
       <footer className="ch-footer"><Link className="ch-brand" href="/" aria-label="Swaasa home"><img src="/logo-mark.png" alt="" width={200} height={196} /><span><b>Swaasa</b><small>Wedding Rentals</small></span></Link>
-        <span>{guidePages().map((g, i) => <span key={g.path}>{i > 0 && ' · '}<Link href={g.path}>{g.label}</Link></span>)}<br />Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+        <span>{guidePages().map((g, i) => <span key={g.path}>{i > 0 && ' · '}<Link href={g.path}>{g.label}</Link></span>)} · <Link href="/customer-stories">Customer Stories</Link><br />Thoughtfully chosen for your celebrations · Thiruvananthapuram, Kerala</span><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer">Instagram ↗</a>
       </footer>
     </div>
 
