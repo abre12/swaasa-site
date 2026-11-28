@@ -1648,3 +1648,31 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .adm .stg-homeimages-error{margin:0;padding:10px 12px;border:1px solid #f0c9c9;border-radius:9px;background:#fff3f3;color:#a32929;font-size:13px;line-height:1.45}
 @media(max-width:620px){.adm .stg-homeimages-intro{align-items:stretch;flex-direction:column}.adm .stg-homeimages-intro>.btn{justify-content:center}.adm .stg-homeimage-edit{grid-template-columns:1fr}.adm .stg-homeimage-preview{min-height:200px}.adm .stg-homeimage-fields{grid-template-columns:1fr}.adm .stg-homeimage-fields>.stg-f:nth-child(3),.adm .stg-homeimage-upload{grid-column:auto}.adm .stg-homeimage-upload{align-items:stretch;flex-direction:column}.adm .stg-homeimage-upload>.stg-f{flex-basis:auto}.adm .stg-homeimage-upload>.btn{width:100%}.adm .stg-homeimage-actions{align-items:stretch;flex-direction:column}.adm .stg-homeimage-actions .btn{width:100%}}
 
+/* Home page: let the reels add atmosphere without overpowering the visit journey. */
+.ch-showcase{padding:12px 0 0}
+.ch-showcase .cl-reels{grid-template-columns:minmax(160px,188px) minmax(0,1fr);gap:clamp(14px,2vw,24px);padding:14px clamp(16px,2vw,24px) 10px;border-color:#eadfdb;border-radius:16px;background:linear-gradient(120deg,#fffdfa 0%,#f8f0eb 100%);box-shadow:none}
+.ch-showcase .cl-reels-txt h2{margin-bottom:8px;font-size:clamp(26px,2.4vw,30px)}
+.ch-showcase .cl-reels-txt p{max-width:34ch;margin-bottom:12px;font-size:13px;line-height:1.5}
+.ch-showcase .cl-ig{height:38px;padding:0 15px;border-radius:8px;font-size:12px}
+.ch-showcase .cl-track{gap:10px;padding-block:12px;padding-inline:42px}
+.ch-showcase .cl-reel{width:clamp(108px,11vw,140px);border-radius:12px;transform:scale(.97);box-shadow:0 3px 10px #5b123014}
+.ch-showcase .cl-reel.on{transform:scale(1.03);box-shadow:0 6px 14px #5b123022}
+.ch-showcase .cl-reel-play{width:40px;height:40px}
+.ch-showcase .cl-sound{width:34px;height:34px}
+.ch-showcase .cl-dots{margin-top:0}
+@media(max-width:900px){
+  .ch-showcase .cl-reels{grid-template-columns:1fr;gap:8px;padding:16px 14px 12px}
+  .ch-showcase .cl-reels-txt{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:6px 12px}
+  .ch-showcase .cl-reels-txt h2{grid-column:1/-1;margin:0;font-size:clamp(26px,5vw,30px)}
+  .ch-showcase .cl-reels-txt p{grid-column:1;grid-row:2;margin:0;font-size:13px}
+  .ch-showcase .cl-ig{grid-column:2;grid-row:2;align-self:end;white-space:nowrap;padding-inline:12px;font-size:11px}
+  .ch-showcase .cl-track{gap:10px;padding-block:10px;padding-inline:max(12px,calc(50% - 74px))}
+  .ch-showcase .cl-reel{width:clamp(114px,31vw,148px)}
+  .ch-showcase .cl-reel.on{transform:scale(1.03)}
+}
+@media(max-width:390px){
+  .ch-showcase .cl-reels{padding-inline:12px}
+  .ch-showcase .cl-reels-txt{column-gap:8px}
+  .ch-showcase .cl-ig{padding-inline:9px;font-size:10px}
+}
+
